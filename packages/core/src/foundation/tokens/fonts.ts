@@ -12,9 +12,3 @@ export function getFont(size: number, options?: { bold?: boolean }): string {
   const weight = options?.bold ? 'bold ' : ''
   return `${weight}${size}px ${FONT_FAMILY}`
 }
-
-export function setCanvasFont(ctx: CanvasRenderingContext2D, font: string): void {
-  if (ctx.font !== font) {
-    ctx.font = font
-  }
-}

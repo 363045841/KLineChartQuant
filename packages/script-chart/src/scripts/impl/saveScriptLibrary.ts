@@ -21,9 +21,9 @@ interface SaveScriptLibraryRequest {
   persist(documents: readonly ScriptDocument[]): Promise<void>
 }
 
-/** 受影响指标：持久化文档与其编译结果一一对应。 */
+/** 受影响脚本：持久化文档与其编译结果一一对应。 */
 interface AffectedScript {
-  readonly document: ScriptDocument & { kind: 'indicator' }
+  readonly document: ScriptDocument & { kind: 'indicator' | 'alert' }
   readonly compiled: CompiledScript
 }
 
@@ -53,7 +53,7 @@ export async function saveScriptLibrary(
   const affected: AffectedScript[] = []
   try {
     for (const item of documents) {
-      if (item.kind !== 'indicator') continue
+      if (item.kind === 'library') continue
       const dependencies = resolveScriptLibraries(item.source, catalog)
       if (
         !dependencies.some(

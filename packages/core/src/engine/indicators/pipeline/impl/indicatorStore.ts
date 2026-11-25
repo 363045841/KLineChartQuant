@@ -73,6 +73,9 @@ function assertAliasesAvailable(names: readonly string[], key: string): void {
 function descriptorFromMetadata(definition: IndicatorMetadata): IndicatorDescriptor {
   const defaultInputs = definition.runtime?.defaultInputs
   return {
+    ...(definition.kind === 'alert'
+      ? { kind: definition.kind, frequency: definition.frequency }
+      : { kind: definition.kind }),
     name: definition.name,
     source: definition.source,
     aliases: definition.aliases,
@@ -83,10 +86,7 @@ function descriptorFromMetadata(definition: IndicatorMetadata): IndicatorDescrip
     defaultPaneId: definition.defaultPaneId,
     dataViews: definition.dataViews,
     visiblePeriods: definition.visiblePeriods,
-    defaultInputs:
-      typeof defaultInputs === 'function'
-        ? (defaultInputs as () => Record<string, unknown>)()
-        : (defaultInputs as Readonly<Record<string, unknown>> | undefined),
+    defaultInputs,
     defaultOptions: definition.presentation?.defaultOptions,
     inputDefs: definition.runtime?.inputDefs,
     documentIdentity: definition.document?.identity,
@@ -222,7 +222,13 @@ function nextDescriptor(plan: WritePlan): IndicatorDescriptor {
   const stored = descriptors.get(plan.key)
   return stored === undefined
     ? plan.descriptor
-    : { ...stored.descriptor, ...definedDescriptor(plan.descriptor) }
+    : {
+        ...stored.descriptor,
+        ...definedDescriptor(plan.descriptor),
+        ...(plan.descriptor.kind === 'alert'
+          ? { kind: plan.descriptor.kind, frequency: plan.descriptor.frequency }
+          : { kind: plan.descriptor.kind, frequency: undefined }),
+      }
 }
 
 /** 应用一条定义计划：实现表、静态目录与渲染命名。 */
@@ -371,10 +377,25 @@ function resolveKey(nameOrAlias: string): string | undefined {
   return descriptors.has(key) || definitions.has(key) ? key : undefined
 }
 
-/** 返回全部静态目录项快照（内置 + 脚本 + 第三方）；实现保持懒加载。 */
-export function readIndicatorDescriptors(): readonly IndicatorDescriptor[] {
+/** 返回全部静态目录项快照（指标 + 警报 + 第三方）；实现保持懒加载。 */
+function readCatalogDescriptors(): readonly IndicatorDescriptor[] {
   revision()
   return [...descriptors.values()].map((entry) => entry.descriptor)
+}
+
+/** 只返回可实例化到图表的指标目录项；警报定义不进入指标目录。 */
+export function readIndicatorDescriptors(): readonly IndicatorDescriptor[] {
+  return readCatalogDescriptors().filter((descriptor) => descriptor.kind === 'indicator')
+}
+
+/** 只返回警报脚本目录项；指标定义不进入警报目录。 */
+export function readAlertDescriptors(): readonly IndicatorDescriptor[] {
+  return readCatalogDescriptors().filter((descriptor) => descriptor.kind === 'alert')
+}
+
+/** 判断定义是否为警报；未知身份返回 false，未知定义保留给稍后注册的来源。 */
+export function isAlertDefinition(nameOrAlias: string): boolean {
+  return getIndicatorDescriptor(nameOrAlias)?.kind === 'alert'
 }
 
 /** 返回已装配定义的快照，调用方不能修改目录。 */

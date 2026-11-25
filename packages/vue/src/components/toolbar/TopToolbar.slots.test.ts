@@ -31,4 +31,9 @@ describe('KLineChart toolbar host slots', () => {
     expect(html).toContain('top-toolbar__controls')
     expect(html).not.toContain('top-toolbar__host')
   })
+
+  it('renders the alert entry next to the indicator controls', async () => {
+    const html = await renderToString(createSSRApp(KLineChart))
+    expect(html).toContain('aria-label="警报"')
+  })
 })

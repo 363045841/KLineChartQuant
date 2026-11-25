@@ -6,6 +6,7 @@ import { batch, computed, createSubState } from '../../foundation/reactivity/sig
 import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
 import {
   getRegisteredIndicatorDefinition,
+  isAlertDefinition,
   resolveIndicatorDefinitionId,
 } from '../indicators/pipeline/index.js'
 import type { LayoutWorkspaces } from '../layout/index.js'
@@ -172,7 +173,7 @@ export function createIndicatorState() {
       /** 按规范定义身份收藏或取消收藏，不修改指标实例与计算 revision。 */
       setFavorite(indicatorId: string, favorite: boolean): void {
         const id = resolveIndicatorDefinitionId(indicatorId)
-        if (!id) return
+        if (!id || isAlertDefinition(id)) return
         const previous = readonly.favoriteIndicatorIds.peek()
         if (previous.includes(id) === favorite) return
         signals.favoriteIndicatorIds.set(
@@ -196,7 +197,11 @@ export function createIndicatorState() {
       /** 用已校验的持久快照恢复两个工作区的用户指标。 */
       restoreWorkspaces(workspaces: LayoutWorkspaces) {
         const restore = (workspaceId: ChartWorkspaceId) =>
-          Object.freeze(workspaces[workspaceId].instances.map(snapshotInstance))
+          Object.freeze(
+            workspaces[workspaceId].instances
+              .filter((entry) => !isAlertDefinition(entry.indicatorId))
+              .map(snapshotInstance),
+          )
         const next = Object.freeze({
           kline: restore(ChartWorkspaceId.KLine),
           timeshare: restore(ChartWorkspaceId.TimeShare),

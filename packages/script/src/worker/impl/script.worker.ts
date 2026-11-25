@@ -4,12 +4,12 @@ import { type LogEvent, SCRIPT_LOG_LIMIT } from '@363045841yyt/klinechart-plot-c
 import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
 import { prepareNativeModule } from '../../execution/impl/prepareNativeModule.js'
 import { preloadQuickJS, prepareQuickJSModule } from '../../quickjs/impl/runQuickJSModule.js'
-import type { PreparedQuickJSScript } from '../../quickjs/types.js'
+import type { PreparedScript } from '../../quickjs/types.js'
 import { WorkerInputReceiver } from '../transport/impl/input.js'
 import { packIndicatorSeries } from '../transport/impl/series.js'
 import type { ScriptWorkerRequest, ScriptWorkerResponse } from '../types.js'
 
-const scripts = new Map<string, PreparedQuickJSScript>()
+const scripts = new Map<string, PreparedScript>()
 const input = new WorkerInputReceiver()
 let pending: Promise<void> = Promise.resolve()
 let output: LogEvent[] = []
@@ -25,7 +25,7 @@ globalThis.onmessage = (event: MessageEvent<ScriptWorkerRequest>): void => {
 }
 
 /** 取已准备的脚本；缺失时按同一错误报告。 */
-function requireScript(id: string): PreparedQuickJSScript {
+function requireScript(id: string): PreparedScript {
   const script = scripts.get(id)
   if (!script) throw new Error(`脚本尚未准备：${id}`)
   return script
@@ -58,26 +58,28 @@ function runRequest(
   switch (message.type) {
     case 'run': {
       const current = input.decode(message.input)
-      const result = requireScript(id).runDetailed(
+      const result = requireScript(id).run(
         current.bars,
         message.params,
         current.context,
         message.range,
+        message.live,
       )
-      const { drawings: _drawings, ...series } = result.series
+      const { drawings: _drawings, drawingDelta, alerts, ...series } = result
       return {
         requestId,
         type: 'run',
         series: packIndicatorSeries(series),
         drawingDelta: {
-          reset: result.drawingDelta.reset,
-          remove: result.drawingDelta.remove,
+          reset: drawingDelta.reset,
+          remove: drawingDelta.remove,
           series: packIndicatorSeries({
             plots: [],
             fills: [],
-            drawings: result.drawingDelta.upsert,
+            drawings: drawingDelta.upsert,
           }),
         },
+        alerts,
       }
     }
     case 'requests':
@@ -139,3 +141,4 @@ async function handleRequest(message: ScriptWorkerRequest): Promise<void> {
       response.type === 'run' ? [response.series.buffer, response.drawingDelta.series.buffer] : [],
   })
 }
+

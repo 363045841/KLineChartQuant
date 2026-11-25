@@ -7,7 +7,6 @@ import { createPlotIndicatorDefinition, generateUUID } from '@363045841yyt/kline
 import {
   type Bar,
   type ComputeRange,
-  type IndicatorDefinition,
   type IndicatorMarketContext,
   type IndicatorSourceDocument,
   type ScriptRunOptions,
@@ -18,10 +17,13 @@ import {
   resolveScriptLibraries,
 } from '@363045841yyt/klinechart-script'
 import { createScriptWorkerPool } from '@363045841yyt/klinechart-script/worker'
+import type { ScriptRunResult } from '@363045841yyt/klinechart-script/worker'
 import type { ScriptDocument } from '../types.js'
 import type { createScriptLog } from './createScriptLog.js'
 import { prepareScriptMarketData } from './prepareScriptMarketData.js'
 import type { ScriptDocumentStore } from './scriptDocumentStore.js'
+
+type DefinitionCompute = Parameters<typeof createPlotIndicatorDefinition>[0]['compute']
 
 /** 一次编译的产物；提交成功前不进入运行表。 */
 export interface CompiledScript {
@@ -83,10 +85,12 @@ export function createScriptExecutor(
     params: Readonly<Record<string, number | string | boolean>>,
     market?: IndicatorMarketContext,
     range?: ComputeRange,
-  ) {
-    if (market === undefined) return worker.run(handle, bars, params, undefined, range)
+    live?: boolean,
+  ): Promise<ScriptRunResult> {
+    if (market === undefined)
+      return worker.run(handle, bars, params, undefined, range, undefined, live)
     const context = await prepareScriptMarketData(worker, handle, params, market)
-    return worker.run(handle, bars, params, context, range, market.signal)
+    return worker.run(handle, bars, params, context, range, market.signal, live)
   }
 
   /**
@@ -132,9 +136,7 @@ export function createScriptExecutor(
   ): Promise<ReturnType<typeof createPlotIndicatorDefinition>> {
     const entry = compiled.get(script.handle)
     if (!entry) throw new Error('脚本编译句柄已释放')
-    const createCompute = (): IndicatorDefinition<
-      Readonly<Record<string, number | string | boolean>>
-    >['compute'] & { dispose(): void } => {
+    const createCompute = (): DefinitionCompute => {
       const handle = generateUUID()
       let preparation: Promise<PreparedScriptDefinition> | undefined
       let released = false
@@ -146,9 +148,7 @@ export function createScriptExecutor(
         if (preparation && !disposed) void worker.release(handle)
       }
       executions.add(release)
-      const run: IndicatorDefinition<
-        Readonly<Record<string, number | string | boolean>>
-      >['compute'] = async (bars, params, market, range) => {
+      const run: DefinitionCompute = async (options) => {
         if (disposed) throw new Error('脚本服务已销毁')
         if (released) throw new Error('脚本执行会话已释放')
         executionOwners.set(handle, identity.id)
@@ -162,7 +162,21 @@ export function createScriptExecutor(
         await preparation
         if (disposed) throw new Error('脚本服务已销毁')
         if (released) throw new Error('脚本执行会话已释放')
-        return compute(handle, bars, params, market, range)
+        const params: Record<string, number | string | boolean> = {}
+        for (const [key, value] of Object.entries(options.params)) {
+          if (typeof value !== 'number' && typeof value !== 'string' && typeof value !== 'boolean') {
+            throw new TypeError(`Invalid script parameter: ${key}`)
+          }
+          params[key] = value
+        }
+        return compute(
+          handle,
+          options.bars,
+          params,
+          options.market,
+          options.range,
+          options.live,
+        )
       }
       return Object.assign(run, { dispose: release })
     }
@@ -180,12 +194,12 @@ export function createScriptExecutor(
       source: 'script',
       document,
       createCompute,
-      async compute(bars, params, market, range) {
+      async compute(options) {
         const execution = createCompute()
         try {
-          return await execution(bars, params, market, range)
+          return await execution(options)
         } finally {
-          execution.dispose()
+          execution.dispose?.()
         }
       },
     })

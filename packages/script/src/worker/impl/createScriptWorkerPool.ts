@@ -168,8 +168,8 @@ export function createScriptWorkerPool(options: ScriptWorkerPoolOptions = {}): S
         throw error
       }
     },
-    run: (id, bars, params, context, range, signal) =>
-      use(id, (worker) => worker.run(id, bars, params, context, range), signal),
+    run: (id, bars, params, context, range, signal, live) =>
+      use(id, (worker) => worker.run(id, bars, params, context, range, live), signal),
     requests: (id, params, symbol, signal) =>
       use(id, (worker) => worker.requests(id, params, symbol), signal),
     async release(id) {

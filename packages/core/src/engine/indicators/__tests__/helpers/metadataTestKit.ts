@@ -31,9 +31,10 @@ export interface TestIndicatorMetadataInput {
 /** 构造最小 IndicatorMetadata，只由用例声明自己关心的差异项。 */
 export function createTestIndicatorMetadata(
   input: TestIndicatorMetadataInput,
-  overrides: Partial<IndicatorMetadata> = {},
+  overrides: Partial<Extract<IndicatorMetadata, { kind: 'indicator' }>> = {},
 ): IndicatorMetadata {
   return {
+    kind: 'indicator',
     name: input.name,
     displayName: input.displayName,
     category: input.category,

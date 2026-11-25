@@ -214,7 +214,11 @@ function numberInput(value: number, options?: NumberInputOptions): InputDef<numb
 /** 创建限额在声明边界完成归一化，后续消费不重复补默认值。 */
 type NormalizedIndicatorDeclaration = ScriptIndicatorDeclaration &
   Required<Pick<ScriptIndicatorDeclaration, 'maxLinesCount' | 'maxBoxesCount' | 'maxLabelsCount'>>
-let __definition: NormalizedIndicatorDeclaration | undefined
+/** 声明种类由使用的声明函数决定，脚本不能自行指定。 */
+type DeclaredDefinition =
+  | (NormalizedIndicatorDeclaration & { readonly kind: 'indicator' })
+  | (ScriptAlertDeclaration & { readonly kind: 'alert' })
+let __definition: DeclaredDefinition | undefined
 const __inputs: QuickJSScriptDefinition['inputs'] = {}
 
 /** 编译器生成的输入注册入口，默认值由唯一的类型工厂校验。 */
@@ -236,37 +240,56 @@ function __inputValue(name: string): ScriptParamValue {
 
 /** 声明整文件唯一指标；重复声明或缺少 onBar 时拒绝，并用 inputs 默认值填充参数。 */
 function defineIndicator(definition: ScriptIndicatorDeclaration): void {
-  if (__definition) throw new TypeError('每个脚本文件只能声明一个指标')
+  if (__definition) throw new TypeError('每个脚本文件只能声明一个指标或警报')
   if (!definition || typeof definition.onBar !== 'function')
     throw new TypeError('指标需要 onBar 函数')
+  if ('frequency' in definition) throw new TypeError('指标不能声明 frequency')
   __definition = {
     ...definition,
+    kind: 'indicator',
     maxLinesCount: drawingCount(definition.maxLinesCount),
     maxBoxesCount: drawingCount(definition.maxBoxesCount),
     maxLabelsCount: drawingCount(definition.maxLabelsCount),
   }
 }
 
+/** 声明整文件唯一警报；没有渲染位置，事件由 alert() 产出。 */
+function defineAlert(definition: ScriptAlertDeclaration): void {
+  if (__definition) throw new TypeError('每个脚本文件只能声明一个指标或警报')
+  if (!definition || typeof definition.onBar !== 'function')
+    throw new TypeError('警报需要 onBar 函数')
+  for (const key of ['position', 'format', 'maxLinesCount', 'maxBoxesCount', 'maxLabelsCount']) {
+    if (key in definition) throw new TypeError(`警报不能声明 ${key}`)
+  }
+  __definition = { ...definition, kind: 'alert' }
+}
+
 /** 返回元数据快照，不把 VM 函数或序列传回宿主。 */
 function __metadata(): QuickJSScriptDefinition {
-  if (!__definition) throw new TypeError('脚本需要调用 defineIndicator')
+  if (!__definition) throw new TypeError('脚本需要调用 defineIndicator 或 defineAlert')
+  const definition = __definition
   return {
-    version: __definition.version,
-    name: __definition.name,
-    title: __definition.title,
-    info: __definition.info,
-    position: __definition.position,
-    format: __definition.format,
-    maxLinesCount: __definition.maxLinesCount,
-    maxBoxesCount: __definition.maxBoxesCount,
-    maxLabelsCount: __definition.maxLabelsCount,
+    version: definition.version,
+    name: definition.name,
+    title: definition.title,
+    info: definition.info,
+    ...(definition.kind === 'alert'
+      ? { kind: definition.kind, frequency: definition.frequency }
+      : {
+          kind: definition.kind,
+          position: definition.position,
+          format: definition.format,
+          maxLinesCount: definition.maxLinesCount,
+          maxBoxesCount: definition.maxBoxesCount,
+          maxLabelsCount: definition.maxLabelsCount,
+        }),
     inputs: __inputs,
   }
 }
 
 /** 逐 bar 入口；宿主读取元数据后逐根调用。 */
 function __onBar(): void {
-  if (!__definition) throw new TypeError('脚本需要调用 defineIndicator')
+  if (!__definition) throw new TypeError('脚本需要调用 defineIndicator 或 defineAlert')
   __definition.onBar()
 }
 
@@ -282,4 +305,5 @@ Object.assign(globalThis, {
   fill,
   hline,
   defineIndicator,
+  defineAlert,
 })

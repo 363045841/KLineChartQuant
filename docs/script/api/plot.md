@@ -35,10 +35,10 @@ plot.Line(value: number | null, name: string, options?: PlotStyleOptions<"line">
 
 | 选项 | 类型 | 说明 |
 | --- | --- | --- |
-| `format?` | `Format` | 数值格式档位；缺省继承指标级 format，用于图例数值显示。 |
 | `dash?` | `readonly number[]` | 虚线的线段与间隔长度，单位为逻辑像素；不填或填空数组则画实线。 |
 | `label?` | `string` | 图例名称；不填则取 name。 |
 | `color?` | `Color \| string` | 图形颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，可为每根 K 线设置不同颜色。 |
+| `format?` | `Format` | 数值格式档位；缺省继承指标级 format，用于图例数值显示。 |
 | `textColor?` | `Color \| string` | 标记附加文字的颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，默认与图形颜色一致。 |
 | `offset?` | `number` | 图形移动的 K 线根数；正值向右、负值向左，不填则不移动。 |
 | `visible?` | `boolean` | 是否显示图形；不填则显示。 |
@@ -92,9 +92,9 @@ plot.Histogram(value: number | null, name: string, options?: PlotStyleOptions<"h
 
 | 选项 | 类型 | 说明 |
 | --- | --- | --- |
-| `format?` | `Format` | 数值格式档位；缺省继承指标级 format，用于图例数值显示。 |
 | `label?` | `string` | 图例名称；不填则取 name。 |
 | `color?` | `Color \| string` | 图形颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，可为每根 K 线设置不同颜色。 |
+| `format?` | `Format` | 数值格式档位；缺省继承指标级 format，用于图例数值显示。 |
 | `textColor?` | `Color \| string` | 标记附加文字的颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，默认与图形颜色一致。 |
 | `offset?` | `number` | 图形移动的 K 线根数；正值向右、负值向左，不填则不移动。 |
 | `visible?` | `boolean` | 是否显示图形；不填则显示。 |
@@ -114,9 +114,9 @@ plot.Columns(value: number | null, name: string, options?: PlotStyleOptions<"col
 
 | 选项 | 类型 | 说明 |
 | --- | --- | --- |
-| `format?` | `Format` | 数值格式档位；缺省继承指标级 format，用于图例数值显示。 |
 | `label?` | `string` | 图例名称；不填则取 name。 |
 | `color?` | `Color \| string` | 图形颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，可为每根 K 线设置不同颜色。 |
+| `format?` | `Format` | 数值格式档位；缺省继承指标级 format，用于图例数值显示。 |
 | `textColor?` | `Color \| string` | 标记附加文字的颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，默认与图形颜色一致。 |
 | `offset?` | `number` | 图形移动的 K 线根数；正值向右、负值向左，不填则不移动。 |
 | `visible?` | `boolean` | 是否显示图形；不填则显示。 |
@@ -135,9 +135,9 @@ plot.Point(value: number | null, name: string, options?: PlotStyleOptions<"point
 
 | 选项 | 类型 | 说明 |
 | --- | --- | --- |
-| `format?` | `Format` | 数值格式档位；缺省继承指标级 format，用于图例数值显示。 |
 | `label?` | `string` | 图例名称；不填则取 name。 |
 | `color?` | `Color \| string` | 图形颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，可为每根 K 线设置不同颜色。 |
+| `format?` | `Format` | 数值格式档位；缺省继承指标级 format，用于图例数值显示。 |
 | `textColor?` | `Color \| string` | 标记附加文字的颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，默认与图形颜色一致。 |
 | `offset?` | `number` | 图形移动的 K 线根数；正值向右、负值向左，不填则不移动。 |
 | `visible?` | `boolean` | 是否显示图形；不填则显示。 |
@@ -155,9 +155,9 @@ plot.Shape(value: number | boolean | null, name: string, options?: PlotStyleOpti
 
 | 选项 | 类型 | 说明 |
 | --- | --- | --- |
-| `format?` | `Format` | 数值格式档位；缺省继承指标级 format，用于图例数值显示。 |
 | `label?` | `string` | 图例名称；不填则取 name。 |
 | `color?` | `Color \| string` | 图形颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，可为每根 K 线设置不同颜色。 |
+| `format?` | `Format` | 数值格式档位；缺省继承指标级 format，用于图例数值显示。 |
 | `textColor?` | `Color \| string` | 标记附加文字的颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，默认与图形颜色一致。 |
 | `offset?` | `number` | 图形移动的 K 线根数；正值向右、负值向左，不填则不移动。 |
 | `visible?` | `boolean` | 是否显示图形；不填则显示。 |
@@ -178,9 +178,9 @@ plot.Char(value: number | boolean | null, name: string, options?: PlotStyleOptio
 
 | 选项 | 类型 | 说明 |
 | --- | --- | --- |
-| `format?` | `Format` | 数值格式档位；缺省继承指标级 format，用于图例数值显示。 |
 | `label?` | `string` | 图例名称；不填则取 name。 |
 | `color?` | `Color \| string` | 图形颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，可为每根 K 线设置不同颜色。 |
+| `format?` | `Format` | 数值格式档位；缺省继承指标级 format，用于图例数值显示。 |
 | `textColor?` | `Color \| string` | 标记附加文字的颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，默认与图形颜色一致。 |
 | `offset?` | `number` | 图形移动的 K 线根数；正值向右、负值向左，不填则不移动。 |
 | `visible?` | `boolean` | 是否显示图形；不填则显示。 |
@@ -201,9 +201,9 @@ plot.Arrow(value: number | null, name: string, options?: PlotStyleOptions<"arrow
 
 | 选项 | 类型 | 说明 |
 | --- | --- | --- |
-| `format?` | `Format` | 数值格式档位；缺省继承指标级 format，用于图例数值显示。 |
 | `label?` | `string` | 图例名称；不填则取 name。 |
 | `color?` | `Color \| string` | 图形颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，可为每根 K 线设置不同颜色。 |
+| `format?` | `Format` | 数值格式档位；缺省继承指标级 format，用于图例数值显示。 |
 | `textColor?` | `Color \| string` | 标记附加文字的颜色，支持 CSS 颜色值；常用色可用 `Color` 枚举，默认与图形颜色一致。 |
 | `offset?` | `number` | 图形移动的 K 线根数；正值向右、负值向左，不填则不移动。 |
 | `visible?` | `boolean` | 是否显示图形；不填则显示。 |

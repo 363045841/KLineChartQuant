@@ -11,6 +11,7 @@ import {
   type PersistedDrawingAnchor,
   PlotCollector,
   PlotKind,
+  type ScriptAlertEvent,
   timeframeSeconds,
   timeValue,
 } from '@363045841yyt/klinechart-plot-contracts'
@@ -52,7 +53,7 @@ import {
   SCRIPT_PRELUDE,
   TIME_PRELUDE,
 } from '../generated/runtime.js'
-import type { PreparedQuickJSScript, QuickJSScriptDefinition, ScriptParamValue } from '../types.js'
+import type { PreparedScript, QuickJSScriptDefinition, ScriptParamValue } from '../types.js'
 import { readDefinition, readFillCall, readHLineCall, readPlotCall } from './readDefinition.js'
 import { SCRIPT_ENUM_GLOBALS } from './scriptEnumGlobals.js'
 
@@ -96,6 +97,13 @@ interface QuickJSState {
   checkpointIndex: number
   /** 库在本次运行中提交的新检查点。 */
   committedCheckpoint?: QuickJSCheckpoint
+  /** 从该下标起视为实时 bar；省略表示整段历史。 */
+  liveBarIndex?: number
+  prevPrice?: number | undefined
+  /** 本次运行收集到的实时警报事件。 */
+  alerts: ScriptAlertEvent[]
+  /** 声明种类；metadata 读取后写入，alert() 据此校验。 */
+  kind?: 'indicator' | 'alert'
 }
 
 /** QuickJS 运行时选项；表达式运行时不输出绘图或日志。 */
@@ -243,6 +251,35 @@ function mountHostFunctions(vm: QuickJSContext, state: QuickJSState, timeout: Sc
   const barCount = vm.newFunction('__barCount', () => vm.newNumber(state.bars.length))
   vm.setProp(vm.global, '__barCount', barCount)
   barCount.dispose()
+
+  const prevPrice = vm.newFunction('__prevPrice', () => {
+    const price = state.index === state.liveBarIndex ? state.prevPrice : undefined
+    return price === undefined ? vm.undefined : vm.newNumber(price)
+  })
+  vm.setProp(vm.global, '__prevPrice', prevPrice)
+  prevPrice.dispose()
+
+  // 脚本写 `alert(message)` 就能产生一个实时事件；指标脚本调用直接报错。
+  const alert = vm.newFunction('alert', (messageHandle) => {
+    if (state.kind !== 'alert') {
+      throw new Error('alert 只能在 defineAlert 声明的脚本中调用')
+    }
+    if (state.index !== state.liveBarIndex) {
+      return vm.undefined
+    }
+    const bar = state.bars[state.index]
+    if (!bar) return vm.undefined
+    state.alerts.push(
+      Object.freeze({
+        message: String(vm.dump(messageHandle)),
+        barTime: bar.time,
+        price: bar.close,
+      }),
+    )
+    return vm.undefined
+  })
+  vm.setProp(vm.global, 'alert', alert)
+  alert.dispose()
 
   const time = vm.newFunction('__timeValue', (mode, period, timestamp, session, timezone) =>
     vm.newNumber(
@@ -426,6 +463,7 @@ function createQuickJSScriptRuntime(
     values: [],
     phase: 'compile',
     checkpointIndex: 0,
+    alerts: [],
   }
   const handles: QuickJSHandle[] = []
   let checkpointHandle: QuickJSHandle | undefined
@@ -462,7 +500,8 @@ function createQuickJSScriptRuntime(
     const metadata = evalOrThrow(vm, `${compiled.source}\n;__metadata()`, 'compile', timeout)
     let definition: QuickJSScriptDefinition
     try {
-      definition = readDefinition(vm.dump(metadata))
+      definition = readDefinition(vm.dump(metadata), compiled.hasAlertCall)
+      state.kind = definition.kind
     } finally {
       metadata.dispose()
     }
@@ -543,6 +582,9 @@ function createQuickJSScriptRuntime(
       }
       state.emit = input.emit
       state.phase = 'run'
+      state.liveBarIndex = input.liveBarIndex
+      state.prevPrice = input.prevPrice
+      state.alerts = []
       state.failure = undefined
       deadline = Date.now() + timeout.limitMs
       timeout.expired = false
@@ -571,6 +613,7 @@ function createQuickJSScriptRuntime(
       return {
         series: state.collector.collect(),
         values: state.values,
+        alerts: Object.freeze(state.alerts),
         ...(state.committedCheckpoint === undefined
           ? {}
           : { checkpoint: state.committedCheckpoint }),
@@ -646,7 +689,7 @@ export function prepareQuickJSModule(
   compiled: CompiledScriptSources,
   onLog?: (event: LogEvent) => void,
   timeoutMs?: number,
-): PreparedQuickJSScript {
+): PreparedScript {
   const session = createScriptExecutionSession({
     createRuntime: ({ expressionId, params, symbol }) =>
       createQuickJSScriptRuntime(compiled, { expressionId, onLog, params, symbol, timeoutMs }),
@@ -664,16 +707,9 @@ export function prepareQuickJSModule(
       params: Readonly<Record<string, ScriptParamValue>> = {},
       context?: ScriptRequestContext,
       range?: ComputeRange,
+      live?: boolean,
     ) {
-      return session.run({ bars, params, context, range }).series
-    },
-    runDetailed(
-      bars: readonly Bar[],
-      params: Readonly<Record<string, ScriptParamValue>> = {},
-      context?: ScriptRequestContext,
-      range?: ComputeRange,
-    ) {
-      return session.run({ bars, params, context, range })
+      return session.run({ bars, params, context, range, ...(live === undefined ? {} : { live }) })
     },
     dispose() {
       session.dispose()

@@ -4,16 +4,17 @@ import type { IndicatorSeries } from '@363045841yyt/klinechart-plot-contracts'
 import { describe, expect, it, vi } from 'vitest'
 import { prepareNative } from '../../__tests__/backends.js'
 import { createScriptWorkerPool } from '../impl/createScriptWorkerPool.js'
-import type { ScriptWorker } from '../types.js'
+import type { ScriptWorker, ScriptRunResult } from '../types.js'
 
 /** 只控制计算完成时刻，保留ScriptWorker的实际端口契约。 */
 function setup(size: number) {
   const definition = prepareNative(
     'defineIndicator({ version: 2, name:"PoolTest", position:Position.main, onBar(){} })',
   ).definition
-  const calls: { id: string; finish(value: IndicatorSeries): void; fail(error: Error): void }[] = []
+  const calls: { id: string; finish(value: ScriptRunResult): void; fail(error: Error): void }[] = []
   const workers: ScriptWorker[] = []
   const output: IndicatorSeries = { plots: [], fills: [] }
+  const result: ScriptRunResult = { series: output, alerts: [] }
   const pool = createScriptWorkerPool({
     size,
     createWorker: () => {
@@ -22,7 +23,7 @@ function setup(size: number) {
         prepare: vi.fn(async () => definition),
         run: vi.fn(
           (id) =>
-            new Promise<IndicatorSeries>((finish, fail) => {
+            new Promise<ScriptRunResult>((finish, fail) => {
               const call = { id, finish, fail }
               own.push(call)
               calls.push(call)
@@ -38,7 +39,7 @@ function setup(size: number) {
       return worker
     },
   })
-  return { pool, calls, workers, output }
+  return { pool, calls, workers, output, result }
 }
 
 describe('long-lived script workers', () => {
@@ -63,7 +64,7 @@ describe('long-lived script workers', () => {
       for (let index = 0; index < 3; index++) {
         const run = h.pool.run('a', [])
         await vi.waitFor(() => expect(h.calls).toHaveLength(index + 1))
-        h.calls[index]!.finish(h.output)
+        h.calls[index]!.finish(h.result)
         await run
       }
       expect(h.workers).toHaveLength(1)
@@ -83,12 +84,12 @@ describe('long-lived script workers', () => {
       const third = h.pool.run('a', [])
       await vi.waitFor(() => expect(h.calls).toHaveLength(2))
       expect(h.workers).toHaveLength(2)
-      h.calls[1]!.finish(h.output)
+      h.calls[1]!.finish(h.result)
       await second
       await vi.waitFor(() => expect(h.calls).toHaveLength(3))
-      h.calls[2]!.finish(h.output)
+      h.calls[2]!.finish(h.result)
       await third
-      h.calls[0]!.finish(h.output)
+      h.calls[0]!.finish(h.result)
       await first
     } finally {
       h.pool.dispose()
@@ -115,7 +116,7 @@ describe('long-lived script workers', () => {
       const next = h.pool.run('a', [])
       await vi.waitFor(() => expect(h.calls).toHaveLength(2))
       expect(h.workers).toHaveLength(2)
-      h.calls[1]!.finish(h.output)
+      h.calls[1]!.finish(h.result)
       await next
     } finally {
       h.pool.dispose()
@@ -135,7 +136,7 @@ describe('long-lived script workers', () => {
       await h.pool.release('b')
       const next = h.pool.run('a', [])
       await vi.waitFor(() => expect(h.calls).toHaveLength(2))
-      h.calls[1]!.finish(h.output)
+      h.calls[1]!.finish(h.result)
       await next
       expect(h.workers).toHaveLength(1)
       expect(h.workers[0]!.prepare).toHaveBeenCalledTimes(2)

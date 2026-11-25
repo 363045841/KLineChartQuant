@@ -292,6 +292,7 @@ it('收藏独立于开启状态，随布局保存、复制和恢复，旧布局�
       kind: 'descriptor',
       candidate: { key: 'layout-test', origin: 'third-party', identity: 'native' },
       descriptor: {
+        kind: 'indicator',
         name: 'layout-test',
         displayName: 'Layout test',
         category: 'main',
@@ -768,3 +769,4 @@ it.each([true, false])('restore: %s 控制启动恢复，手动切换始终生�
     target.kernel.dispose()
   }
 })
+

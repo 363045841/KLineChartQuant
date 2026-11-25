@@ -48,7 +48,7 @@ describe('PVP service prepend', () => {
     }
     const config = { rowSize: 4, periodUnit: 'day' }
     try {
-      const first = await runtime.compute(
+      const { series: first } = await runtime.compute(
         [bar(day + 86_400_000, 40), bar(day + 172_800_000, 60)],
         config,
         market,
@@ -63,7 +63,7 @@ describe('PVP service prepend', () => {
           }),
         ]),
       })
-      const second = await runtime.compute(
+      const { series: second } = await runtime.compute(
         [bar(day, 30), bar(day + 86_400_000, 40), bar(day + 172_800_000, 60)],
         config,
         market,
@@ -79,7 +79,7 @@ describe('PVP service prepend', () => {
       })
       const beforeTick = structuredClone(second)
       // 同一根 bar 实时更新
-      const tick = await runtime.compute(
+      const { series: tick } = await runtime.compute(
         [bar(day, 30), bar(day + 86_400_000, 40), bar(day + 172_800_000, 99)],
         config,
         market,
@@ -89,7 +89,7 @@ describe('PVP service prepend', () => {
       const beforePrepend = structuredClone(tick)
       // 低周期明细前置插入
       const older = { time: day - 86_400_000, open: 10, high: 11, low: 9, close: 10, volume: 10 }
-      const prepended = await runtime.compute(
+      const { series: prepended } = await runtime.compute(
         [bar(day, 30), bar(day + 86_400_000, 40), bar(day + 172_800_000, 99)],
         config,
         { ...market, loadBars: async () => [older, ...lower] },

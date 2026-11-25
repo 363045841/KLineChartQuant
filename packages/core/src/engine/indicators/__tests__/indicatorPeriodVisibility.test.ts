@@ -66,6 +66,7 @@ function fakeDefinition(
   visiblePeriods?: IndicatorMetadata['visiblePeriods'],
 ): IndicatorMetadata {
   return {
+    kind: 'indicator',
     name: 'fake',
     displayName: 'FAKE',
     category: 'main',
@@ -115,3 +116,4 @@ describe('renderer layer gating', () => {
     expect(paint).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ period: '5min' }))
   })
 })
+

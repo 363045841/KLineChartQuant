@@ -3,12 +3,13 @@
 import type {
   ComputeDependency,
   Format,
+  ScriptDefinitionKind,
   InputSchema,
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { Bar } from '../contracts/input.js'
 import type { LogEvent } from '../contracts/log.js'
 import type { ScriptSessionOutput } from '../execution/session/types.js'
-import type { RequestExecution, ScriptRequestContext, SecurityRequest } from '../request/types.js'
+import type { ScriptRequestContext, SecurityRequest } from '../request/types.js'
 
 /** 可以在脚本中作为 `params` 读取的输入值。 */
 export type ScriptParamValue = number | string | boolean
@@ -41,7 +42,7 @@ export interface QuickJSLibrary {
 }
 
 /** 从完整脚本文件声明中读取的元数据，函数仍留在 VM 内执行。 */
-export interface QuickJSScriptDefinition {
+export type QuickJSScriptDefinition = ScriptDefinitionKind & {
   /** 指标 API 版本；宿主按 INDICATOR_API_VERSION 校验，缺失按 1 处理。 */
   readonly version: number
   /** 稳定身份与选择器短名；注册身份由宿主维护。 */
@@ -51,14 +52,14 @@ export interface QuickJSScriptDefinition {
   /** 指标选择器里的说明文本；缺省不展示说明。 */
   readonly info?: string
   /**
-   * 指标渲染位置。
+   * 指标渲染位置；警报不声明该字段。
    *
    * | 取值 | 含义 |
    * | --- | --- |
    * | `Position.main` | 叠加到主图，与 K 线共用主图价格轴 |
    * | `Position.sub` | 独立副图 |
    */
-  readonly position: Position
+  readonly position?: Position
   /** 指标级数值格式；驱动副图轴与图例显示，缺省按价格。 */
   readonly format?: Format
   /** 可保留的 line 对象数；默认 50，范围 1..2000。 */
@@ -79,7 +80,6 @@ export type PreparedScriptDefinition = QuickJSScriptDefinition & {
 export interface QuickJSRunOptions {
   readonly onLog?: (event: LogEvent) => void
   readonly requestContext?: ScriptRequestContext
-  readonly requestExecution?: RequestExecution
   /** 完整 TS 文件，通过 defineIndicator 声明元数据与 onBar。 */
   readonly source: string
   /** 已加载的行情，按时间升序。 */
@@ -92,25 +92,19 @@ export interface QuickJSRunOptions {
 }
 
 /** 一个源码版本的常驻执行会话；编译与运行态跨 tick 复用，释放时统一销毁。 */
-export interface PreparedQuickJSScript {
+export interface PreparedScript {
   readonly definition: PreparedScriptDefinition
   requests(
     params?: Readonly<Record<string, ScriptParamValue>>,
     symbol?: string,
   ): readonly SecurityRequest[]
-  /** 只要绘图结果的便捷入口；需要增量绘图时使用 runDetailed。 */
+  /** 完整会话输出：完整绘图 + 本次增量 + 实时警报事件。 */
   run(
     bars: readonly Bar[],
     params?: Readonly<Record<string, ScriptParamValue>>,
     context?: ScriptRequestContext,
     range?: import('@363045841yyt/klinechart-plot-contracts').ComputeRange,
-  ): import('@363045841yyt/klinechart-plot-contracts').IndicatorSeries
-  /** 完整会话输出：完整绘图 + 本次增量，供 Worker 只传输变化对象。 */
-  runDetailed(
-    bars: readonly Bar[],
-    params?: Readonly<Record<string, ScriptParamValue>>,
-    context?: ScriptRequestContext,
-    range?: import('@363045841yyt/klinechart-plot-contracts').ComputeRange,
+    live?: boolean,
   ): ScriptSessionOutput
   dispose(): void
 }

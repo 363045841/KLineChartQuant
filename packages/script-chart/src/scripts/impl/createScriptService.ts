@@ -111,7 +111,7 @@ export async function createScriptService(
    * 因此注册失败只可能是契约被绕过，必须抛出而不是静默保留半成品。
    */
   async function commitIndicator(
-    document: ScriptDocument & { kind: 'indicator' },
+    document: ScriptDocument & { kind: 'indicator' | 'alert' },
     compiled: CompiledScript,
   ): Promise<ScriptDocument> {
     const definition = await executor.createDefinition(compiled, documentIdentity(document))
@@ -125,7 +125,7 @@ export async function createScriptService(
    * 新建与更新只在“目标文档从哪里来”上不同，事务顺序完全一致。
    */
   async function writeIndicator(
-    document: ScriptDocument & { kind: 'indicator' },
+    document: ScriptDocument & { kind: 'indicator' | 'alert' },
     compiled: CompiledScript,
     documents: readonly ScriptDocument[],
   ): Promise<ScriptDocument> {
@@ -157,13 +157,13 @@ export async function createScriptService(
     source: string,
     trusted: boolean,
     folder: string,
-    requiredKind?: ScriptDocument['kind'],
+    requiredKind?: 'indicator',
   ): Promise<ScriptDocument> {
     return enqueue(async () => {
       const id = `script_${generateUUID()}`
       const declaration = inspectScript(source)
       if (requiredKind !== undefined && declaration.kind !== requiredKind)
-        throw new Error('该入口只接受指标脚本，defineLibrary 不能在 Agent 中创建')
+        throw new Error('该入口只接受 defineIndicator；defineLibrary 和 defineAlert 请通过脚本工作区创建')
       const target = requireFolder(folders, declaration.kind, folder)
       if (declaration.kind === 'library') {
         return saveScriptLibrary({
@@ -183,8 +183,8 @@ export async function createScriptService(
         })
       }
       const compiled = await executor.compile(source, trusted)
-      const document: ScriptDocument & { kind: 'indicator' } = {
-        kind: 'indicator',
+      const document: ScriptDocument & { kind: 'indicator' | 'alert' } = {
+        kind: compiled.definition.kind,
         id,
         identity: 'user',
         source,
@@ -195,6 +195,12 @@ export async function createScriptService(
       }
       return writeIndicator(document, compiled, [...store.list(), document])
     })
+  }
+
+  async function assertUnreferencedAlert(document: ScriptDocument): Promise<void> {
+    if (document.kind === 'alert' && await options.isDefinitionReferenced?.(document.id)) {
+      throw new Error(`脚本仍被警报引用：${document.definition.name}`)
+    }
   }
 
   return Object.freeze({
@@ -239,6 +245,8 @@ export async function createScriptService(
           throw new Error(
             `文件夹仍被引用：${outside.map((item) => item.definition.name).join('、')}`,
           )
+        // 目录内仍被警报引用的脚本不能被删除，避免留下悬空规则。
+        for (const item of removed) await assertUnreferencedAlert(item)
         const removedFolders = foldersWithin(folders, kind, path)
         const removedKeys = new Set(
           removedFolders.map((record) => folderKey(record.kind, record.path)),
@@ -284,9 +292,9 @@ export async function createScriptService(
             persist,
           })
         }
-        if (declaration.kind !== 'indicator') throw new Error('不能更改脚本文档类型')
+        if (declaration.kind !== current.kind) throw new Error('不能更改脚本文档类型')
         const compiled = await executor.compile(source, trusted)
-        const document: ScriptDocument & { kind: 'indicator' } = {
+        const document: ScriptDocument & { kind: 'indicator' | 'alert' } = {
           ...current,
           source,
           trusted,
@@ -322,6 +330,8 @@ export async function createScriptService(
           await dropDocument(current)
           return
         }
+        // 仍被警报引用的脚本不能被删除，避免留下悬空规则。
+        await assertUnreferencedAlert(current)
         await persist(store.list().filter((item) => item.id !== current.id))
         await dropDocument(current)
       })

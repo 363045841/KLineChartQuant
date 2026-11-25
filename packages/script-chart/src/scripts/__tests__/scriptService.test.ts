@@ -114,7 +114,7 @@ describe('ScriptService', () => {
     }))
     /** 通过图表正式计算入口检查依赖快照与序列当前值转换。 */
     async function values() {
-      return getRegisteredIndicatorDefinition(indicator.id)!.runtime!.compute(bars, {})
+      return (await getRegisteredIndicatorDefinition(indicator.id)!.runtime!.compute(bars, {})).series
     }
     expect(base.kind).toBe('library')
     expect(getIndicatorDescriptor(base.id)).toBeUndefined()
@@ -224,6 +224,30 @@ describe('ScriptService', () => {
     unregisterIndicator('AgentAverage')
   })
 
+  it.each(['file', 'folder'])('blocks deletion of a referenced alert through its %s', async (kind) => {
+    const memory = createMemoryPersistence()
+    const referenced = new Set<string>()
+    const scripts = await createScriptService([], {
+      persistence: memory.persistence,
+      isDefinitionReferenced: async (id) => referenced.has(id),
+    })
+    const folder = { kind: 'alert', path: 'Alerts' } as const
+    await scripts.createFolder(folder)
+    const alert = await scripts.create(`defineAlert({ version: 2, name: 'Referenced alert', frequency: 'all', onBar() { alert('event') } })`, false, folder.path)
+    const remove = () => kind === 'file' ? scripts.remove(alert.id, alert.revision) : scripts.removeFolder(folder)
+    try {
+      referenced.add(alert.id)
+      await expect(remove()).rejects.toThrow('脚本仍被警报引用')
+      expect(scripts.read(alert.id)).toEqual(alert)
+      expect(memory.current()?.scripts.map(({ id }) => id)).toContain(alert.id)
+      referenced.delete(alert.id)
+      await remove()
+      expect(scripts.read(alert.id)).toBeUndefined()
+    } finally {
+      scripts.dispose()
+    }
+  })
+
   it('删除文件夹级联删除内容，目录外仍引用的库阻止删除', async () => {
     const { persistence } = createMemoryPersistence()
     const scripts = await createScriptService([], { persistence })
@@ -294,7 +318,7 @@ describe('ScriptService', () => {
     const bars = [{ timestamp: 1, open: 1, high: 1, low: 1, close: 1 }]
     /** 从正式注册入口计算，验证注册属性传到了 Worker。 */
     async function compute(id: string) {
-      return getRegisteredIndicatorDefinition(id)!.runtime!.compute(bars, {})
+      return (await getRegisteredIndicatorDefinition(id)!.runtime!.compute(bars, {})).series
     }
     try {
       expect(await compute('ServiceEngine')).toMatchObject({ plots: [{ data: [{ value: 1 }] }] })
@@ -341,7 +365,7 @@ describe('ScriptService', () => {
       n: 2,
     })
     await expect(result).resolves.toMatchObject({
-      plots: [{ id: 'average', data: [{ value: 15 }] }],
+      series: { plots: [{ id: 'average', data: [{ value: 15 }] }] },
     })
     await scripts.remove(document.id, document.revision)
     scripts.dispose()
@@ -439,7 +463,7 @@ describe('ScriptService', () => {
           metadata.runtime.defaultInputs,
           market,
         )
-        expect(output).toMatchObject({ plots: expect.any(Array), fills: expect.any(Array) })
+        expect(output?.series).toMatchObject({ plots: expect.any(Array), fills: expect.any(Array) })
       },
     )
   })
@@ -490,7 +514,7 @@ describe('ScriptService', () => {
         [{ timestamp: 1, open: 10, high: 20, low: 10, close: 20 }],
         { n: 2 },
       ),
-    ).resolves.toMatchObject({ plots: [{ id: 'average', data: [{ value: 15 }] }] })
+    ).resolves.toMatchObject({ series: { plots: [{ id: 'average', data: [{ value: 15 }] }] } })
     expect(getIndicatorDescriptor('FailedRename')).toBeUndefined()
     expect((await persistence.load())?.scripts ?? []).toContainEqual({
       id: initial.id,
@@ -544,7 +568,7 @@ describe('ScriptService', () => {
     expect(
       await getRegisteredIndicatorDefinition(initial.id)?.runtime?.compute(bars, { n: 4 }),
     ).toMatchObject({
-      plots: [{ id: 'average', data: [{ value: 7.5 }] }],
+      series: { plots: [{ id: 'average', data: [{ value: 7.5 }] }] },
     })
     expect(scripts.list().map((document) => document.id)).toContain(initial.id)
     await scripts.remove(initial.id, 2)

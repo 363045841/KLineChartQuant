@@ -17,12 +17,6 @@ const MOCK_BRIDGE_SIGMA = 0.012
 /** 影线相对实体端点的最大外扩比例。 */
 const MOCK_WICK_SIGMA = 0.008
 
-/** 日 K 桶使用 UTC 零点，与实时更新的时间戳保持一致。 */
-export function mockDayStart(timestamp: number): number {
-  const date = new Date(timestamp)
-  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
-}
-
 /** 时间戳所属的 UTC 日索引；向前取整，负时间戳同样成立。 */
 export function mockDayIndex(timestamp: number): number {
   return Math.floor(timestamp / MOCK_DAY_MS)

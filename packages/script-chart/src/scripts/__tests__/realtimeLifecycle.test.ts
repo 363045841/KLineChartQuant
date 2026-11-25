@@ -34,9 +34,7 @@ function requireRuntime(id: string) {
 
 /** 把脚本运行端口包装成计算输出。 */
 function definitionOf(id: string, runtime: ReturnType<typeof requireRuntime>): CalculationDefinition {
-  const compute = async (...args: Parameters<NonNullable<typeof runtime.compute>>) => ({
-    series: await runtime.compute(...args),
-  })
+  const compute = runtime.compute
   return {
     definitionId: id,
     dependency: { kind: 'stateful' },
@@ -105,8 +103,11 @@ describe('realtime script lifecycle', () => {
     })
     const feedKey: FeedKey = createFeedKey(IDENTITY)
     const loading = new Set<string>()
+    const commits: { revision: number; keys: string[] }[] = []
     const client = hub.createClient('test', {
-      onCommit: () => undefined,
+      onCommit: (commit) => {
+        commits.push({ revision: commit.dataRevision, keys: [...commit.results.keys()] })
+      },
       onPending(owners, pending) {
         for (const id of owners) {
           if (pending) loading.add(id)
@@ -123,6 +124,7 @@ describe('realtime script lifecycle', () => {
       data,
       timestamps,
       change: { start: 0, end: data.length },
+      live: true,
     })
     client.setPlan([
       {
@@ -137,7 +139,7 @@ describe('realtime script lifecycle', () => {
     try {
       update(1)
       await vi.waitFor(() => expect(loadBars).toHaveBeenCalledOnce())
-      await vi.waitFor(() => expect(hub.get(feedKey, 'fast')).toBeDefined())
+      await vi.waitFor(() => expect(hub.peek(feedKey, 'fast')).toBeDefined())
       const workerCount = created
       expect(loading.has('slow')).toBe(true)
       for (let revision = 2; revision <= 21; revision++) update(revision)
@@ -148,7 +150,7 @@ describe('realtime script lifecycle', () => {
       )
       await vi.waitFor(() => expect(loading.size).toBe(0))
       for (let revision = 22; revision < 27; revision++) update(revision)
-      await vi.waitFor(() => expect(hub.get(feedKey, 'slow')?.dataRevision).toBe(26))
+      await vi.waitFor(() => expect(commits.at(-1)?.revision).toBe(26))
       expect(terminated).toBe(0)
       expect(created).toBe(workerCount)
     } finally {
@@ -159,3 +161,4 @@ describe('realtime script lifecycle', () => {
     }
   })
 })
+

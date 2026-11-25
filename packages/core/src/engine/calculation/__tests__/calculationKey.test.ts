@@ -1,5 +1,5 @@
 /**
- * 计算身份编码：稳定、无碰撞、视口按需进入身份。
+ * 计算身份编码：稳定地区分行情与计算输入。
  */
 
 import { describe, expect, it } from 'vitest'
@@ -17,13 +17,15 @@ describe('canonicalizeInput', () => {
     expect(canonicalizeInput({ b: 2, a: 1 })).toBe(canonicalizeInput({ a: 1, b: 2 }))
   })
 
-  it('区分类型与嵌套结构', () => {
-    expect(canonicalizeInput('1')).not.toBe(canonicalizeInput(1))
-    expect(canonicalizeInput([1, 2])).not.toBe(canonicalizeInput({ 0: 1, 1: 2 }))
+  it.each([
+    ['字符串和数字', '1', 1],
+    ['数组和对象', [1, 2], { 0: 1, 1: 2 }],
+  ])('区分%s', (_label, left, right) => {
+    expect(canonicalizeInput(left)).not.toBe(canonicalizeInput(right))
   })
 
-  it('拒绝非有限数字', () => {
-    expect(() => canonicalizeInput(Number.NaN)).toThrow(TypeError)
+  it.each([Number.NaN, Infinity, -Infinity])('拒绝非有限数字 %s', (value) => {
+    expect(() => canonicalizeInput(value)).toThrow(TypeError)
   })
 })
 
@@ -36,13 +38,6 @@ describe('createLocalCalculationKey', () => {
 
   it('相同输入产生同一键', () => {
     expect(createLocalCalculationKey(base)).toBe(createLocalCalculationKey({ ...base }))
-  })
-
-  it('视口只在显式提供时进入身份', () => {
-    const without = createLocalCalculationKey(base)
-    const fixed = createLocalCalculationKey({ ...base, viewportKey: 'fixed:200' })
-    expect(fixed).not.toBe(without)
-    expect(createLocalCalculationKey({ ...base, viewportKey: 'fixed:200' })).toBe(fixed)
   })
 })
 

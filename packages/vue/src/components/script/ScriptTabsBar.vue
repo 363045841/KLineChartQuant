@@ -45,7 +45,7 @@
       idPrefix: string
       tabs: readonly ScriptEditorTab[]
       activeTabId: string | null
-      kind?: 'indicator' | 'library'
+      kind?: 'indicator' | 'alert' | 'library'
       identity: ScriptIdentity
       saving?: boolean
     }>(),

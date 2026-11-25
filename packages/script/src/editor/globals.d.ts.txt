@@ -6,7 +6,7 @@ import type { TechnicalAnalysisLibrary } from '../Library/types.js'
 import { Position as PositionEnum } from '../quickjs/types.js'
 import type { ScriptParamValue } from '../quickjs/types.js'
 import type { Series as ScriptSeries } from '../series/types.js'
-import type { ScriptIndicatorDeclaration, ScriptFillOptions, ScriptInput, ScriptPlot, PlotRef } from './types.js'
+import type { ScriptIndicatorDeclaration, ScriptAlertDeclaration, ScriptFillOptions, ScriptInput, ScriptPlot, PlotRef } from './types.js'
 import type { ScriptRequest } from '../request/types.js'
 import type { DrawingLineApi, DrawingBoxApi, DrawingLabelApi, ChartPoint, LineRef as ScriptLineRef, BoxRef as ScriptBoxRef, LabelRef as ScriptLabelRef, Color } from '@363045841yyt/klinechart-plot-contracts'
 
@@ -32,8 +32,13 @@ declare global {
   const box: DrawingBoxApi
   /** 在历史 bar 的价格位置创建纯文字标签，支持 label.styleNone。 */
   const label: DrawingLabelApi
-  /** 当前执行 bar 是否是本次数据的最后一根。 */
-  const barstate: { readonly isLast: boolean }
+  /** 当前 K 线的执行状态。 */
+  const barstate: {
+    /** 当前执行 bar 是否是本次数据的最后一根。 */
+    readonly isLast: boolean
+    /** 同一根 K 线上一次实时更新的价格。首个实时更新与历史计算返回 undefined。 */
+    readonly prevPrice: number | undefined
+  }
 
   /** 编辑器从当前 inputs 推导并合并具体参数。 */
   interface ScriptParameters {}
@@ -116,6 +121,34 @@ declare global {
    * ```
    */
   function defineIndicator(definition: ScriptIndicatorDeclaration): void
+  /**
+   * 定义一个警报脚本。
+   *
+   * 与指标共用同一套执行链路，但没有渲染位置，也不会进入指标面板。
+   * 必须声明 frequency（'once' | 'per-bar' | 'per-bar-close' | 'all'），
+   * 并调用 alert() 才能产出事件；指标脚本调用 alert() 会直接报错。
+   * 频率由脚本决定，规则不覆盖。
+   *
+   * ```ts
+   * defineAlert({
+   *   version: 2,
+   *   name: 'PriceCross',
+   *   frequency: 'per-bar',
+   *   onBar() {
+   *     const previous = barstate.prevPrice
+   *     if (previous !== undefined && previous < 100 && close[0] >= 100) alert('上穿 100')
+   *   },
+   * })
+   * ```
+   */
+  function defineAlert(definition: ScriptAlertDeclaration): void
+  /**
+   * 输出一条实时警报事件。
+   *
+   * 只在最后一根实时 bar 上产出；只能在 defineAlert 声明的脚本中调用。
+   * 频率、冷却与投递由宿主的警报规则决定。
+   */
+  function alert(message: string): void
   /**
    * 惰性派生序列；读取时按绝对 bar 缓存，不主动填充历史。
    * key 必须稳定且区分输入与参数；同 key 复用首次注册的回调。

@@ -49,15 +49,15 @@ function result(series: unknown): IndicatorResult {
 }
 
 describe('Plot instance projection', () => {
-  it('Plot 指标的真实计算结果都能生成有效绘图点', () => {
+  it('Plot 指标的真实计算结果都能生成有效绘图点', async () => {
     const definition = getRegisteredIndicatorDefinition('ProjectionPlotFixture')
     if (!definition?.runtime) throw new TypeError('ProjectionPlotFixture 未注册')
     const data = createTestData(300)
     const params = definition.runtime.defaultInputs
-    const raw = definition.runtime.compute(data, params)
+    const { series } = await definition.runtime.compute(data, params)
     const state = composeInstanceRenderState(
       definition,
-      result(raw),
+      result(series),
       params,
       definition.presentation?.defaultOptions ?? {},
       { start: 0, end: 300 },

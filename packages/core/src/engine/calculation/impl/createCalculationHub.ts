@@ -2,11 +2,10 @@
  * 计算中枢：按数据身份与计算身份去重、调度并提交结果。
  *
  * 不持有图表、Pane、视口或实例身份；消费者注册计划，Hub 只负责：
- * 合并同一计算键、latest-wins 排队、按行情修订校验结果、按消费者提交。
+ * 合并同一计算键、按行情需要保留更新顺序、提交结果。
  */
 import {
   type ComputeRange,
-  type IndicatorMarketContext,
   resolveComputeRange,
 } from '@363045841yyt/klinechart-plot-contracts'
 
@@ -61,7 +60,7 @@ interface Work {
 
 interface Lane {
   running?: Work
-  queued?: Work
+  readonly queued: Work[]
 }
 
 /** 判断已提交结果是否仍对应当前行情修订。 */
@@ -124,13 +123,18 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
       ...definition,
       compute: compute ?? definition.compute,
       dispose: compute?.dispose,
-    } as CalculationDefinition & { dispose?(): void }
+    }
     calculators.set(internal, entry)
     return entry
   }
 
   /** 释放不再被任何计划或预览引用的计算器与结果。 */
   function pruneOwned(): void {
+    for (const [key, lane] of lanes) {
+      if (desired.has(key)) continue
+      lane.running?.controller.abort()
+      lanes.delete(key)
+    }
     for (const [key, calculator] of calculators) {
       if (desired.has(key)) continue
       calculator.dispose?.()
@@ -197,12 +201,13 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
       dataRevision: feed.dataRevision,
       marketRevision: feed.marketRevision,
       timestamps: feed.timestamps,
+      ...(feed.closedBarTime === undefined ? {} : { closedBarTime: feed.closedBarTime }),
     }
     if (!calculator) {
       return Object.freeze({
         ...base,
         series: undefined,
-        events: Object.freeze([]),
+        alerts: Object.freeze([]),
         error: Object.freeze({
           message: `Unknown calculation definition: ${request.definitionId}`,
         }),
@@ -215,30 +220,31 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
       return Object.freeze({
         ...base,
         series: undefined,
-        events: Object.freeze([]),
+        alerts: Object.freeze([]),
         error: toFailure(error),
       })
     }
-    const context = options.marketData?.().context(internal, feed.data)
+    const context = options.marketData?.().context(internal, feed.data, feed.marketSession)
     try {
       const output = await calculator.compute(
         feed.data,
         request.inputs,
-        context ? ({ ...context, signal } as IndicatorMarketContext) : undefined,
+        context ? { ...context, signal } : undefined,
         range,
+        feed.live,
       )
       if (signal.aborted) return null
       return Object.freeze({
         ...base,
         series: output.series,
-        events: Object.freeze([...(output.events ?? [])]),
+        alerts: Object.freeze(output.alerts ?? []),
       })
     } catch (error) {
       if (signal.aborted) return null
       return Object.freeze({
         ...base,
         series: undefined,
-        events: Object.freeze([]),
+        alerts: Object.freeze([]),
         error: toFailure(error),
       })
     }
@@ -246,7 +252,7 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
 
   /** 提交一个消费者在某份行情上的完整结果；不完整就等下一次任务完成。 */
   function commitClient(client: ClientState, feedKey: FeedKey): void {
-    if (disposed || client.disposed) return
+    if (disposed || client.disposed || !client.handlers.onCommit) return
     const feed = feeds.get(feedKey)
     if (!feed) return
     const entry = client.plan.find((item) => item.feed === feedKey)
@@ -301,14 +307,21 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
     } finally {
       reportPending(work.internalKey, false)
     }
-    if (disposed) return
-    if (result) store.set(work.internalKey, { result })
-
     const current = lanes.get(work.internalKey)
-    if (!current || current.running !== work) return
+    if (disposed || current !== lane || lane.running !== work) return
+    if (result) {
+      store.set(work.internalKey, { result })
+      for (const id of desired.get(work.internalKey)?.clients ?? []) {
+        try {
+          clients.get(id)?.handlers.onResult?.(work.feedKey, result)
+        } catch (error) {
+          reportError(error)
+        }
+      }
+    }
+    if (lanes.get(work.internalKey) !== current) return
     current.running = undefined
-    const next = current.queued
-    current.queued = undefined
+    const next = current.queued.shift()
     if (next) {
       current.running = next
       void runWork(next)
@@ -334,19 +347,16 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
   ): void {
     const existing = lanes.get(internal)
     if (existing?.running) {
-      if (
-        existing.running.snapshot.dataRevision === feed.dataRevision &&
-        existing.running.snapshot.marketRevision === feed.marketRevision
-      ) {
-        return
-      }
-      existing.queued?.controller.abort(new Error('Superseded by newer revision'))
-      existing.queued = createWork(feedKey, feed, request)
+      const last = existing.queued.at(-1) ?? existing.running
+      if (last.snapshot.dataRevision === feed.dataRevision &&
+          last.snapshot.marketRevision === feed.marketRevision) return
+      if (!feed.ordered) existing.queued.length = 0
+      existing.queued.push(createWork(feedKey, feed, request))
       return
     }
     const work = createWork(feedKey, feed, request)
     if (existing) existing.running = work
-    else lanes.set(internal, { running: work })
+    else lanes.set(internal, { running: work, queued: [] })
     void runWork(work)
   }
 
@@ -376,9 +386,8 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
   /** 释放某份行情上的任务、结果与提交记录。 */
   function releaseFeed(feedKey: FeedKey): void {
     for (const [key, lane] of lanes) {
-      if (lane.running?.feedKey !== feedKey && lane.queued?.feedKey !== feedKey) continue
+      if (lane.running?.feedKey !== feedKey) continue
       lane.running?.controller.abort(new Error('Feed removed'))
-      lane.queued?.controller.abort(new Error('Feed removed'))
       lanes.delete(key)
     }
     for (const key of [...store.keys()]) {
@@ -431,6 +440,10 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
       commitFeed(feedKey)
     },
 
+    readDataRevision(feed) {
+      return feeds.get(feed)?.dataRevision
+    },
+
     removeFeed(feedKey) {
       if (disposed) return
       feeds.delete(feedKey)
@@ -456,7 +469,7 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
       return result
     },
 
-    get(feedKey, key) {
+    peek(feedKey, key) {
       return store.get(internalKey(feedKey, key))?.result
     },
 
@@ -468,6 +481,8 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
       }
       for (const [key, calculator] of calculators) {
         if (!changed.has(calculator.definitionId)) continue
+        lanes.get(key)?.running?.controller.abort()
+        lanes.delete(key)
         calculator.dispose?.()
         calculators.delete(key)
       }
@@ -483,7 +498,6 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
       disposed = true
       for (const lane of lanes.values()) {
         lane.running?.controller.abort(new Error('Calculation hub is disposed'))
-        lane.queued?.controller.abort(new Error('Calculation hub is disposed'))
       }
       lanes.clear()
       for (const calculator of calculators.values()) calculator.dispose?.()

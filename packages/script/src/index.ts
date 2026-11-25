@@ -87,7 +87,7 @@ export {
   runQuickJSScriptSync,
 } from './quickjs/impl/runQuickJSScript.js'
 export type {
-  PreparedQuickJSScript,
+  PreparedScript,
   PreparedScriptDefinition,
   QuickJSLibrary,
   QuickJSRunOptions,

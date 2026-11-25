@@ -30,7 +30,7 @@ describe('指标指南示例', () => {
   it.each(examples.map((code, index) => [index + 1, code] as const))(
     '示例 %i 是完整脚本并能运行',
     async (_index, code) => {
-      expect(code).toContain('defineIndicator(')
+      expect(code).toMatch(/define(Indicator|Alert)\(/)
       await expect(runQuickJSScript({ source: code, bars })).resolves.toBeDefined()
     },
   )

@@ -21,7 +21,6 @@ interface Dependencies {
   readonly cache: MarketDataCache
   readonly registry: MarketDataProviderRegistry
   readonly sessions: MarketSessionRegistry
-  current(): ReadyMarketSession | null
   readonly resolveSelection: MarketRuntimeDependencies['resolveBarsSelection']
   bind(owners: ReadonlySet<string>, target: ReadyMarketSession, buffer: KLineBuffer): void
 }
@@ -48,10 +47,10 @@ export class IndicatorBarsRepository {
     request: IndicatorBarsRequest,
     session: ReadyMarketSession | null,
     signal?: AbortSignal,
+    independent = false,
   ): Promise<readonly Bar[]> {
     signal?.throwIfAborted()
-    if (!session || this.deps.current() !== session)
-      throw new Error('Request 没有有效的图表行情会话')
+    if (!session) throw new Error('Request 没有有效的行情会话')
     if (!bars.length) return []
     const period = requestPeriod(request.timeframe)
     if (request.mode !== 'lower_tf') assertSecurityPeriod(period, session.selection.period)
@@ -67,6 +66,7 @@ export class IndicatorBarsRepository {
     const source = request.source ?? session.instrument.source
     const key = JSON.stringify([
       seriesSelectionKey(session.selection),
+      independent,
       source,
       request.symbol,
       period,
@@ -83,7 +83,6 @@ export class IndicatorBarsRepository {
       await waitForDemand(demand.ready, signal)
       signal?.throwIfAborted()
       demand.abort.signal.throwIfAborted()
-      if (this.deps.current() !== session) throw new Error('Request 图表会话已切换')
       if (!this.demands.isCurrent(key, demand)) continue
       if (!demand.buffer) return []
       const clock = marketClock(session, this.deps.sessions)

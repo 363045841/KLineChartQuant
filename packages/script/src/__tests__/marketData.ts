@@ -5,9 +5,10 @@ import type { Bar } from '../contracts/input.js'
 import { runQuickJSScript } from '../quickjs/impl/runQuickJSScript.js'
 import type { ScriptParamValue } from '../quickjs/types.js'
 import type { ScriptRequestContext } from '../request/types.js'
+import type { IndicatorSeries } from '@363045841yyt/klinechart-plot-contracts'
 
 /** 一次脚本执行的结果，供取值 helper 复用。 */
-export type ScriptResult = Awaited<ReturnType<typeof runQuickJSScript>>
+export type ScriptResult = IndicatorSeries
 
 /** 逐 bar 数值列，缺省点保持 undefined。 */
 export type ScriptValues = Record<string, (number | undefined)[]>
@@ -132,3 +133,6 @@ function scalarPlot(plot: Plot): ScalarPlot {
   if (isOhlcPlot(plot)) throw new TypeError(`Expected scalar Plot: ${plot.id}`)
   return plot
 }
+
+
+

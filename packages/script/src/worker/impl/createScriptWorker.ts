@@ -174,7 +174,7 @@ export function createScriptWorker(
       return operation
     },
     /** 使用 Worker 内已有编译快照计算行情。 */
-    async run(id, bars, params, context, range) {
+    async run(id, bars, params, context, range, live) {
       await ensureInstalled(id)
       if (failure) throw failure
       const inputPatch = input.encode(bars, context)
@@ -186,6 +186,7 @@ export function createScriptWorker(
           input: inputPatch,
           params,
           range,
+          live,
         },
         inputTransferList(inputPatch),
       )
@@ -198,7 +199,7 @@ export function createScriptWorker(
         remove: response.drawingDelta.remove,
       })
       drawings.set(id, next)
-      return { ...series, drawings: next }
+      return { series: { ...series, drawings: next }, alerts: response.alerts }
     },
     async requests(id, params, symbol) {
       await ensureInstalled(id)

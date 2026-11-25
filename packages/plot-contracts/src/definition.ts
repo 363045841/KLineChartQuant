@@ -1,19 +1,28 @@
 /**
- * 指标定义契约：生产方（脚本，及过渡期的 core 指标）声明「一个指标长什么样」，消费方据此运行。
+ * 指标定义契约：生产方（脚本）声明「一个定义长什么样」，消费方据此运行。
+ *
+ * 指标与警报共用同一套执行端口，只有 `kind` 不同：
+ * 指标可被实例化到图表，警报只被规则引用并消费其事件。
  */
 import type { Bar } from './bar.js'
 import type { Format } from './format.js'
 import type { IndicatorMarketContext, Timeframe } from './market.js'
 import type { IndicatorSeries } from './plots.js'
+import type { ScriptAlertEvent, ScriptAlertFrequency } from './scriptAlert.js'
+
+/** 脚本声明种类；由使用的声明函数决定，不允许调用方自定义。 */
+export type ScriptDefinitionKind =
+  | { readonly kind: 'indicator'; readonly frequency?: never }
+  | { readonly kind: 'alert'; readonly frequency: ScriptAlertFrequency }
 
 /** 可序列化的脚本声明；不包含执行函数。 */
-export interface IndicatorSourceDefinition {
+export type IndicatorSourceDefinition = ScriptDefinitionKind & {
   readonly name: string
   /** 指标选择器/图例显示的长名称；缺省用 name。 */
   readonly title?: string
   /** 指标选择器里的说明文本；缺省不展示说明。 */
   readonly info?: string
-  /** 注册位置：主图叠加或独立副图；缺省为副图。 */
+  /** 注册位置：主图叠加或独立副图；缺省为副图。警报不使用该字段。 */
   readonly position?: 'main' | 'sub'
   /** 指标级数值格式：驱动整条 y 轴与图例显示；缺省按价格。 */
   readonly format?: Format
@@ -78,8 +87,33 @@ export interface InputDef<T> extends InputOptions {
 /** 输入声明表：键即参数名，P 为解析后的参数值类型。 */
 export type InputSchema<P> = { [K in keyof P]: InputDef<P[K]> }
 
+/** 一次计算的输出：序列与本次产生的警报事件走同一条返回通道。 */
+export interface IndicatorComputeResult {
+  readonly series: IndicatorSeries
+  /** 本次运行产生的实时警报事件；指标通常为空。 */
+  readonly alerts?: readonly ScriptAlertEvent[]
+}
+
+/** 计算选项；新增字段不需要改动所有实现。 */
+export interface IndicatorComputeOptions<P> {
+  readonly bars: readonly Bar[]
+  readonly params: P
+  /** 跨品种与跨周期取数的上下文。 */
+  readonly market?: IndicatorMarketContext
+  /** 需要重算的区间；缺省为整段。 */
+  readonly range?: import('./compute.js').ComputeRange
+  /** 最后一根 bar 是否为实时 bar；只有实时运行可以产生警报。 */
+  readonly live?: boolean
+}
+
+/** 可复用的计算端口；同一个定义身份拥有独立会话。 */
+export interface IndicatorCompute<P> {
+  (options: IndicatorComputeOptions<P>): IndicatorComputeResult | Promise<IndicatorComputeResult>
+  dispose?(): void
+}
+
 /** 指标定义：元数据、输入声明与计算端口。 */
-export interface IndicatorDefinition<P> {
+export type IndicatorDefinition<P> = ScriptDefinitionKind & {
   /**
    * 宿主分配的稳定 ID；缺省回落到 name。
    *
@@ -93,7 +127,7 @@ export interface IndicatorDefinition<P> {
   readonly title?: string
   /** 指标选择器里的说明文本；缺省不展示说明。 */
   readonly info?: string
-  /** 注册位置：主图叠加或独立副图；缺省放在副图。 */
+  /** 注册位置：主图叠加或独立副图；缺省放在副图。警报不使用该字段。 */
   readonly position?: 'main' | 'sub'
   /** 指标级数值格式：驱动整条 y 轴与图例显示；缺省按价格。 */
   readonly format?: Format
@@ -104,15 +138,9 @@ export interface IndicatorDefinition<P> {
   readonly inputs: InputSchema<P>
   /** 计算对历史的依赖；缺省按有状态处理，正确性优先。 */
   readonly dependency?: import('./compute.js').ComputeDependency
-  /** 计算身份拥有独立会话；最后一个消费者退出时释放运行态，元数据仍可留在目录。 */
-  readonly createCompute?: () => IndicatorDefinition<P>['compute'] & { dispose(): void }
-  /** 计算端口：给定 bars、参数与重算区间，产出完整 IndicatorSeries。 */
-  compute(
-    bars: readonly Bar[],
-    params: P,
-    market?: IndicatorMarketContext,
-    range?: import('./compute.js').ComputeRange,
-  ): IndicatorSeries | Promise<IndicatorSeries>
+  /** 有状态的独立计算会话；最后一个消费者退出时释放运行态。 */
+  readonly createCompute?: () => IndicatorCompute<P>
+  readonly compute: IndicatorCompute<P>
 }
 
 /** 按输入声明取默认值，构成初始参数。 */

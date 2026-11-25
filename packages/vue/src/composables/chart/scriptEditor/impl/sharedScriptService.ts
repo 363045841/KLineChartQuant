@@ -5,6 +5,7 @@
  * 和两份全局指标注册。
  */
 import type { ScriptService } from '@363045841yyt/klinechart-script-chart'
+import { hasAlertScriptReference } from '@363045841yyt/klinechart-core/controllers'
 
 let shared: Promise<ScriptService> | undefined
 
@@ -15,7 +16,9 @@ let shared: Promise<ScriptService> | undefined
  */
 export function sharedScriptService(): Promise<ScriptService> {
   shared ??= import('@363045841yyt/klinechart-script-chart')
-    .then(({ createBuiltinScriptService }) => createBuiltinScriptService())
+    .then(({ createBuiltinScriptService }) =>
+      createBuiltinScriptService({ isDefinitionReferenced: hasAlertScriptReference }),
+    )
     .catch((error: unknown) => {
       shared = undefined
       throw error

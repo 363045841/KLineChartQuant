@@ -4,7 +4,12 @@
  * 仅供 __tests__ 消费；vitest 只收集 *.test.ts，本文件不会被当作测试。
  */
 
-import type { Bar, IndicatorDefinition, InputDef } from '@363045841yyt/klinechart-plot-contracts'
+import type {
+  Bar,
+  IndicatorComputeOptions,
+  IndicatorDefinition,
+  InputDef,
+} from '@363045841yyt/klinechart-plot-contracts'
 import type { IndicatorSeries } from '@/engine/plots/types.js'
 import type { IndicatorInputs, IndicatorInputValue } from '../../instances/domain/indicatorModel.js'
 import { createPlotIndicatorDefinition } from '../../pipeline/impl/createPlotDefinition.js'
@@ -34,17 +39,27 @@ export function registerPlotIndicatorFixture(config: PlotIndicatorFixtureConfig)
     source: 'native',
     position: config.category,
     inputs,
-    compute: config.compute,
+    compute: (options) => config.compute(options.bars, options.params),
   })
 }
 
 /**
  * 用中立 Plot 定义注册/替换指标，供生命周期测试复用注册阶段语义。
  *
- * @param definition 中立指标定义
+ * 夹具统一按指标注册；需要警报定义的用例直接构造完整定义。
+ *
+ * @param definition 中立指标定义（省略 kind）
  */
-export function registerPlotDefinition<P>(definition: IndicatorDefinition<P>): void {
-  const definitionClass = createPlotIndicatorDefinition(definition)
+export function registerPlotDefinition(
+  definition: Omit<IndicatorDefinition<IndicatorInputs>, 'kind' | 'frequency' | 'compute'> & {
+    compute(options: IndicatorComputeOptions<IndicatorInputs>): IndicatorSeries
+  },
+): void {
+  const definitionClass = createPlotIndicatorDefinition({
+    ...definition,
+    kind: 'indicator',
+    compute: (options) => ({ series: definition.compute(options) }),
+  })
   registerIndicators([
     {
       kind: 'definition',
@@ -72,3 +87,8 @@ export function registerEmptyPlot(id: string): void {
     compute: () => ({ plots: [], fills: [] }),
   })
 }
+
+/** 参数读取便捷入口；测试用例只关心 bars 与参数。 */
+export type TestComputeOptions = IndicatorComputeOptions<IndicatorInputs>
+
+

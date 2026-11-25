@@ -4,6 +4,7 @@ import {
   isPlotKind,
   PlotCollector,
   PlotKind,
+  type ScriptAlertEvent,
   timeframeSeconds,
   timeValue,
 } from '@363045841yyt/klinechart-plot-contracts'
@@ -86,6 +87,13 @@ interface NativeState {
   checkpointIndex: number
   /** 库在本次运行中提交的新检查点。 */
   committedCheckpoint?: NativeCheckpoint
+  /** 从该下标起视为实时 bar；省略表示整段历史。 */
+  liveBarIndex?: number
+  prevPrice?: number | undefined
+  /** 本次运行收集到的实时警报事件。 */
+  alerts: ScriptAlertEvent[]
+  /** 声明种类；metadata 读取后写入，alert() 据此校验。 */
+  kind?: 'indicator' | 'alert'
 }
 
 /** 原生运行时选项；参数与品种在创建时进入顶层声明，之后只按 bar 增量执行。 */
@@ -142,6 +150,7 @@ function createScope(state: NativeState): Record<string, unknown> {
     /** 当前已经处理的行情数量。 */
     __count: () => state.index + 1,
     __barCount: () => state.bars.length,
+    __prevPrice: () => (state.index === state.liveBarIndex ? state.prevPrice : undefined),
     /** 采集数值点；保留与 QuickJS 相同的无穷值诊断。 */
     __plot(kind: unknown, value: unknown, name: unknown, options: unknown) {
       requireBar('plot')
@@ -180,6 +189,21 @@ function createScope(state: NativeState): Record<string, unknown> {
       if (state.index >= 0) throw new ScriptExecutionError('compile', 'hline 只能在文件顶层声明')
       return state.collector.onHLine(readHLineCall(price, options))
     },
+    /** 产生一个实时警报事件；只有警报脚本可以使用。 */
+    alert(message: unknown): void {
+      if (state.kind !== 'alert')
+        throw new ScriptExecutionError('run', 'alert 只能在 defineAlert 声明的脚本中调用')
+      if (state.index !== state.liveBarIndex) return
+      const bar = state.bars[state.index]
+      if (!bar) return
+      state.alerts.push(
+        Object.freeze({
+          message: String(message),
+          barTime: bar.time,
+          price: bar.close,
+        }),
+      )
+    },
   }
   // 保留原生全局能力的读取，运行库写入仍归本次 scope 所有；这里不做安全隔离。
   Object.setPrototypeOf(scope, globalThis)
@@ -205,6 +229,7 @@ export function createNativeScriptRuntime(
     phase: 'compile',
     values: [],
     checkpointIndex: 0,
+    alerts: [],
   }
   const scope = createScope(state)
   // with 只用于让动态注册的库名可被脚本解析；作用域不是安全边界。
@@ -240,7 +265,8 @@ export function createNativeScriptRuntime(
       libraries: runtime.checkpointLibraries(),
     }
   }
-  const definition: QuickJSScriptDefinition = readDefinition(runtime.metadata())
+  const definition: QuickJSScriptDefinition = readDefinition(runtime.metadata(), compiled.hasAlertCall)
+  state.kind = definition.kind
   const requests = runtime.requests()
 
   /** 执行 [startIndex, endIndex)；参数与请求上下文只替换引用，不重建作用域。 */
@@ -259,6 +285,9 @@ export function createNativeScriptRuntime(
     state.phase = 'run'
     state.committedCheckpoint = undefined
     state.checkpointIndex = input.checkpointIndex ?? input.endIndex - 1
+    state.liveBarIndex = input.liveBarIndex
+    state.prevPrice = input.prevPrice
+    state.alerts = []
     state.collector.prepare(input.bars.length, input.startIndex)
     try {
       if (options.expressionId === undefined) {
@@ -281,6 +310,7 @@ export function createNativeScriptRuntime(
     return {
       series: { ...state.collector.collect(), drawings: runtime.drawings() },
       values: state.values,
+      alerts: Object.freeze(state.alerts),
       ...(state.committedCheckpoint === undefined ? {} : { checkpoint: state.committedCheckpoint }),
     }
   }

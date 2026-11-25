@@ -40,9 +40,10 @@ function declareDefinition(
             source: `// ${scriptDisplayName}`,
             trusted: true,
             folder: '',
-            definition: { name: scriptDisplayName, inputs: {} },
+            definition: { kind: 'indicator', name: scriptDisplayName, inputs: {} },
           },
         }),
+    kind: 'indicator' as const,
     category: 'oscillator',
     defaultPaneId: `sub_${alias}`,
     scale: { indicatorKey: name },
@@ -73,6 +74,7 @@ function descriptorItem(
     kind: 'descriptor',
     candidate: { key: name, origin: 'third-party', identity: 'native' },
     descriptor: {
+      kind: 'indicator' as const,
       name,
       displayName: name,
       category: 'main',
@@ -257,3 +259,4 @@ describe('Indicator pipeline', () => {
     expect(indicatorCommits.peek()?.added.map((item) => item.name)).toEqual(['withDescriptor'])
   })
 })
+

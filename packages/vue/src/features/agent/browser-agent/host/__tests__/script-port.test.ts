@@ -26,7 +26,7 @@ function indicatorDocument(
     source: overrides.source ?? "defineIndicator({ version: 2, name: 'OC Average' })",
     trusted: false,
     folder: overrides.folder ?? '',
-    definition: { name: overrides.name ?? 'OC Average', inputs: {} },
+    definition: { kind: 'indicator', name: overrides.name ?? 'OC Average', inputs: {} },
   }
 }
 

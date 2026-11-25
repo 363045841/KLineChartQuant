@@ -458,7 +458,7 @@ export class Chart {
           this.interaction.reset()
           this.zoomController.stopAnimation()
         },
-        updateIndicatorData: (data, change, range, dataRevision, displayTimestamps) => {
+        updateIndicatorData: (data, change, range, dataRevision, displayTimestamps, live) => {
           const identity = this.currentDataIdentity()
           if (!identity) return
           this.indicatorManager.updateIndicatorData(
@@ -466,8 +466,9 @@ export class Chart {
             change,
             range,
             dataRevision,
-            displayTimestamps ?? null,
+            displayTimestamps,
             identity,
+            live,
           )
         },
         isPointerDown: () => this.interaction.isPointerDown(),

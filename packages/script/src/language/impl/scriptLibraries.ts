@@ -6,7 +6,7 @@ import { builtinLibraries } from '../../quickjs/impl/builtinLibraries.js'
 /** 每个文件只声明一个指标或库；依赖名称必须在准备阶段可确定。 */
 export function inspectScript(source: string) {
   const file = ts.createSourceFile('script.ts', source, ts.ScriptTarget.Latest, true)
-  const declarations: { kind: 'indicator' | 'library'; name: string }[] = []
+  const declarations: { kind: 'indicator' | 'alert' | 'library'; name: string }[] = []
   const dependencies = new Set<string>()
   /** 收集全局 API 调用，拒绝无法静态解析的库依赖。 */
   function visit(node: ts.Node): void {
@@ -18,7 +18,7 @@ export function inspectScript(source: string) {
           throw new Error('importLibrary 需要字符串字面量库名')
         dependencies.add(name.text)
       }
-      if (api === 'defineLibrary' || api === 'defineIndicator') {
+      if (api === 'defineLibrary' || api === 'defineIndicator' || api === 'defineAlert') {
         if (!ts.isExpressionStatement(node.parent) || node.parent.parent !== file) {
           throw new Error('脚本声明必须位于文件顶层')
         }
@@ -28,14 +28,14 @@ export function inspectScript(source: string) {
             throw new Error('defineLibrary 需要非空字符串字面量库名')
           }
           declarations.push({ kind: 'library', name: argument.text })
-        } else declarations.push({ kind: 'indicator', name: '' })
+        } else declarations.push({ kind: api === 'defineAlert' ? 'alert' : 'indicator', name: '' })
       }
     }
     ts.forEachChild(node, visit)
   }
   visit(file)
   const declaration = declarations[0]
-  if (declarations.length !== 1 || !declaration) throw new Error('文件必须声明一个指标或库')
+  if (declarations.length !== 1 || !declaration) throw new Error('文件必须声明一个指标、警报或库')
   return { ...declaration, dependencies: [...dependencies] }
 }
 

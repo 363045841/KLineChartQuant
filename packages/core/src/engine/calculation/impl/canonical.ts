@@ -40,6 +40,7 @@ export function canonicalizeInput(value: CalculationInputValue): string {
 
 /** 由数据字段构造稳定身份；缺省值只在这里归一。 */
 export function createDataIdentity(input: {
+  readonly scope?: string
   readonly source: string
   readonly instrument: string
   readonly period?: string
@@ -53,6 +54,7 @@ export function createDataIdentity(input: {
   if (!input.defaultAdjustment)
     throw new TypeError('Data identity requires a default adjustment')
   return Object.freeze({
+    ...(input.scope === undefined ? {} : { scope: input.scope }),
     source: input.source,
     instrument: input.instrument,
     period: input.period ?? input.defaultPeriod,
@@ -67,26 +69,18 @@ export function createFeedKey(identity: DataIdentity): string {
     identity.instrument,
     identity.period,
     identity.adjustment,
+    ...(identity.scope === undefined ? [] : [identity.scope]),
   ])
 }
 
-/**
- * 消费者内部的计算键。
- *
- * 视口只在请求显式声明时进入身份；不依赖视图的脚本永远得到同一个键。
- */
+/** 消费者内部的计算键：定义、参数与上下文共同决定一次计算。 */
 export function createLocalCalculationKey(
-  request: Pick<
-    CalculationRequest,
-    'definitionId' | 'inputs' | 'context' | 'viewportKey'
-  >,
+  request: Pick<CalculationRequest, 'definitionId' | 'inputs' | 'context'>,
 ): string {
   if (!request.definitionId) throw new TypeError('Calculation definitionId is required')
-  const viewport =
-    request.viewportKey === undefined ? '' : `:${canonicalizeInput(request.viewportKey)}`
   return `${request.definitionId}:${canonicalizeInput(request.inputs)}:${canonicalizeInput(
     request.context,
-  )}${viewport}`
+  )}`
 }
 
 /** 全局结果键；feed 与消费者本地键拼接，跨数据源不会串结果。 */

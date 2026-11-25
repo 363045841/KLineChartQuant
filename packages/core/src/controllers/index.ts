@@ -47,6 +47,17 @@ export type {
   RendererBackendStatus,
 } from '../rendering/render/rendererHost.js'
 export { createChartController } from './chart/index.js'
+export { hasAlertScriptReference } from '../features/alerts/impl/alertPersistence.js'
+export type {
+  Alert,
+  AlertChannel,
+  AlertDraft,
+  AlertFire,
+  AlertFrequency,
+  AlertId,
+  AlertService,
+  AlertStatus,
+} from '../features/alerts/types.js'
 export type { ActiveIndicator, IndicatorSelectorController } from './indicatorSelector/index.js'
 export { createIndicatorSelectorController } from './indicatorSelector/index.js'
 export type { ChartRendererAccess } from './renderers/index.js'
@@ -108,6 +119,8 @@ export type {
 export { createHeatmapController } from '../components/orderBookHeatmap/index.js'
 // 选择器与公共 API 共用同一个目录信号，注册表变更即重建。
 export {
+  type AlertScriptDefinition,
+  alertCatalog,
   findIndicatorDefinition,
   indicatorCatalog,
 } from '../controllers/indicatorCatalog/index.js'

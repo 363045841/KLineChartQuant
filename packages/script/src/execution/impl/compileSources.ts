@@ -2,6 +2,7 @@
 import {
   analyzeScriptDependency,
   requiresFullReplay,
+  hasDirectAlertCall,
 } from '../../quickjs/impl/analyzeDependency.js'
 import { builtinLibraries } from '../../quickjs/impl/builtinLibraries.js'
 import { compileScript } from '../../quickjs/impl/compileScript.js'
@@ -34,5 +35,6 @@ export function compileSources(
     ],
     dependency: analyzeScriptDependency(source, analysisLibraries),
     replayOnUpdate: requiresFullReplay(source, analysisLibraries),
+    hasAlertCall: hasDirectAlertCall(source),
   }
 }

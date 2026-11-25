@@ -4,6 +4,7 @@ import type {
   ComputeRange,
   DrawingObject,
   IndicatorSeries,
+  ScriptAlertEvent,
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { LogEvent } from '../../contracts/log.js'
 import type { QuickJSScriptDefinition, ScriptParamValue } from '../../quickjs/types.js'
@@ -29,6 +30,10 @@ export interface ScriptRuntimeExecuteOptions {
   readonly params: Readonly<Record<string, ScriptParamValue>>
   readonly execution: RequestExecution
   readonly emit?: (event: LogEvent) => void
+  /** 本次更新的实时末根下标；省略时整段是历史。 */
+  readonly liveBarIndex?: number
+  /** 当前实时 bar 上一次更新的价格。 */
+  readonly prevPrice?: number
   /** 最后一根 bar 之前的状态下标；库在完成期渲染后用它提交检查点。 */
   readonly checkpointIndex?: number
 }
@@ -37,6 +42,7 @@ export interface ScriptRuntimeExecuteOptions {
 export interface ScriptRuntimeExecuteResult<Checkpoint = never> {
   readonly series: IndicatorSeries
   readonly values: readonly RequestValue[]
+  readonly alerts: readonly ScriptAlertEvent[]
   /** 库在本次运行中提交的新检查点；未提交时沿用调用方的检查点。 */
   readonly checkpoint?: Checkpoint
 }
@@ -78,12 +84,15 @@ export interface ScriptSessionRunOptions {
   readonly context?: ScriptRequestContext
   /** 需要重算的区间；缺省为整段。 */
   readonly range?: ComputeRange
+  /** 最后一根 bar 是否为实时 bar；为 true 时只有最后一根 bar 允许产生警报。 */
+  readonly live?: boolean
 }
 
-/** 会话运行输出；series 含完整绘图，drawingDelta 是本次增量。 */
-export interface ScriptSessionOutput {
-  readonly series: IndicatorSeries
+/** 会话运行输出；继承完整绘图，另带本次增量与警报事件。 */
+export interface ScriptSessionOutput extends IndicatorSeries {
   readonly drawingDelta: DrawingDelta
+  /** 本次运行产生的实时警报事件；历史运行恒为空。 */
+  readonly alerts: readonly ScriptAlertEvent[]
 }
 
 /** 脚本执行会话：宿主唯一入口，不暴露运行时细节。 */

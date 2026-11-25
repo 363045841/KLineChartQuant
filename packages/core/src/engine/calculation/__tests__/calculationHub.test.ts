@@ -38,6 +38,7 @@ function feed(dataRevision: number): FeedSnapshot {
     timestamps: BARS.map((bar) => bar.timestamp),
     data: BARS,
     change: { start: 0, end: BARS.length },
+    live: true,
   }
 }
 
@@ -142,8 +143,7 @@ describe('calculation hub', () => {
     hub.updateFeed(feed(2))
     gate.resolve({ series: 1 })
 
-    await vi.waitFor(() => expect(hub.get(FEED, 'ma')?.dataRevision).toBe(2))
-    expect(sink.commits.at(-1)?.dataRevision).toBe(2)
+    await vi.waitFor(() => expect(sink.commits.at(-1)?.dataRevision).toBe(2))
     expect(sink.commits.every((commit) => commit.dataRevision === 2)).toBe(true)
     hub.dispose()
   })
@@ -173,13 +173,13 @@ describe('calculation hub', () => {
     hub.dispose()
   })
 
-  it('carries script events in the result and reports pending owners', async () => {
+  it('carries alert events in the result and reports pending owners', async () => {
     const pending: Array<readonly [readonly string[], boolean]> = []
     const hub = createCalculationHub({
       resolveDefinition: () =>
         definition(async () => ({
           series: 0,
-          events: [{ kind: 'alert', message: 'cross', time: 1, barIndex: 0, price: 2, live: true }],
+          alerts: [{ message: 'cross', barTime: 1, price: 2 }],
         })),
     })
     const sink = collect()
@@ -201,7 +201,7 @@ describe('calculation hub', () => {
 
     await vi.waitFor(() => expect(sink.commits).toHaveLength(1))
     const result = sink.commits[0]!.results.get('ma')!
-    expect(result.events).toHaveLength(1)
+    expect(result.alerts).toHaveLength(1)
     expect(pending).toEqual([
       [['i1'], true],
       [['i1'], false],
@@ -225,10 +225,11 @@ describe('calculation hub', () => {
     await vi.waitFor(() => expect(sink.commits).toHaveLength(1))
 
     hub.removeFeed(FEED)
-    expect(hub.get(FEED, 'ma')).toBeUndefined()
+    const before = sink.commits.length
     hub.updateFeed(feed(2))
     client.setPlan([plan()])
     await vi.waitFor(() => expect(sink.commits.at(-1)?.dataRevision).toBe(2))
+    expect(sink.commits.length).toBeGreaterThan(before)
     expect(calls).toBe(2)
     hub.dispose()
   })

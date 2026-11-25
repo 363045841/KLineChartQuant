@@ -27,6 +27,7 @@ function registerTestIndicator(displayName: string, title?: string): string {
       kind: 'descriptor',
       candidate: { key: displayName, origin: 'third-party', identity: 'native' },
       descriptor: {
+        kind: 'indicator',
         name: displayName,
         ...(title === undefined ? {} : { title }),
         displayName,
@@ -331,3 +332,4 @@ it('按 indicatorIds 过滤模板实例并移除无引用副图', () => {
   expect(kline.instances.map((instance) => instance.indicatorId)).toEqual(['MA'])
   expect(kline.paneSpecs.map((spec) => spec.id)).toEqual(['main'])
 })
+

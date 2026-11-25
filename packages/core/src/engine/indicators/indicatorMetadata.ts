@@ -8,6 +8,7 @@
 import type {
   IndicatorSource,
   IndicatorSourceDocument,
+  ScriptDefinitionKind,
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { IndicatorRenderStateReader, RenderContext } from '../../foundation/plugin/index.js'
 import type { ColorTokens } from '../../foundation/tokens/index.js'
@@ -15,6 +16,7 @@ import type { KLineData } from '../../foundation/types/price.js'
 import type { Layer } from '../../rendering/scene/types.js'
 import type { ChartDataView } from '../chartModel/index.js'
 import type { IndicatorPlotDefinition } from '../plots/types.js'
+import type { CalculationCompute } from '../calculation/types.js'
 
 /** 单个指标的计算参数。 */
 export type IndicatorConfig = Readonly<Record<string, unknown>>
@@ -110,29 +112,18 @@ export interface IndicatorInputDisplay {
  * 指标计算描述符
  * 描述指标的计算端口；Script 定义将计算委派给 Script 服务管理的 Worker。
  */
-export interface IndicatorRuntimeDescriptor<C = any> {
+export interface IndicatorRuntimeDescriptor {
   /** 定义版本属于计算身份，源码更新不依赖行情或参数变化。 */
   revision?: number
   /** 计算对历史的依赖；缺省按有状态处理，正确性优先。 */
   dependency?: import('@363045841yyt/klinechart-plot-contracts').ComputeDependency
-  /** 每个执行器创建独立的增量 calculator。 */
-  createCompute?: () => ((
-    data: readonly KLineData[],
-    config: C,
-    market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
-    range?: import('@363045841yyt/klinechart-plot-contracts').ComputeRange,
-  ) => unknown) & { dispose?(): void }
+  /** 每个执行器创建独立的增量 calculator；事件随输出返回。 */
+  createCompute?: () => CalculationCompute & { dispose?(): void }
   /** 只影响 calculator 输出的默认参数，不包含 show* 等展示配置。 */
-  defaultInputs: C
+  defaultInputs: import('../calculation/types.js').CalculationInputs
   /** 参数展示声明，按参数名索引；缺省时面板用参数名当标题。 */
   inputDefs?: Readonly<Record<string, IndicatorInputDisplay>>
-  /** 注册定义的唯一计算端口。 */
-  compute: (
-    data: readonly KLineData[],
-    config: C,
-    market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
-    range?: import('@363045841yyt/klinechart-plot-contracts').ComputeRange,
-  ) => unknown
+  compute: CalculationCompute
 }
 
 /** 指标展示配置，不进入 Runtime、Worker 或业务结果池。 */
@@ -153,7 +144,7 @@ export interface IndicatorPeriodVisibility {
 /**
  * 指标元数据接口
  */
-export interface IndicatorMetadata<_T = unknown> {
+export type IndicatorMetadata<_T = unknown> = ScriptDefinitionKind & {
   source?: IndicatorSource
   document?: IndicatorSourceDocument
   /** 序列和绘图对象统一声明公共 Plot 输出。 */

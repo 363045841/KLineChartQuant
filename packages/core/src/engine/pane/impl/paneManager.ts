@@ -11,6 +11,7 @@ import { batch } from '../../../foundation/reactivity/signal.js'
 import { generateUUID } from '../../../foundation/utils/uuid.js'
 import { resolveDefinitionDefaultInputs } from '../../indicators/defaultInputs.js'
 import { createIndicatorInstanceId } from '../../indicators/instances/api/instanceIdentity.js'
+import { isAlertDefinition } from '../../indicators/pipeline/index.js'
 import type { IndicatorInstancePatch, IndicatorInstanceSpec } from '../../state/indicatorState.js'
 import type {
   IndicatorInstanceCommands,
@@ -68,6 +69,8 @@ export class PaneManager {
     params: Readonly<Record<string, unknown>> | undefined,
     placement: IndicatorPlacement | undefined,
   ): string | null {
+    // 警报定义只被规则引用，不进入图表面板。
+    if (isAlertDefinition(definitionId)) return null
     const definition = this.dependencies.getDefinition(definitionId)
     if (!definition) return null
     const specs = this.list()

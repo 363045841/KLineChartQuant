@@ -43,6 +43,7 @@ const indicatorName = 'vendorCustomLayer'
 const indicatorLayerId = makePluginLayerId(indicatorName)
 
 const ExternalIndicator = {
+  kind: 'indicator',
   name: indicatorName,
   displayName: 'Vendor Custom Layer',
   category: 'main',
@@ -337,3 +338,4 @@ describe('public chart renderer access', () => {
     expect(layer.dispose).toHaveBeenCalledTimes(1)
   })
 })
+

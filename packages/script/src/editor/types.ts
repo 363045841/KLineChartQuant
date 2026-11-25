@@ -3,16 +3,18 @@
 import type {
   BarPlotOptions,
   CandlePlotOptions,
+  Format,
   InputDef,
   InputOptions,
   NumberInputOptions,
   PlotCallOptions,
   PlotDeclaration,
+  ScriptAlertFrequency,
   StringInputOptions,
   Timeframe,
   TimeframeInputOptions,
 } from '@363045841yyt/klinechart-plot-contracts'
-import { INDICATOR_API_VERSION, type QuickJSScriptDefinition } from '../quickjs/types.js'
+import { INDICATOR_API_VERSION, Position } from '../quickjs/types.js'
 
 /** 按输入类型声明默认值与对应选项，params 根据返回声明推导值类型。 */
 export interface ScriptInput {
@@ -146,9 +148,25 @@ export interface ScriptPlot {
 }
 
 /** 完整脚本的声明与逐 bar 执行回调。 */
-export interface ScriptIndicatorDeclaration extends Omit<QuickJSScriptDefinition, 'inputs'> {
+interface ScriptDeclaration {
   /** 必须写当前指标 API 版本；旧脚本没有声明时按 1 处理，注册期直接拒绝。 */
   readonly version: typeof INDICATOR_API_VERSION
+  readonly name: string
+  readonly title?: string
+  readonly info?: string
   /** 逐根 K 线调用一次 */
   onBar(): void
+}
+
+export interface ScriptIndicatorDeclaration extends ScriptDeclaration {
+  readonly position: Position
+  readonly format?: Format
+  readonly maxLinesCount?: number
+  readonly maxBoxesCount?: number
+  readonly maxLabelsCount?: number
+}
+
+export interface ScriptAlertDeclaration extends ScriptDeclaration {
+  /** 触发频率；规则不覆盖。 */
+  readonly frequency: ScriptAlertFrequency
 }

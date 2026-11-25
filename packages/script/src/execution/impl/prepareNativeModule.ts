@@ -2,7 +2,7 @@
 import type { ComputeRange } from '@363045841yyt/klinechart-plot-contracts'
 import type { Bar } from '../../contracts/input.js'
 import type { LogEvent } from '../../contracts/log.js'
-import type { PreparedQuickJSScript, ScriptParamValue } from '../../quickjs/types.js'
+import type { PreparedScript, ScriptParamValue } from '../../quickjs/types.js'
 import { CURRENT_SYMBOL } from '../../request/impl/symbols.js'
 import type { ScriptRequestContext } from '../../request/types.js'
 import { createScriptExecutionSession } from '../session/impl/createScriptExecutionSession.js'
@@ -13,7 +13,7 @@ import type { CompiledScriptSources } from '../types.js'
 export function prepareNativeModule(
   compiled: CompiledScriptSources,
   onLog?: (event: LogEvent) => void,
-): PreparedQuickJSScript {
+): PreparedScript {
   const session = createScriptExecutionSession({
     createRuntime: ({ expressionId, params, symbol }) =>
       createNativeScriptRuntime(compiled, { expressionId, onLog, params, symbol }),
@@ -31,16 +31,9 @@ export function prepareNativeModule(
       params: Readonly<Record<string, ScriptParamValue>> = {},
       context?: ScriptRequestContext,
       range?: ComputeRange,
+      live?: boolean,
     ) {
-      return session.run({ bars, params, context, range }).series
-    },
-    runDetailed(
-      bars: readonly Bar[],
-      params: Readonly<Record<string, ScriptParamValue>> = {},
-      context?: ScriptRequestContext,
-      range?: ComputeRange,
-    ) {
-      return session.run({ bars, params, context, range })
+      return session.run({ bars, params, context, range, ...(live === undefined ? {} : { live }) })
     },
     dispose() {
       session.dispose()

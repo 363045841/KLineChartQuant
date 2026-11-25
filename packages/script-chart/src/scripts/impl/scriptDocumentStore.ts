@@ -22,7 +22,7 @@ function fromMetadata(metadata: IndicatorMetadata | undefined): ScriptDocument |
     return undefined
   // 定义在提交时已校验；公开元数据保存在同一不可变编译快照内。
   return Object.freeze({
-    kind: 'indicator',
+    kind: document.definition.kind,
     id: metadata.name,
     identity: document.identity,
     revision: document.revision,

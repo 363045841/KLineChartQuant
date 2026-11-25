@@ -1,6 +1,6 @@
 /**
- * 脚本身份改写：复制脚本时只改 defineIndicator 的 name 与 defineLibrary 的首个名称参数，
- * 保留注释、计算代码与其他同名属性。
+ * 脚本身份改写：复制脚本时只改 defineIndicator / defineAlert 的 name 与
+ * defineLibrary 的首个名称参数，保留注释、计算代码与其他同名属性。
  *
  * 用 TypeScript 语法树而不是文本替换，因为 name 可能出现在嵌套对象里；
  * 编译器在函数内按需加载，只有真正复制脚本时才付出这份体积。
@@ -16,7 +16,7 @@ type SourceEdit = { start: number; end: number; text: string }
  * @param source 完整脚本源码
  * @param name 新名称
  * @returns 改写后的源码
- * @throws 指标声明不是对象或找不到可改写的身份声明时抛出
+ * @throws 脚本声明不是对象或找不到可改写的身份声明时抛出
  */
 export async function rewriteScriptIdentity(source: string, name: string): Promise<string> {
   const ts = await import('typescript')
@@ -29,13 +29,15 @@ export async function rewriteScriptIdentity(source: string, name: string): Promi
   )
   const edits: SourceEdit[] = []
 
-  /** 是 defineIndicator(...) 调用则返回其声明对象，否则返回 null。 */
+  /** 是 defineIndicator / defineAlert 调用则返回其声明对象，否则返回 null。 */
   function readDeclaration(node: Node): ObjectLiteralExpression | null {
     if (!ts.isCallExpression(node)) return null
-    if (!ts.isIdentifier(node.expression) || node.expression.text !== 'defineIndicator') return null
+    if (!ts.isIdentifier(node.expression)) return null
+    const declarationName = node.expression.text
+    if (declarationName !== 'defineIndicator' && declarationName !== 'defineAlert') return null
     const declaration = node.arguments[0]
     if (!declaration || !ts.isObjectLiteralExpression(declaration)) {
-      throw new Error('无法创建副本：指标声明必须是对象')
+      throw new Error('无法创建副本：脚本声明必须是对象')
     }
     return declaration
   }

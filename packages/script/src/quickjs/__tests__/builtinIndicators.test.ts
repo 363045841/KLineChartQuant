@@ -79,6 +79,7 @@ describe('迁移的内置指标', () => {
   // 首根即可输出，或依赖 Request/时间上下文的脚本不适用预热断言；
   // 其余脚本统一由目录派生，新增脚本默认纳入，新增例外必须在名单里显式声明。
   const withoutWarmup = new Set([
+    'alert-demo',
     'cmf',
     'ichimoku',
     'macd',

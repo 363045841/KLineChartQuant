@@ -1,59 +1,18 @@
-# 计算层与视图解耦：CalculationHub 与警报服务
+# 行情计算与脚本警报
 
-## 问题
+图表与警报共用脚本定义、计算中枢和执行会话。会话按行情序列、定义、参数和计算上下文复用。图表实例的位置与样式由视图投影。
 
-指标计算原先由 `ChartIndicatorManager` 拥有：调度、执行器、结果仓库都跟随单个图表实例，
-行情入口只接收当前 active buffer，`calculationKey` 也不含数据身份。
-后果是所有计算都隐式绑定"当前视图正在看的那份数据"：
+## 行情与计算
 
-- 非当前品种无法计算，警报跨品种必须自建第二条链路；
-- 计算身份无法与图表外的消费者共享；
-- 无指标实例时结果不提交，警报永不评估；
-- 视图与计算职责混在一个类里，滚动、切换品种、定义替换互相牵连。
+- 图表与警报分别维护自己的行情修订。警报行情源按启用规则订阅任意品种，历史数据与已收到的实时尾部合并，收盘以行情流的 `closed` 帧为准。
+- 视图读取最新完整结果。警报按顺序接收每次计算结果，因此中间的上穿或收盘帧不会被更新的快照替代。
+- `barstate.prevPrice` 读取同一根 K 线上一次实时更新价。实时首笔与历史计算返回 `undefined`。`close[0]` 是当前 K 线的最新价格。
+- 指标和警报共用计算输出。警报事件随 `alerts` 返回，只有本次更新的实时末根可以产出事件。
 
-## 决策
+## 脚本与规则
 
-1. **计算身份包含数据身份**  
-   `CalculationKey = feed(source + instrument + period + adjustment) + definitionId + inputs + context (+ viewportKey)`。  
-   视图（pane、缩放、选中）不进入 key。
-2. **单一执行入口**  
-   调度、执行器、结果仓库收归 `engine/calculation`。图表、警报、Agent 都只是消费者。
-3. **消费者计划整份替换**  
-   消费者调用 `client.setPlan(feeds)`；Hub 按 feed 去重、latest-wins 排队、按修订校验结果。
-4. **每个修订都提交**  
-   即使计划里没有任何请求，也会提交一次空结果，修复"无指标不评估"的隐式依赖。
-5. **脚本事件随结果返回**  
-   结果统一为 `{ series, events }`；`events` 里的 alert 事件带 `live` 标记，历史与回放必须为 `false`。
-6. **警报是计算结果的消费者**  
-   `createLocalAlertService` 只做频率、冷却、过期、日志、投递与持久化；
-   条件由脚本定义，服务不创建第二套计算。
-
-## 计算流程
-
-```text
-DataManager（按 seriesSelection 维护多份 bars）
-  -> CalculationHub.updateFeed(feed)
-  -> 按 desired 请求去重/排队
-  -> 执行定义 compute -> { series, events }
-  -> ResultStore（按全局 key + 修订）
-  -> commit(feed, revision, results)
-       ├─ ChartIndicatorManager：投影渲染
-       ├─ AlertService：策略判定 -> 日志/通知
-       └─ Agent：读取序列
-```
-
-## 警报语义
-
-- `enabled` 是独立的池开关，不是脚本实例状态。
-- 状态由 `alertStatus()` 推导：`paused > triggered > expired > error > active`，不落盘。
-- `frequency`：`once` / `per-bar` / `per-bar-close` / `all`；`cooldownMs` 叠加生效。
-- `per-bar-close` 缓存该 bar 最后一次事件，下一根 bar 出现时结算。
-- 只处理 `live === true` 且位于最新 bar 的事件；历史事件由运行端标记并丢弃。
-- 持久化：规则与日志分文档；默认上限 200 条规则、1000 条日志、单规则 200 条。
-
-## 未包含
-
-- 脚本端 `alert()` host function 与 Worker 事件返回（下一阶段）。
-- 非当前图表品种的行情 feed（需要数据层按品种推送，Hub 已支持多 feed）。
-- Web Locks / BroadcastChannel 多标签页选主。
-- 图上价位线与触发标记、警报 UI。
+- `defineAlert({ version, name, frequency, title?, info?, onBar })` 声明警报。频率由脚本声明并贯穿目录与规则求值。编译器检查源码是否有直接的 `alert()` 调用，运行时按条件执行。
+- 指标与警报各有一份选择器投影。规则的 `script` 字段引用稳定定义 ID 和参数覆盖项。计算使用最新的脚本默认值。持久化读取兼容旧 `condition` 字段。
+- `once` 在首次接受事件后终止，状态随规则保存。`per-bar` 每根 K 线接受第一条事件。`all` 接受每条事件。`per-bar-close` 保留当前 K 线最后一条事件，在收到同一根 K 线的收盘帧时结算。
+- 新建、编辑和启用规则后，从下一次行情更新开始消费事件。停用规则仍然引用脚本。默认工作区在删除脚本或文件夹前检查规则引用。
+- 服务记录已触发事件，并按规则渠道投递。图表卡片订阅 `in-app`，声音订阅 `sound`，浏览器允许播放后生效。其他宿主可通过 `subscribeNotifications` 接入。

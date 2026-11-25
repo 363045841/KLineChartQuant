@@ -82,9 +82,9 @@ describe.each(BACKENDS)('$name lower timeframe', ({ prepare }) => {
     const bars = [bar(day, 30), bar(day + 86_400_000, 40), bar(day + 172_800_000, 60)]
     const market = { symbol: 'TEST', time: context, snapshots: [{ id: '0', bars: details }] }
     const config = { rowSize: 4, periodUnit: 'day' }
-    const first = script.runDetailed(bars, config, market, { start: 0, end: bars.length })
+    const first = script.output(bars, config, market, { start: 0, end: bars.length })
     const nextDetails = [...details, bar(day + 172_800_000 + 60_000, 70)]
-    const second = script.runDetailed(
+    const second = script.output(
       bars,
       config,
       {
@@ -94,7 +94,7 @@ describe.each(BACKENDS)('$name lower timeframe', ({ prepare }) => {
       { start: bars.length - 1, end: bars.length },
     )
     const completed = (output: typeof first) =>
-      (output.series.drawings ?? []).filter(
+      (output.drawings ?? []).filter(
         (drawing) => drawing.kind === 'rectangle' && drawing.anchors[0]?.time === day,
       )
     expect(completed(first).length).toBeGreaterThan(0)
@@ -243,3 +243,9 @@ describe('exchange clock', () => {
     )
   })
 })
+
+
+
+
+
+

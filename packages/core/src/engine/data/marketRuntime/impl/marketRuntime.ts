@@ -103,6 +103,7 @@ export class MarketRuntime implements CalculationMarketData {
   private requestRevision = 0
   /** 行情租约的唯一事实：key → 来源。请求与需求条目只是它的投影。 */
   private readonly owners = new Map<string, OwnerSource>()
+  private readonly independentOwners = new Set<string>()
   private temporarySequence = 0
 
   /** 临时计算持有一份租约，结束后只释放自己的请求与需求。 */
@@ -168,8 +169,9 @@ export class MarketRuntime implements CalculationMarketData {
   }
 
   /** 给计算任务提供只读取数端口，完整 Buffer 永不进入脚本。 */
-  context(owner: string, bars: readonly KLineData[]): IndicatorMarketContext {
-    const session = this.deps.session.peek()
+  context(owner: string, bars: readonly KLineData[], independentSession?: ReadyMarketSession): IndicatorMarketContext {
+    if (independentSession) this.independentOwners.add(owner)
+    const session = independentSession ?? this.deps.session.peek()
     const symbol = session === null ? '' : session.instrument.symbol
     const profile =
       session?.instrument.sessionId === undefined
@@ -189,7 +191,7 @@ export class MarketRuntime implements CalculationMarketData {
                   : { ...profile, premarket: venue.premarket, postmarket: venue.postmarket },
             },
       loadBars: (request: IndicatorBarsRequest, signal?: AbortSignal) =>
-        this.requests.read(owner, bars, request, session, signal),
+        this.requests.read(owner, bars, request, session, signal, independentSession !== undefined),
     })
   }
 
@@ -203,6 +205,7 @@ export class MarketRuntime implements CalculationMarketData {
 
   /** 把请求与需求投影对齐到租约集合，再回收无引用的 Buffer 与连接。 */
   private sweep(): void {
+    for (const owner of this.independentOwners) if (!this.owners.has(owner)) this.independentOwners.delete(owner)
     this.requests.retain(new Set(this.owners.keys()))
     for (const demand of this.barDemands.values())
       for (const owner of demand.owners) if (!this.owners.has(owner)) demand.owners.delete(owner)
@@ -347,7 +350,6 @@ export class MarketRuntime implements CalculationMarketData {
       cache: deps.cache,
       registry: this.registry,
       sessions: this.marketSessions,
-      current: () => (this.disposed ? null : deps.session.peek()),
       resolveSelection: deps.resolveBarsSelection,
       bind: (owners, target, buffer) => {
         const demand = this.demand(target, buffer)
@@ -388,8 +390,10 @@ export class MarketRuntime implements CalculationMarketData {
     const next = this.deps.session.peek()
     if (next !== this.session) {
       this.session = next
-      this.requests.clear()
-      for (const demand of this.barDemands.values()) demand.owners.clear()
+      this.requests.retain(this.independentOwners)
+      for (const demand of this.barDemands.values()) {
+        for (const owner of demand.owners) if (!this.independentOwners.has(owner)) demand.owners.delete(owner)
+      }
       this.releaseUnusedBars()
       this.requestRevision++
       this.reconcileBarStreams()

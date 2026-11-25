@@ -14,6 +14,7 @@ import {
 } from 'vue'
 import {
   createBlankSource,
+  createAlertSource,
   createCopySource,
   createLibrarySource,
   uniqueScriptName,
@@ -46,7 +47,7 @@ export interface ScriptEditorSession {
   selectTab(id: string): void
   closeTab(id: string): void
   moveTab(id: string, targetId: string): void
-  readonly kind: Readonly<Ref<'indicator' | 'library'>>
+  readonly kind: Readonly<Ref<'indicator' | 'alert' | 'library'>>
   readonly documents: Ref<readonly ScriptEditorDocument[]>
   readonly folders: Ref<readonly ScriptEditorFolder[]>
   readonly libraries: Readonly<Ref<readonly { name: string; source: string }[]>>
@@ -71,7 +72,7 @@ export interface ScriptEditorSession {
   readonly treeError: Readonly<Ref<string | null>>
   readonly saved: Readonly<Ref<boolean>>
   openFor(id: string): void
-  openBlank(kind?: 'indicator' | 'library', folder?: string): void
+  openBlank(kind?: 'indicator' | 'alert' | 'library', folder?: string): void
   /** 文件树操作的唯一入口；统一维护忙碌状态和可展示的失败原因。 */
   applyTreeAction(action: ScriptTreeAction): Promise<void>
   close(): void
@@ -202,7 +203,7 @@ export function useScriptEditor(
 
   /** 新草稿分配会话内稳定标签身份，保存后也不改变标签键。 */
   function addDraft(
-    nextKind: 'indicator' | 'library',
+    nextKind: 'indicator' | 'alert' | 'library',
     title: string,
     text: string,
     folder = '',
@@ -329,7 +330,7 @@ export function useScriptEditor(
   /** 两个快捷操作共享状态、错误反馈与当前图表；调试只执行草稿，添加才提交定义。 */
   async function execute(action: 'run' | 'add-to-chart'): Promise<void> {
     const draft = current.value
-    if (!draft || draft.kind !== 'indicator' || busy()) return
+    if (!draft || draft.kind === 'library' || (action === 'add-to-chart' && draft.kind !== 'indicator') || busy()) return
     executing.value = action
     update(draft.id, { executionError: null })
     try {
@@ -354,14 +355,16 @@ export function useScriptEditor(
   }
 
   /** 在指定目录新建草稿。 */
-  function openBlank(nextKind: 'indicator' | 'library' = 'indicator', folder = ''): void {
+  function openBlank(nextKind: 'indicator' | 'alert' | 'library' = 'indicator', folder = ''): void {
     if (saving.value) return
     refreshDocuments()
-    const title = uniqueName(nextKind === 'library' ? 'myLibrary' : '我的脚本')
+    const templates = { indicator: createBlankSource, library: createLibrarySource, alert: createAlertSource }
+    const names = { indicator: '我的脚本', library: 'myLibrary', alert: '我的警报' }
+    const title = uniqueName(names[nextKind])
     addDraft(
       nextKind,
       title,
-      store ? (nextKind === 'library' ? createLibrarySource(title) : createBlankSource(title)) : '',
+      store ? templates[nextKind](title) : '',
       folder,
     )
   }

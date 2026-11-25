@@ -7,25 +7,25 @@
 
 ## 脚本服务
 
-`createScriptService()` 异步预加载 QuickJS 运行时，返回同步的生命周期服务：
+`createScriptService()` 初始化运行时和工作区。创建、修改和删除源码都是异步操作。
 
 ```ts
 import { createScriptService } from '@363045841yyt/klinechart-script-chart'
 import source from './my-script.js?raw'
 
 const scripts = await createScriptService()
-const document = scripts.create(source) // { id, revision, source, definition }
+const document = await scripts.create(source)
 scripts.read(document.id)
-scripts.update(document.id, changedSource, document.revision)
-scripts.remove(document.id, document.revision)
+const updated = await scripts.update(document.id, changedSource, document.revision)
+await scripts.remove(updated.id, updated.revision)
 ```
 
-- `create` 校验并编译整份脚本，写入图表指标目录；同名脚本拒绝重复创建。
+- `create` 根据声明创建指标、警报或库。可运行的脚本注册到相应目录。
 - `update` 要求传入打开时的 `revision`，过期草稿不会覆盖新提交。
 - `remove` 删除定义并清理对应实例。
 - `list` 返回全部已提交脚本文档。
 
-`id` 取脚本的 `name`，也是图例和编辑器读取源码的身份。
+用户文档的 `id` 在创建时分配，编辑脚本名称后仍使用同一 ID。
 源码、修订号与派生定义属于同一次提交，不存在“定义已更新、源码未写入”的中间状态。
 
 ## 自定义库

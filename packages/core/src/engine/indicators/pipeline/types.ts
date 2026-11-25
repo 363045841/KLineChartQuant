@@ -5,7 +5,10 @@
  * 只有注册阶段写指标仓库并发出一次通知。内置脚本、用户脚本与
  * 第三方注册共用同一组契约，不允许出现旁路写入。
  */
-import type { IndicatorSourceDocument } from '@363045841yyt/klinechart-plot-contracts'
+import type {
+  IndicatorSourceDocument,
+  ScriptDefinitionKind,
+} from '@363045841yyt/klinechart-plot-contracts'
 import type { ReadonlySignal } from '@/foundation/reactivity/index.js'
 import type { ChartDataView } from '../../chartModel/index.js'
 import type {
@@ -31,7 +34,7 @@ export type IndicatorStageName = 'collect' | 'compile' | 'register'
  * 静态目录项：选择器、搜索与 Agent 工具结构需要的全部字段；读取时不加载实现（实现懒加载）。
  * 目录来自脚本编译或宿主显式提供的指标描述，不包含系统图层。
  */
-export interface IndicatorDescriptor {
+export type IndicatorDescriptor = ScriptDefinitionKind & {
   readonly source?: IndicatorMetadata['source']
   readonly name: string
   readonly aliases?: readonly string[]

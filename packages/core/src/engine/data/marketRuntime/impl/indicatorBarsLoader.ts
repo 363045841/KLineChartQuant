@@ -21,7 +21,6 @@ interface Dependencies {
   readonly cache: MarketDataCache
   readonly registry: MarketDataProviderRegistry
   readonly sessions: MarketSessionRegistry
-  current(): ReadyMarketSession | null
   readonly resolveSelection: MarketRuntimeDependencies['resolveBarsSelection']
   bind(owners: ReadonlySet<string>, target: ReadyMarketSession, buffer: KLineBuffer): void
 }
@@ -53,7 +52,6 @@ async function fetchPages(
   for (;;) {
     const result = await deps.cache.queryBars({ ...query, beforeTimestamp: cursor })
     demand.abort.signal.throwIfAborted()
-    if (deps.current() !== demand.session) throw new Error('Request 图表会话已切换')
     const page = [...result.series.data]
     pages.unshift(page)
     loaded += page.length

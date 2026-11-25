@@ -18,6 +18,8 @@ import { collectLayoutIndicatorIds } from '@/engine/layout/impl/layoutIndicators
 import { LayoutManager } from '@/engine/layout/impl/layoutManager.js'
 import { MAIN_PANE_ID } from '@/engine/pane/types.js'
 import { CONTROLLER_ERROR_CODES, KLineChartError } from '@/errors.js'
+import { createAlertFeedSource, createAlertService } from '@/features/alerts/index.js'
+import { createAlertStores, trackAlertService } from '@/features/alerts/impl/alertPersistence.js'
 import { formatDrawingAnchorTime } from '@/features/agent/impl/drawingAnchorTime.js'
 import {
   type ChartAgentDrawingScope,
@@ -308,6 +310,36 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   let disposal: Promise<void> | undefined
 
+  // 警报只消费计算结果；行情由独立行情源提交，不依赖图表当前品种。
+  const alertHub = chart.indicators.getCalculationHub()
+  const alertMarket = opts.marketDataContext ?? defaultMarketDataContext
+  const alertFeeds = createAlertFeedSource({
+    hub: alertHub,
+    registry: alertMarket.registry,
+    stream: alertMarket.stream,
+    onError: (symbol, error) => {
+      console.error('[AlertFeed]', symbol.instrument.symbol, error)
+    },
+  })
+  const alertStores = createAlertStores()
+  let alerts: Awaited<ReturnType<typeof createAlertService>>
+  try {
+    alerts = await createAlertService({ hub: alertHub, ...alertStores, feeds: alertFeeds })
+  } catch (error) {
+    for (const unsubscribe of layoutSubscriptions) unsubscribe()
+    alertFeeds.dispose()
+    await Promise.allSettled([
+      alertStores.rules.dispose(),
+      alertStores.fires.dispose(),
+      Promise.resolve().then(mounted.cleanup),
+      Promise.resolve().then(() => templateManager.dispose()),
+      Promise.resolve().then(() => layoutManager.dispose()),
+      Promise.resolve().then(() => chart.destroy()),
+    ])
+    throw error
+  }
+  const untrackAlerts = trackAlertService(alerts)
+
   function dispose(): Promise<void> {
     if (disposal) return disposal
     disposed = true
@@ -316,6 +348,11 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       const failures: unknown[] = []
       for (const release of [
         mounted.cleanup,
+        () => alerts.dispose(),
+        untrackAlerts,
+        alertStores.rules.dispose,
+        alertStores.fires.dispose,
+        alertFeeds.dispose,
         () => templateManager.dispose(),
         () => layoutManager.dispose(),
         () => chart.destroy(),
@@ -332,6 +369,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   }
 
   return {
+    alerts,
     layouts: layoutManager.layouts,
     activeLayoutId: layoutManager.activeLayoutId,
     layoutAutoSave: layoutManager.layoutAutoSave,

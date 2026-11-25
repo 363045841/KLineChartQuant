@@ -38,6 +38,11 @@ export class ChartIndicatorFacade {
     return this.deps.manager.subPanesComputed
   }
 
+  /** 同一宿主的其他消费者（警报、Agent）复用这份计算中枢；计算层只有一份。 */
+  getCalculationHub(): import('../../../calculation/index.js').CalculationHub {
+    return this.deps.manager.getCalculationHub()
+  }
+
   /**
    * 按定义创建实例。
    *

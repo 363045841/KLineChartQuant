@@ -553,6 +553,7 @@ export class ChartIndicatorManager {
     dataRevision: number,
     displayTimestamps: readonly number[] | null,
     identity: DataIdentity,
+    live: boolean,
   ): void {
     this.visibleRange = visibleRange
     this.displayTimestamps = displayTimestamps
@@ -573,6 +574,8 @@ export class ChartIndicatorManager {
       timestamps: data.map((item) => item.timestamp),
       data,
       change,
+      // 由数据层显式给出：只有追加与末根更新才是实时 bar。
+      live,
     }
     this.hub.updateFeed(this.feed)
     this.applyPlan()

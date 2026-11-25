@@ -1,6 +1,11 @@
 /**
- * 指标目录模块对外入口。
+ * 指标目录模块公共出口。
  *
- * 目录信号与查找函数都从注册表快照派生，不持有第二份列表。
+ * 目录信号由注册表投影而来，选择器与公共 API 直接订阅，不各自复制列表。
  */
-export { findIndicatorDefinition, indicatorCatalog } from './impl/projectCatalog.js'
+export {
+  type AlertScriptDefinition,
+  alertCatalog,
+  findIndicatorDefinition,
+  indicatorCatalog,
+} from './impl/projectCatalog.js'

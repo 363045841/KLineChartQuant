@@ -28,7 +28,7 @@ it('keeps metadata-only scripts executable without retaining their temporary ses
     expect((await worker.prepare('meta', source, [], true, 'metadata')).name).toBe('MetadataOnly')
     expect(modes).toEqual([true])
     const bars = [{ time: 1, open: 10, high: 12, low: 9, close: 11, volume: 2 }]
-    expect((await worker.run('meta', bars)).plots[0]?.data[0]).toEqual({
+    expect((await worker.run('meta', bars)).series.plots[0]?.data[0]).toEqual({
       value: 11,
       color: '@blue',
     })

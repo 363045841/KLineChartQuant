@@ -241,3 +241,22 @@ export function analyzeScriptDependency(
   if (importsStatefulLibrary(source, libraries)) return STATEFUL
   return stateless(scan.lookback)
 }
+
+/** 检查源码是否包含直接的 alert() 调用。 */
+export function hasDirectAlertCall(source: string): boolean {
+  let found = false
+  const visit = (node: ts.Node): void => {
+    if (found) return
+    if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === 'alert'
+    ) {
+      found = true
+      return
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(parse(source))
+  return found
+}

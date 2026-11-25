@@ -9,6 +9,7 @@ import type { IndicatorInputDisplay } from '@/engine/indicators/indicatorMetadat
 import {
   type IndicatorDescriptor,
   indicatorCatalogRevision,
+  readAlertDescriptors,
   readIndicatorDescriptors,
   resolveCanonicalIndicatorId,
   resolveIndicatorDefinitionId,
@@ -69,13 +70,17 @@ function toParamDef(
   }
 }
 
-/** 把一个目录项映射成控制器层的指标定义。 */
-function toIndicatorDefinition(descriptor: IndicatorDescriptor): IndicatorDefinition {
+/** 目录项的参数声明投影；指标与警报共用同一套参数结构。 */
+function resolveInputs(descriptor: IndicatorDescriptor): readonly IndicatorInputDef[] {
   const defaults = { ...descriptor.defaultInputs, ...descriptor.defaultOptions }
-  const inputs = Object.entries(defaults).flatMap(([key, value]) => {
+  return Object.entries(defaults).flatMap(([key, value]) => {
     const input = toParamDef(key, value, descriptor.inputDefs?.[key])
     return input === undefined ? [] : [input]
   })
+}
+
+/** 把一个目录项映射成控制器层的指标定义。 */
+function toIndicatorDefinition(descriptor: IndicatorDescriptor): IndicatorDefinition {
   return {
     id: resolveCanonicalIndicatorId(descriptor),
     source: descriptor.source,
@@ -84,7 +89,27 @@ function toIndicatorDefinition(descriptor: IndicatorDescriptor): IndicatorDefini
     description: descriptor.info,
     role: descriptor.category === 'main' ? 'main' : 'sub',
     documentIdentity: descriptor.documentIdentity,
-    inputs,
+    inputs: resolveInputs(descriptor),
+  }
+}
+
+/** 警报脚本在选择器中的最小投影；没有渲染位置与角色。 */
+export interface AlertScriptDefinition {
+  readonly id: string
+  readonly label: string
+  readonly name: string
+  readonly description?: string
+  readonly inputs: readonly IndicatorInputDef[]
+}
+
+/** 把一个目录项映射成警报脚本定义。 */
+function toAlertDefinition(descriptor: IndicatorDescriptor): AlertScriptDefinition {
+  return {
+    id: resolveCanonicalIndicatorId(descriptor),
+    label: descriptor.displayName,
+    name: descriptor.title === undefined ? descriptor.displayName : descriptor.title,
+    ...(descriptor.info === undefined ? {} : { description: descriptor.info }),
+    inputs: resolveInputs(descriptor),
   }
 }
 
@@ -102,6 +127,18 @@ export const indicatorCatalog: ReadonlySignal<readonly IndicatorDefinition[]> = 
         (a.role === INDICATOR_ROLE.MAIN ? 0 : 1) - (b.role === INDICATOR_ROLE.MAIN ? 0 : 1) ||
         a.label.localeCompare(b.label),
     )
+})
+
+/**
+ * 警报脚本目录信号：只含 `kind === 'alert'` 的定义。
+ *
+ * 供警报选择器展示。
+ */
+export const alertCatalog: ReadonlySignal<readonly AlertScriptDefinition[]> = computed(() => {
+  indicatorCatalogRevision()
+  return readAlertDescriptors()
+    .map(toAlertDefinition)
+    .sort((left, right) => left.label.localeCompare(right.label))
 })
 
 /** 目录中的指标数量与顺序以 `indicatorCatalog` 为准，这里只做名称匹配。 */

@@ -82,7 +82,7 @@ function plot(name: string, position: 'main' | 'sub', value: number) {
     ],
     fills: [],
   }))
-  const sourceDefinition = { name, position, inputs: {} }
+  const sourceDefinition = { kind: 'indicator' as const, name, position, inputs: {} }
   const definition = createPlotIndicatorDefinition({
     ...sourceDefinition,
     source: 'script',
@@ -93,20 +93,21 @@ function plot(name: string, position: 'main' | 'sub', value: number) {
       folder: '',
       definition: sourceDefinition,
     },
-    compute,
+    compute: () => ({ series: compute() }),
   })
   return { definition, compute }
 }
 
 /** 注册静态目录或已装配定义，校验注册成功后再验证执行。 */
 function register(definition: IndicatorMetadata, load?: () => Promise<IndicatorMetadata>): void {
-  const { name, displayName, category, defaultPaneId } = definition
+  const { name, displayName, category, defaultPaneId, kind } = definition
+  if (kind !== 'indicator') throw new TypeError('Expected an indicator fixture')
   const candidate = { key: name, origin: 'third-party', identity: 'native' } as const
   const item = load
     ? {
         kind: 'descriptor' as const,
         candidate,
-        descriptor: { name, displayName, category, defaultPaneId },
+        descriptor: { kind, name, displayName, category, defaultPaneId },
         load,
       }
     : { kind: 'definition' as const, candidate, definition }
@@ -241,3 +242,4 @@ describe('indicator runtime projection', () => {
     expect(error).not.toHaveBeenCalled()
   })
 })
+

@@ -1,9 +1,9 @@
 /** 同步与异步源码 API 的编译适配层；Worker 只导入不含编译器的运行模块。 */
-import type { IndicatorSeries } from '@363045841yyt/klinechart-plot-contracts'
 import type { LogEvent } from '../../contracts/log.js'
 import { compileSources } from '../../execution/impl/compileSources.js'
+import type { ScriptSessionOutput } from '../../execution/session/types.js'
 import type {
-  PreparedQuickJSScript,
+  PreparedScript,
   QuickJSLibrary,
   QuickJSRunOptions,
   QuickJSScriptDefinition,
@@ -13,13 +13,13 @@ import { preloadQuickJS, prepareQuickJSModule } from './runQuickJSModule.js'
 export { preloadQuickJS } from './runQuickJSModule.js'
 
 /** 初始化 WASM 后执行源码。 */
-export async function runQuickJSScript(options: QuickJSRunOptions): Promise<IndicatorSeries> {
+export async function runQuickJSScript(options: QuickJSRunOptions): Promise<ScriptSessionOutput> {
   await preloadQuickJS()
   return runQuickJSScriptSync(options)
 }
 
 /** 同步编译和执行；一次性调用创建会话并在结束后释放。 */
-export function runQuickJSScriptSync(options: QuickJSRunOptions): IndicatorSeries {
+export function runQuickJSScriptSync(options: QuickJSRunOptions): ScriptSessionOutput {
   const script = prepareQuickJSScript(
     options.source,
     options.libraries,
@@ -52,6 +52,6 @@ export function prepareQuickJSScript(
   libraries: readonly QuickJSLibrary[] = [],
   onLog?: (event: LogEvent) => void,
   timeoutMs?: number,
-): PreparedQuickJSScript {
+): PreparedScript {
   return prepareQuickJSModule(compileSources(source, libraries), onLog, timeoutMs)
 }

@@ -165,14 +165,14 @@ it('keeps port-owned baselines correct across real thread calculations and failu
   }})`
   try {
     await worker.prepare('wire', source, [], true)
-    expect((await worker.run('wire', bars)).plots[0]?.data.at(-1)).toEqual({
+    expect((await worker.run('wire', bars)).series.plots[0]?.data.at(-1)).toEqual({
       value: 1499,
       color: '@blue',
     })
     const fullBytes = transfers.at(-1)![0]!
     expect(fullBytes).toBeGreaterThan(0)
     bars[1499]!.close = 1500
-    expect((await worker.run('wire', bars)).plots[0]?.data.at(-1)).toEqual({
+    expect((await worker.run('wire', bars)).series.plots[0]?.data.at(-1)).toEqual({
       value: 1500,
       color: '@blue',
     })
@@ -181,7 +181,7 @@ it('keeps port-owned baselines correct across real thread calculations and failu
     bars[1499]!.close = -1
     await expect(worker.run('wire', bars)).rejects.toThrow('invalid-price')
     bars[1499]!.close = 1501
-    expect((await worker.run('wire', bars)).plots[0]?.data.at(-1)).toEqual({
+    expect((await worker.run('wire', bars)).series.plots[0]?.data.at(-1)).toEqual({
       value: 1501,
       color: '@blue',
     })

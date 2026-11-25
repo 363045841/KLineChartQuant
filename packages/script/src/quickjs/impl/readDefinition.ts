@@ -6,6 +6,7 @@ import {
   hLineDash,
   isFormat,
   isPlotKind,
+  isScriptAlertFrequency,
   isShapeLocation,
   isShapeSize,
   isShapeStyle,
@@ -35,9 +36,9 @@ function isParam(value: unknown): value is ScriptParamValue {
   )
 }
 
-/** position 从 VM 跨边界读到的仍是字符串，只有 Position 的两个取值有效。 */
-function isPosition(value: unknown): value is Position {
-  return value === Position.main || value === Position.sub
+/** position 从 VM 跨边界读到的仍是字符串；省略表示非指标声明。 */
+function isPosition(value: unknown): boolean {
+  return value === undefined || value === Position.main || value === Position.sub
 }
 
 /** 可选字段校验，缺省值由 Plot 采集器补齐。 */
@@ -352,8 +353,8 @@ export function readHLineCall(price: unknown, options: unknown): Omit<HLine, 'id
 
 /** 声明级字段通过校验后可直接读取的输入形状。 */
 type DefinitionBase = Record<string, unknown> & {
+  readonly kind: string
   readonly name: string
-  readonly position: Position
   readonly inputs: Record<string, unknown>
 }
 
@@ -370,10 +371,11 @@ function isOptionalNonEmptyText(value: unknown): boolean {
   return value === undefined || (typeof value === 'string' && value.trim() !== '')
 }
 
-/** 声明级字段校验；通过后 name/position/inputs 可直接读取。 */
+/** 声明级字段校验；通过后 name/kind/inputs 可直接读取。 */
 function isDefinitionBase(value: unknown): value is DefinitionBase {
   return (
     isRecord(value) &&
+    typeof value.kind === 'string' &&
     typeof value.name === 'string' &&
     value.name.trim() !== '' &&
     isOptionalNonEmptyText(value.title) &&
@@ -434,29 +436,45 @@ function readInputs(inputs: Record<string, unknown>): QuickJSScriptDefinition['i
 }
 
 /** 读取已初始化脚本的定义；缺字段或错误类型统一作为编译错误报告。 */
-export function readDefinition(value: unknown): QuickJSScriptDefinition {
+export function readDefinition(value: unknown, hasAlertCall: boolean): QuickJSScriptDefinition {
   if (!isDefinitionBase(value)) {
     throw new ScriptExecutionError(
       'compile',
-      `指标需要 name、position 与合法的 format/title/info，position 只能是 ${Position.main} 或 ${Position.sub}`,
+      '脚本需要 kind、name 与合法的 format/title/info',
     )
   }
   const version = readVersion(value.version)
   if (version !== INDICATOR_API_VERSION)
     throw new ScriptExecutionError(
       'compile',
-      `指标 API 版本 v${version} 已不再支持，请在 defineIndicator 中声明 version: ${INDICATOR_API_VERSION}`,
+      `指标 API 版本 v${version} 已不再支持，请声明 version: ${INDICATOR_API_VERSION}`,
     )
-  return {
+  const common = {
     version,
     name: value.name,
+    ...(typeof value.title === 'string' ? { title: value.title } : {}),
+    ...(typeof value.info === 'string' ? { info: value.info } : {}),
+    inputs: readInputs(value.inputs),
+  }
+  if (value.kind === 'alert') {
+    if (!isScriptAlertFrequency(value.frequency)) {
+      throw new ScriptExecutionError('compile', "警报需要 frequency，取值只能是 'once'、'per-bar'、'per-bar-close' 或 'all'")
+    }
+    if (!hasAlertCall) throw new ScriptExecutionError('compile', '警报脚本必须包含直接的 alert() 调用')
+    return { ...common, kind: 'alert', frequency: value.frequency }
+  }
+  if (value.kind !== 'indicator') throw new ScriptExecutionError('compile', `未知的声明种类：${value.kind}`)
+  const position = value.position
+  if (position !== Position.main && position !== Position.sub) {
+    throw new ScriptExecutionError('compile', `指标需要 position，取值只能是 ${Position.main} 或 ${Position.sub}`)
+  }
+  return {
+    ...common,
+    kind: 'indicator',
+    position,
     ...(typeof value.maxLinesCount === 'number' ? { maxLinesCount: value.maxLinesCount } : {}),
     ...(typeof value.maxBoxesCount === 'number' ? { maxBoxesCount: value.maxBoxesCount } : {}),
     ...(typeof value.maxLabelsCount === 'number' ? { maxLabelsCount: value.maxLabelsCount } : {}),
-    ...(typeof value.title === 'string' ? { title: value.title } : {}),
-    ...(typeof value.info === 'string' ? { info: value.info } : {}),
-    position: value.position,
     ...(isFormat(value.format) ? { format: value.format } : {}),
-    inputs: readInputs(value.inputs),
   }
 }

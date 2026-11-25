@@ -9,6 +9,7 @@
  */
 
 import type { Bar, IndicatorMarketContext } from '@363045841yyt/klinechart-plot-contracts'
+import type { AlertService } from '../features/alerts/types.js'
 import type {
   InstrumentCapabilities,
   InstrumentDescriptor,
@@ -440,6 +441,8 @@ export interface ChartController
     ChartRendererAccess,
     LayoutApi,
     IndicatorTemplateApi {
+  /** 警报服务；规则只引用警报脚本，与图表实例无关。 */
+  readonly alerts: AlertService
   /** 一次临时指标计算，共享当前行情与 Request 上下文，完成后释放行情使用权。 */
   withIndicatorData<T>(
     compute: (bars: readonly Bar[], market: IndicatorMarketContext) => Promise<T>,

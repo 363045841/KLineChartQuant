@@ -206,6 +206,7 @@
 
 <script setup lang="ts">
   import '@vue-src/components/common/dialog/modal-list.css'
+  import '@vue-src/components/common/dialog/modal-list-item.css'
 
   import {
     type ChartController,
@@ -592,93 +593,6 @@
     color: var(--klc-color-danger, #e04a4a);
   }
 
-  /* 紧凑条目铺满内容区，类型标注与操作按钮共用一行。 */
-  .indicator-list {
-    /* 滑动高亮的定位上下文；列表在滚动内容内，块随行一起滚动。 */
-    position: relative;
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* 横向留白由 .modal-list-row 统一提供，条目只负责纵向节奏。 */
-  .indicator-item {
-    position: relative;
-    z-index: 1;
-    gap: var(--klc-space-4, 4px);
-    min-height: 36px;
-    text-align: left;
-  }
-
-  /* 标题行是两列区域：名称列吃掉剩余宽度，类型列按内容宽；对齐由各区域自己负责。 */
-  .item-header {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: var(--klc-space-8, 8px);
-    width: 100%;
-    min-width: 0;
-  }
-
-  .item-select {
-    display: flex;
-    flex: 1;
-    align-items: center;
-    min-width: 0;
-    min-height: 36px;
-    padding: 6px 0;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    cursor: pointer;
-  }
-
-  .item-select:focus-visible,
-  .item-action-btn:focus-visible,
-  .item-favorite-btn:focus-visible,
-  .item-info-btn:focus-visible,
-  .selector-nav-item:focus-visible {
-    outline: 2px solid var(--klc-color-ui-text);
-    outline-offset: -2px;
-  }
-
-  /* 名称列：内容靠左对齐；类型列仍按内容宽在自己的列内居中。 */
-  .item-label {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: var(--klc-space-4, 4px);
-    min-width: 0;
-    font-size: 12px;
-    color: var(--klc-color-foreground);
-  }
-
-  /* 可截断的文本层：省略号只作用于文本，说明图标始终完整可见。 */
-  .item-label__text {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .item-info-btn {
-    --base-icon-button-color: var(--klc-color-axis-text);
-    --base-icon-button-hover-bg: transparent;
-    --base-icon-button-icon-size: 14px;
-  }
-
-  .item-name {
-    margin-left: var(--klc-space-8, 8px);
-    color: var(--klc-color-ui-muted);
-  }
-
-  /* 类型列：胶囊在自己的列内水平居中。 */
-  .item-tags {
-    display: flex;
-    align-items: center;
-    justify-self: center;
-    gap: var(--klc-space-4, 4px);
-  }
-
   /* 勾号仅开启时参与布局，保持在所有操作按钮的最右侧。 */
   .item-check {
     display: flex;
@@ -695,6 +609,12 @@
     color: var(--klc-color-ui-text);
   }
 
+  .item-favorite-btn:focus-visible,
+  .selector-nav-item:focus-visible {
+    outline: 2px solid var(--klc-color-ui-text);
+    outline-offset: -2px;
+  }
+
   @media (max-width: 480px) {
     .selector-nav {
       flex-basis: 76px;
@@ -704,24 +624,6 @@
       gap: var(--klc-space-4, 4px);
       padding: 0 var(--klc-space-8, 8px);
     }
-
-    .item-header {
-      /* 窄屏只把两列变一列：名称靠左，类型在自己的行内居中。 */
-      grid-template-columns: minmax(0, 1fr);
-    }
-  }
-
-  .indicator-description__title {
-    margin: 0 0 var(--klc-space-4, 4px);
-    font-size: var(--klc-text-label-13-font-size, 13px);
-    color: var(--klc-color-ui-text);
-  }
-
-  .indicator-description {
-    margin: 0;
-    font-size: var(--klc-text-copy-13-font-size, 13px);
-    line-height: 1.65;
-    color: var(--klc-color-axis-text);
   }
 
 </style>

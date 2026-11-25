@@ -50,7 +50,8 @@ const line: DrawingLineApi = createDrawingLineApi(__drawingStore, {
   ownerId: 'script',
   defaultColor: Color.blue,
   get maxLines() {
-    return __definition!.maxLinesCount
+    if (__definition?.kind !== 'indicator') throw new TypeError('绘图需要指标声明')
+    return __definition.maxLinesCount
   },
   get barCount() {
     return __count()
@@ -60,7 +61,8 @@ const box: DrawingBoxApi = createDrawingBoxApi(__drawingStore, {
   paneId: '',
   ownerId: 'script',
   get maxObjects() {
-    return __definition!.maxBoxesCount
+    if (__definition?.kind !== 'indicator') throw new TypeError('绘图需要指标声明')
+    return __definition.maxBoxesCount
   },
   get barCount() {
     return __count()
@@ -70,16 +72,20 @@ const label: DrawingLabelApi = createDrawingLabelApi(__drawingStore, {
   paneId: '',
   ownerId: 'script',
   get maxObjects() {
-    return __definition!.maxLabelsCount
+    if (__definition?.kind !== 'indicator') throw new TypeError('绘图需要指标声明')
+    return __definition.maxLabelsCount
   },
   get barCount() {
     return __count()
   },
 })
-/** Pine 的末根判断，历史计算只在最后一根构建固定回看分布。 */
+/** 当前 K 线的执行状态。 */
 const barstate = Object.freeze({
   get isLast() {
     return __count() > 0 && __count() === __barCount()
+  },
+  get prevPrice() {
+    return __prevPrice()
   },
 })
 /** 当前 bar 的标量索引。 */

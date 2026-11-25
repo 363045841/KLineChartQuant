@@ -19,6 +19,7 @@ import type {
 import type {
   ScriptExecutionSession,
   ScriptRuntime,
+  ScriptRuntimeExecuteOptions,
   ScriptRuntimeExecuteResult,
   ScriptRuntimeFactory,
   ScriptSessionOutput,
@@ -72,6 +73,7 @@ export function createScriptExecutionSession<Checkpoint>(
   let mainSymbol = CURRENT_SYMBOL
   let plan: readonly SecurityRequest[] = []
   let previousBars: readonly Bar[] = []
+  let lastLiveBar: { readonly time: number; readonly price: number } | undefined
   let checkpoint: Checkpoint | undefined
   let retainedDrawings: readonly DrawingObject[] = []
   let runtimeFresh = true
@@ -81,6 +83,7 @@ export function createScriptExecutionSession<Checkpoint>(
 
   /** 重建主运行时与全部 Request 运行时；参数、品种或历史失效时使用。 */
   function resetMain(params: Readonly<Record<string, ScriptParamValue>>, symbol: string): void {
+    if (symbol !== mainSymbol) lastLiveBar = undefined
     main?.dispose()
     for (const state of requests.values()) state.runtime.dispose()
     requests.clear()
@@ -215,8 +218,10 @@ export function createScriptExecutionSession<Checkpoint>(
     mainParams = { ...params }
     runtimeFresh = false
     return {
-      series: { ...result.series, drawings: retainedDrawings },
+      ...result.series,
+      drawings: retainedDrawings,
       drawingDelta,
+      alerts: result.alerts,
     }
   }
 
@@ -226,6 +231,7 @@ export function createScriptExecutionSession<Checkpoint>(
     bars: readonly Bar[],
     params: Readonly<Record<string, ScriptParamValue>>,
     execution: RequestExecution,
+    realtime: Pick<ScriptRuntimeExecuteOptions, 'liveBarIndex' | 'prevPrice'>,
   ): ScriptSessionOutput {
     const reset = runtimeFresh
     if (bars.length > 1) {
@@ -246,6 +252,7 @@ export function createScriptExecutionSession<Checkpoint>(
         execution,
         emit: options.onLog,
         checkpointIndex: bars.length - 1,
+        ...realtime,
       })
       checkpoint = result.checkpoint ?? checkpoint
       return commit(result, reset, bars, params)
@@ -259,6 +266,7 @@ export function createScriptExecutionSession<Checkpoint>(
       execution,
       emit: options.onLog,
       checkpointIndex: 0,
+      ...realtime,
     })
     checkpoint = result.checkpoint ?? checkpoint
     return commit(result, reset, bars, params)
@@ -289,12 +297,23 @@ export function createScriptExecutionSession<Checkpoint>(
       try {
         const bars = input.bars
         if (bars.length === 0) {
+          lastLiveBar = undefined
           if (!runtimeFresh) resetMain(params, symbol)
           return {
-            series: emptyCollection(),
+            ...emptyCollection(),
             drawingDelta: { reset: true, upsert: [], remove: [] },
+            alerts: [],
           }
         }
+        // 只有最后一根 bar 允许产生警报；其余（包括历史段）一律视为历史。
+        if (!input.live && input.range?.reset) lastLiveBar = undefined
+        const liveBar = input.live ? bars[bars.length - 1] : undefined
+        const prevPrice =
+          liveBar && lastLiveBar?.time === liveBar.time ? lastLiveBar.price : undefined
+        const realtime = liveBar
+          ? { liveBarIndex: bars.length - 1, ...(prevPrice === undefined ? {} : { prevPrice }) }
+          : {}
+        if (liveBar) lastLiveBar = { time: liveBar.time, price: liveBar.close }
         const dependency = options.dependency
         const lastIndex = previousBars.length - 1
         // 会话可能跳过中间行情版本，按上次实际执行的快照验证下标是否还能复用。
@@ -342,7 +361,7 @@ export function createScriptExecutionSession<Checkpoint>(
 
         if (dependency.kind === 'stateful') {
           if (checkpoint !== undefined) main.rollback(checkpoint)
-          return runStateful(startIndex, bars, params, execution)
+          return runStateful(startIndex, bars, params, execution, realtime)
         }
 
         // 无状态尾部重算保留起点之前的结果。
@@ -354,6 +373,7 @@ export function createScriptExecutionSession<Checkpoint>(
           params,
           execution,
           emit: options.onLog,
+          ...realtime,
         })
         return commit(result, runtimeFresh, bars, params)
       } catch (error) {

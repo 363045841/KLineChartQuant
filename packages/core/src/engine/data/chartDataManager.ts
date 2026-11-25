@@ -101,7 +101,8 @@ export interface DataDependencies {
     change: import('@363045841yyt/klinechart-plot-contracts').ComputeChange,
     range: VisibleRange,
     dataRevision: number,
-    displayTimestamps?: readonly number[] | null,
+    displayTimestamps: readonly number[] | null,
+    live: boolean,
   ) => void
   isPointerDown: () => boolean
   /** 发布 symbols 选择（含 primary + comparison），只写状态不触发加载 */
@@ -778,6 +779,8 @@ export class ChartDataManager {
         },
         currentRange,
         this._dataState.readonly.dataRevision.peek(),
+        null,
+        change.kind === DATA_CHANGE_KINDS.append || change.kind === DATA_CHANGE_KINDS.tail,
       )
     }
 
@@ -862,6 +865,7 @@ export class ChartDataManager {
         range,
         this._dataState.readonly.dataRevision.peek(),
         data.map((item) => item.timestamp),
+        false,
       )
     } catch (error) {
       if (!request.signal.aborted)
