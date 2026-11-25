@@ -50,7 +50,6 @@ export type { RangePreset, RangeWindow } from '../engine/viewport/rangePreset.js
 
 import type { CoverageResult } from '../data/buffer/types.js'
 import type { ChartAgentController, ChartAgentScripts } from '../features/agent/types.js'
-import type { AlertController } from '../features/alerts/types.js'
 
 export type { CoverageResult } from '../data/buffer/types.js'
 
@@ -564,9 +563,6 @@ export interface ChartController
 
   // indicator catalog（注册表投影，随注册表变更自动重建）
   readonly catalog: ReadonlySignal<ReadonlyArray<IndicatorDefinition>>
-
-  // ---- Alerts ----
-  readonly alertController: AlertController
 
   // ---- Data ----
   /** 整体替换 K 线主品种（含周期、复权与来源）；对比集合由 setComparisonSpecs 管理。 */

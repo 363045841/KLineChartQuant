@@ -1,185 +1,118 @@
 /**
- * Alert rule engine — public types.
+ * 警报公共契约。
  *
- * Why we build our own (vs. relying on TradingView's alert engine):
- *   - TV alerts are closed, server-side, capped (60 free + paid tiers).
- *   - TV alerts are limited to TV's built-in indicator outputs.
- *   - We need to alert on differentiating signals TV simply cannot see —
- *     Volume Profile POC touch, Order Book wall appearance, Footprint
- *     imbalance hit. These predicates are first-class here.
- *
- * Engine shape:
- *   - Predicate-based (discriminated union, schema-driven).
- *   - Rules are pure data and serialisable (see `impl/ruleSchema.ts`) so they
- *     survive page reloads and can be shared between users/agents/servers.
- *   - The controller is a tiny state machine over rules + recent events;
- *     evaluation is O(rules) per call, O(1) per rule, safe to run in a
- *     per-frame loop.
- *
- * The `custom` predicate is an escape hatch for callers that need ad-hoc
- * logic without forking the schema. It carries an in-memory function that
- * is intentionally NOT serialisable — see `impl/ruleSchema.ts` for the reasoning.
+ * 警报只是计算结果的消费者：条件由脚本定义，服务负责频率、冷却、过期、
+ * 日志与投递；视图与 UI 不参与判断。
  */
-
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import type { SymbolSpec } from '../../controllers/types.js'
+import type { CalculationInputs } from '../../engine/calculation/index.js'
 
-// ---------------------------------------------------------------------------
-// MarketSnapshot — the read-only input fed into every predicate.
-// ---------------------------------------------------------------------------
+export type AlertId = string
 
-/**
- * A snapshot of "the chart right now" that all predicates evaluate against.
- *
- * Callers are expected to populate as much as they have. A predicate that
- * needs a sub-field absent from the snapshot must return `false` (no spurious
- * fires from missing data).
- */
-export interface MarketSnapshot {
-  /** Latest closed bar; `null` for an empty stream. */
-  bar: {
-    timestamp: number
-    open: number
-    high: number
-    low: number
-    close: number
-    volume: number
-  } | null
-  /** Latest scalar value per indicator id (keyed by your indicator instance id). */
-  indicators: Readonly<Record<string, number>>
-  /**
-   * Average volume across the last N bars, keyed by N. Required for the
-   * `volume-spike` predicate to be O(1) — the caller maintains the rolling
-   * mean elsewhere.
-   */
-  rollingVolume: Readonly<Record<number, number>>
-  /** Optional advanced components (filled only when those components are mounted). */
-  volumeProfile?: { poc: number; vah: number; val: number }
-  orderBook?: {
-    medianBidSize: number
-    medianAskSize: number
-    maxBidSize: number
-    maxAskSize: number
+/** 触发频率；服务执行，脚本的 freq 只作缺省。 */
+export type AlertFrequency = 'once' | 'per-bar' | 'per-bar-close' | 'all'
+
+/** 投递渠道；首版只有应用内与声音。 */
+export type AlertChannel = 'in-app' | 'sound'
+
+/** 一条警报规则；创建后条件与绑定不可变，修改走 update。 */
+export interface Alert {
+  readonly id: AlertId
+  readonly name: string
+  readonly condition: {
+    readonly definitionId: string
+    /** 创建时快照；之后改脚本参数不影响本警报。 */
+    readonly inputs: CalculationInputs
   }
-  footprint?: {
-    latestBarMaxImbalanceRatio: number
-    latestBarImbalanceCount: number
+  /** 品种 + 周期 + 复权；与图表实例无关。 */
+  readonly symbol: SymbolSpec
+  readonly frequency: AlertFrequency
+  /** 两次触发的最小间隔；缺省不限。 */
+  readonly cooldownMs?: number
+  /** 绝对时间戳；到期后不再求值。 */
+  readonly expiresAt?: number
+  /** 投递正文，支持 {{ticker}} {{interval}} {{close}} {{time}}。 */
+  readonly message: string
+  readonly channels: readonly AlertChannel[]
+  /** 用户意图：是否参与求值；唯一需要持久化的开关。 */
+  readonly enabled: boolean
+  /** 最近一次触发；冷却、once 终态与列表展示共用。 */
+  readonly lastFiredAt?: number
+  /** 最近一次执行失败；成功触发或重新启用时清空。 */
+  readonly lastError?: string
+  readonly createdAt: number
+}
+
+/** create 入参：没有身份与运行态字段。 */
+export interface AlertDraft {
+  readonly name: string
+  readonly condition: Alert['condition']
+  readonly symbol: SymbolSpec
+  readonly frequency: AlertFrequency
+  readonly cooldownMs?: number
+  readonly expiresAt?: number
+  readonly message: string
+  readonly channels: readonly AlertChannel[]
+  readonly enabled?: boolean
+}
+
+/** 一次触发记录；只保留展示与审计所需字段。 */
+export interface AlertFire {
+  readonly id: string
+  readonly alertId: AlertId
+  /** 触发瞬间的墙钟时间。 */
+  readonly firedAt: number
+  readonly source: {
+    readonly ticker: string
+    readonly interval: string
+    readonly scriptTitle?: string
   }
+  /** 已渲染占位符的最终文案。 */
+  readonly message: string
+  /** 触发时价格。 */
+  readonly price: number
+  /** 触发所在 bar 的时间，用于图上定位。 */
+  readonly barTime: number
 }
 
-// ---------------------------------------------------------------------------
-// AlertPredicate — discriminated union of supported predicate kinds.
-// ---------------------------------------------------------------------------
+/** 状态推导结果；不落盘。 */
+export type AlertStatus = 'active' | 'triggered' | 'expired' | 'error' | 'paused'
 
-export type CrossDirection = 'up' | 'down' | 'any'
-export type IndicatorCrossPairDirection = 'a-above-b' | 'a-below-b' | 'any'
+/** 消费者收到的变更；UI 与图上呈现都从这里更新。 */
+export type AlertChange =
+  | { readonly kind: 'created' | 'updated'; readonly alert: Alert }
+  | { readonly kind: 'removed'; readonly alertId: AlertId }
+  | { readonly kind: 'fired'; readonly alert: Alert; readonly fire: AlertFire }
 
-/**
- * Predicate kinds. Add new kinds by extending the union — the controller's
- * switch in `impl/predicates.ts` will give a TS exhaustiveness error if you forget
- * to handle it.
- */
-export type AlertPredicate =
-  | { kind: 'price-cross'; price: number; direction: CrossDirection }
-  | { kind: 'price-in-range'; min: number; max: number }
-  | { kind: 'price-out-of-range'; min: number; max: number }
-  | {
-      kind: 'indicator-cross'
-      indicatorId: string
-      threshold: number
-      direction: CrossDirection
-    }
-  | {
-      kind: 'indicator-cross-indicator'
-      aId: string
-      bId: string
-      direction: IndicatorCrossPairDirection
-    }
-  | { kind: 'volume-spike'; multipleOfAvg: number; lookbackBars: number }
-  | { kind: 'volume-profile-poc-touch'; bandPercent: number }
-  | { kind: 'order-book-wall'; sizeMultipleOfMedian: number }
-  | {
-      kind: 'footprint-imbalance'
-      minImbalanceRatio: number
-      consecutivePriceLevels: number
-    }
-  /**
-   * Escape hatch. The `evaluate` function runs INSIDE a try/catch in the
-   * controller — a throwing custom predicate must not crash the alert pass.
-   * Custom predicates CANNOT be serialised; see `ruleSchema.ts`.
-   */
-  | { kind: 'custom'; evaluate: (snapshot: MarketSnapshot) => boolean }
-
-export type AlertPredicateKind = AlertPredicate['kind']
-
-// ---------------------------------------------------------------------------
-// AlertRule + AlertEvent
-// ---------------------------------------------------------------------------
-
-export interface AlertRule {
-  id: string
-  name: string
-  predicate: AlertPredicate
-  enabled: boolean
-  /** Fire once and then auto-disable. */
-  oneShot: boolean
-  /**
-   * For non-oneShot rules, suppress re-fires within this window (ms after
-   * the last fire). Undefined / 0 = no cooldown.
-   */
-  cooldownMs?: number
-  /** Free-form metadata propagated onto fired events. */
-  metadata?: Readonly<Record<string, unknown>>
+export interface AlertHistoryQuery {
+  readonly alertId?: AlertId
+  readonly limit?: number
 }
 
-export interface AlertEvent {
-  ruleId: string
-  ruleName: string
-  /** ms since epoch, passed in by the caller as `now`. */
-  triggeredAt: number
-  /** Snapshot of the bar that triggered the rule (copied, not referenced). */
-  snapshotBar: MarketSnapshot['bar']
-  metadata?: Readonly<Record<string, unknown>>
-}
+export interface AlertService {
+  readonly alerts: ReadonlySignal<readonly Alert[]>
+  readonly fires: ReadonlySignal<readonly AlertFire[]>
 
-export interface AlertFailure {
-  readonly ruleId: string
-  readonly stage: 'predicate' | 'listener'
-  readonly error: unknown
-}
-
-// ---------------------------------------------------------------------------
-// AlertController — the public, framework-agnostic facade.
-// ---------------------------------------------------------------------------
-
-export interface AlertController {
-  /** Current rules, in insertion order. Reactive. */
-  readonly rules: ReadonlySignal<ReadonlyArray<AlertRule>>
-  /** Bounded ring of recent events, newest last. Reactive. */
-  readonly events: ReadonlySignal<ReadonlyArray<AlertEvent>>
-  /** Failures isolated during the latest evaluation pass. */
-  readonly failures: ReadonlySignal<readonly AlertFailure[]>
-
-  /** Add a rule; returns false if a rule with the same id already exists. */
-  addRule(rule: AlertRule): boolean
-  removeRule(id: string): boolean
-  setRuleEnabled(id: string, enabled: boolean): boolean
-  /** Patch any field except `id`. Returns false if the id is unknown. */
-  updateRule(id: string, patch: Partial<Omit<AlertRule, 'id'>>): boolean
-
-  /**
-   * Evaluate every enabled rule against the snapshot. Returns the events
-   * fired on this call (also appended to the `events` signal).
-   */
-  evaluate(snapshot: MarketSnapshot, now: number): ReadonlyArray<AlertEvent>
-
-  clearEvents(): void
-  /** Per-fire listener; returns an unsubscribe. */
-  onEvent(listener: (event: AlertEvent) => void): () => void
-
+  create(draft: AlertDraft): Alert
+  update(id: AlertId, patch: Partial<AlertDraft>): Alert
+  remove(id: AlertId): void
+  get(id: AlertId): Alert | null
+  list(query?: { symbol?: SymbolSpec; status?: AlertStatus }): readonly Alert[]
+  setEnabled(id: AlertId, enabled: boolean): Alert
+  history(query?: AlertHistoryQuery): readonly AlertFire[]
+  clearHistory(alertId?: AlertId): void
+  subscribe(listener: (change: AlertChange) => void): () => void
   dispose(): void
 }
 
-export interface AlertControllerOptions {
-  /** Maximum size of the `events` ring buffer. Default 100. */
-  maxEvents?: number
+export interface AlertLimits {
+  readonly maxAlerts: number
+  readonly maxFires: number
+  readonly maxFiresPerAlert: number
+}
+
+/** 投递端口；UI、声音与未来的系统通知都从这里接入。 */
+export interface AlertNotifier {
+  notify(change: Extract<AlertChange, { kind: 'fired' }>): void
 }

@@ -24,7 +24,7 @@ import {
   type TradeDataSource,
   type TradeStream,
 } from '@/data/trades/types.js'
-import type { IndicatorMarketData } from '@/engine/indicators/instances/execution/marketDataTypes.js'
+import type { CalculationMarketData } from '@/engine/calculation/index.js'
 import { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import {
@@ -87,7 +87,7 @@ function needsRebind(current: TradeBinding | null, target: TradeTarget): boolean
 type OwnerSource = 'plan' | 'temporary'
 
 /** 一个图表只有一个运行模块；视口变化只更新需求，连接身份由就绪快照决定。 */
-export class MarketRuntime implements IndicatorMarketData {
+export class MarketRuntime implements CalculationMarketData {
   private readonly marketSessions: MarketSessionRegistry
   private readonly registry: MarketDataProviderRegistry
   private readonly stream: StreamHub

@@ -100,7 +100,7 @@ export interface DataDependencies {
     data: readonly KLineData[],
     change: import('@363045841yyt/klinechart-plot-contracts').ComputeChange,
     range: VisibleRange,
-    dataRevision?: number,
+    dataRevision: number,
     displayTimestamps?: readonly number[] | null,
   ) => void
   isPointerDown: () => boolean
@@ -171,7 +171,7 @@ export class ChartDataManager {
   private _pendingIncrementalLoadFlushTimer = 0
 
   /** 跨周期行情复用市场运行模块。 */
-  get indicatorMarketData(): import('../indicators/instances/execution/marketDataTypes.js').IndicatorMarketData {
+  get indicatorMarketData(): import('../calculation/index.js').CalculationMarketData {
     return this.marketRuntime
   }
 

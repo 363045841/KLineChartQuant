@@ -1,19 +1,59 @@
-/** 跨层验收：真实Worker、真实脚本和调度器在持续输入/慢速取数下保持独立生命周期。 */
+/**
+ * 跨层验收：真实 Worker、真实脚本与计算中枢在持续输入/慢速取数下保持独立生命周期。
+ */
 
+import {
+  type CalculationDefinition,
+  type CalculationHub,
+  createCalculationHub,
+  createDataIdentity,
+  createFeedKey,
+  type FeedKey,
+  type FeedSnapshot,
+} from '../../../../core/src/engine/calculation/index.js'
 import { getRegisteredIndicatorDefinition } from '@363045841yyt/klinechart-core'
 import type { Bar } from '@363045841yyt/klinechart-plot-contracts'
 import { describe, expect, it, vi } from 'vitest'
-import {
-  createTestData,
-  createTestInstance,
-  FakeCalculationSource,
-} from '../../../../core/src/engine/indicators/__tests__/helpers/instanceTestKit.js'
-import { createIndicatorCalculationScheduler } from '../../../../core/src/engine/indicators/instances/execution/indicatorCalculationScheduler.js'
-import { createIndicatorExecutor } from '../../../../core/src/engine/indicators/instances/execution/indicatorExecutor.js'
-import { createIndicatorResultStore } from '../../../../core/src/engine/indicators/instances/execution/indicatorResultStore.js'
-import type { MarketSnapshot } from '../../../../core/src/engine/indicators/instances/execution/types.js'
+import { createTestData } from '../../../../core/src/engine/indicators/__tests__/helpers/instanceTestKit.js'
 import { NodeScriptWorker } from '../../../../script/src/worker/__tests__/nodeWorker.js'
 import { createScriptService } from '../impl/createScriptService.js'
+
+const IDENTITY = createDataIdentity({
+  source: 'test',
+  instrument: 'TEST',
+  defaultPeriod: '5',
+  defaultAdjustment: 'none',
+})
+
+/** 断言脚本运行端口存在；缺失直接失败，不提供替身。 */
+function requireRuntime(id: string) {
+  const runtime = getRegisteredIndicatorDefinition(id)?.runtime
+  if (!runtime) throw new Error(`Missing registered runtime: ${id}`)
+  return runtime
+}
+
+/** 把脚本运行端口包装成计算输出。 */
+function definitionOf(id: string, runtime: ReturnType<typeof requireRuntime>): CalculationDefinition {
+  const compute = async (...args: Parameters<NonNullable<typeof runtime.compute>>) => ({
+    series: await runtime.compute(...args),
+  })
+  return {
+    definitionId: id,
+    dependency: { kind: 'stateful' },
+    compute,
+    ...(runtime.createCompute
+      ? {
+          createCompute: () => {
+            const inner = runtime.createCompute!()
+            return Object.assign(
+              async (...args: Parameters<typeof inner>) => ({ series: await inner(...args) }),
+              { dispose: () => inner.dispose?.() },
+            )
+          },
+        }
+      : {}),
+  }
+}
 
 describe('realtime script lifecycle', () => {
   it('keeps the same workers during continuous updates and renders fast output while history waits', async () => {
@@ -42,30 +82,18 @@ describe('realtime script lifecycle', () => {
         `defineIndicator({ version: 2,name:'LifetimeFast',position:Position.sub,onBar(){plot.Line(close,'close')}})`,
       ],
     })
-    const slow = getRegisteredIndicatorDefinition('LifetimeSlow')?.runtime
-    const fast = getRegisteredIndicatorDefinition('LifetimeFast')?.runtime
-    if (!slow || !fast) throw new Error('Missing registered runtimes')
     let finishHistory!: (bars: readonly Bar[]) => void
     const history = new Promise<readonly Bar[]>((resolve) => {
       finishHistory = resolve
     })
     const loadBars = vi.fn(() => history)
-    const executor = createIndicatorExecutor(
-      [
-        {
-          definitionId: 'slow',
-          dependency: { kind: 'stateful' },
-          compute: slow.compute,
-          createCompute: slow.createCompute,
-        },
-        {
-          definitionId: 'fast',
-          dependency: { kind: 'stateful' },
-          compute: fast.compute,
-          createCompute: fast.createCompute,
-        },
-      ],
-      () => ({
+    const definitions = new Map<string, CalculationDefinition>([
+      ['slow', definitionOf('slow', requireRuntime('LifetimeSlow'))],
+      ['fast', definitionOf('fast', requireRuntime('LifetimeFast'))],
+    ])
+    const hub: CalculationHub = createCalculationHub({
+      resolveDefinition: (id) => definitions.get(id),
+      marketData: () => ({
         revision: 0,
         retain() {},
         context: () => ({
@@ -74,38 +102,42 @@ describe('realtime script lifecycle', () => {
           loadBars,
         }),
       }),
-    )
-    const source = new FakeCalculationSource([
-      createTestInstance({ instanceId: 'slow', definitionId: 'slow' }),
-      createTestInstance({ instanceId: 'fast', definitionId: 'fast' }),
-    ])
+    })
+    const feedKey: FeedKey = createFeedKey(IDENTITY)
     const loading = new Set<string>()
-    const store = createIndicatorResultStore()
-    const scheduler = createIndicatorCalculationScheduler({
-      pipeline: source,
-      executor,
-      store,
+    const client = hub.createClient('test', {
       onCommit: () => undefined,
-      onPending(ids, pending) {
-        for (const id of ids) {
+      onPending(owners, pending) {
+        for (const id of owners) {
           if (pending) loading.add(id)
           else loading.delete(id)
         }
       },
     })
     const data = createTestData(5)
-    const snapshot = (revision: number): MarketSnapshot => ({
-      dataRevision: revision,
+    const timestamps = data.map((bar) => bar.timestamp)
+    const snapshot = (dataRevision: number): FeedSnapshot => ({
+      identity: IDENTITY,
+      dataRevision,
       marketRevision: 0,
       data,
-      timestamps: data.map((bar) => bar.timestamp),
+      timestamps,
       change: { start: 0, end: data.length },
     })
-    const update = (revision: number) => scheduler.refresh(snapshot(revision))
+    client.setPlan([
+      {
+        feed: feedKey,
+        requests: [
+          { key: 'slow', definitionId: 'slow', inputs: {}, context: {}, owners: ['slow'] },
+          { key: 'fast', definitionId: 'fast', inputs: {}, context: {}, owners: ['fast'] },
+        ],
+      },
+    ])
+    const update = (revision: number) => hub.updateFeed(snapshot(revision))
     try {
       update(1)
       await vi.waitFor(() => expect(loadBars).toHaveBeenCalledOnce())
-      await vi.waitFor(() => expect(store.get('fast:{}:{}')).toBeDefined())
+      await vi.waitFor(() => expect(hub.get(feedKey, 'fast')).toBeDefined())
       const workerCount = created
       expect(loading.has('slow')).toBe(true)
       for (let revision = 2; revision <= 21; revision++) update(revision)
@@ -116,12 +148,12 @@ describe('realtime script lifecycle', () => {
       )
       await vi.waitFor(() => expect(loading.size).toBe(0))
       for (let revision = 22; revision < 27; revision++) update(revision)
-      await vi.waitFor(() => expect(store.get('slow:{}:{}')!.dataRevision).toBe(26))
+      await vi.waitFor(() => expect(hub.get(feedKey, 'slow')?.dataRevision).toBe(26))
       expect(terminated).toBe(0)
       expect(created).toBe(workerCount)
     } finally {
-      scheduler.dispose()
-      executor.dispose()
+      client.dispose()
+      hub.dispose()
       service.dispose()
       vi.unstubAllGlobals()
     }

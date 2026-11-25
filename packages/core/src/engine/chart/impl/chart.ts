@@ -51,13 +51,7 @@ import {
   DEFAULT_KLINE_PERIOD,
 } from '../../../data/provider/types.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
-import { createAlertController } from '../../../features/alerts/impl/createAlertController.js'
-import {
-  createVolumeLookbacks,
-  pushToVolumeLookbacks,
-  type VolumeLookbacks,
-} from '../../../features/alerts/impl/rollingVolume.js'
-import type { AlertController, MarketSnapshot } from '../../../features/alerts/types.js'
+import { createDataIdentity, type DataIdentity } from '../../calculation/index.js'
 import {
   type ChartSettings,
   resolveKLineGapRatio,
@@ -170,20 +164,6 @@ import { ChartThemeFacade } from './facade/chartThemeFacade.js'
 import { ChartZoomFacade } from './facade/chartZoomFacade.js'
 
 export type { InteractionSnapshot }
-
-/** 取指标投影序列的最后一个有限数值；支持数组与按周期/字段分组的对象。 */
-function lastSeriesValue(series: unknown): number | null {
-  if (Array.isArray(series)) {
-    const value = series[series.length - 1]
-    return typeof value === 'number' && Number.isFinite(value) ? value : null
-  }
-  if (series && typeof series === 'object') {
-    const keys = Object.keys(series as Record<string, unknown>)
-    if (keys.length === 0) return null
-    return lastSeriesValue((series as Record<string, unknown>)[keys[keys.length - 1]!])
-  }
-  return null
-}
 
 /** 宿主可注入的绘图指针会话入口。 */
 interface DrawingPointerController {
@@ -351,19 +331,11 @@ export class Chart {
   private readonly unsubscribeMarketSessions: () => void
   private readonly marketDataProviderRegistry: MarketDataProviderRegistry
 
-  /** 上次预警评估的最新 K 线时间戳（用于去重） */
-  private _lastAlertTimestamp: number | null = null
   /** 右轴 host 当前生效的 CSS 宽度；提交后锁定，布局变化时才重新评估。 */
   private readonly _effectiveRightAxisWidth = createSignal(0)
   private readonly _effectiveLeftAxisWidth = createSignal(0)
   /** 轴宽是否已锁定：锁定期间只允许变宽，避免运动途中改变绘图区宽度。 */
   private axisWidthLocked = false
-
-  /** 预警控制器 */
-  readonly alertController: AlertController
-
-  /** 滚动成交量窗口（惰性初始化） */
-  private _volumeLookbacks: VolumeLookbacks | null = null
 
   /**
    * 创建图表实例
@@ -468,8 +440,6 @@ export class Chart {
     )
     this._effectiveLeftAxisWidth.set(initialOptions.leftAxisWidth)
 
-    this.alertController = createAlertController()
-
     this.dataManager = new ChartDataManager(
       {
         marketDataProviderRegistry: this.marketDataProviderRegistry,
@@ -488,14 +458,18 @@ export class Chart {
           this.interaction.reset()
           this.zoomController.stopAnimation()
         },
-        updateIndicatorData: (data, change, range, dataRevision, displayTimestamps) =>
+        updateIndicatorData: (data, change, range, dataRevision, displayTimestamps) => {
+          const identity = this.currentDataIdentity()
+          if (!identity) return
           this.indicatorManager.updateIndicatorData(
             data,
             change,
             range,
             dataRevision,
-            displayTimestamps,
-          ),
+            displayTimestamps ?? null,
+            identity,
+          )
+        },
         isPointerDown: () => this.interaction.isPointerDown(),
         publishSymbols: (symbols) => this.kernel.actions.setSymbols(symbols),
       },
@@ -829,12 +803,6 @@ export class Chart {
         this.layerRevision(),
         this.kernel.dataManager.readonly.currentSpec(),
       ]),
-    })
-
-    // 异步计算结果就绪后串联 Alert 管线
-    this.indicatorManager.setOnResultsApplied(() => {
-      const data = this.dataManager.getInternalData()
-      this.evaluateAlerts(data)
     })
 
     this.startRuntime()
@@ -1441,72 +1409,18 @@ export class Chart {
     return this.dataManager.getInternalData()
   }
 
-  /** 数据就绪时触发预警评估 */
-  private evaluateAlerts(data: readonly KLineData[]): void {
-    const latest = data[data.length - 1]
-    if (!latest) return
-    // 去重：同一根 K 线只评估一次（增量加载/Worker 重复回调时跳过）
-    if (latest.timestamp === this._lastAlertTimestamp) return
-    this._lastAlertTimestamp = latest.timestamp
-
-    // 推进滚动量滑窗（仅在新 K 线到达时）
-    let lookbacks = this._volumeLookbacks
-    if (!lookbacks) {
-      lookbacks = createVolumeLookbacks([5, 10, 20, 60])
-      this._volumeLookbacks = lookbacks
-    }
-    pushToVolumeLookbacks(lookbacks, latest.volume ?? 0)
-
-    const snapshot = this.buildMarketSnapshot(data)
-    if (!snapshot) return
-    this.alertController.evaluate(snapshot, Date.now())
-  }
-
-  /** 构建预警引擎所需的当前市场快照 */
-  private buildMarketSnapshot(data: readonly KLineData[]): MarketSnapshot | null {
-    const latest = data[data.length - 1]
-    if (!latest) return null
-
-    if (latest.volume === undefined) return null
-
-    const bar = {
-      timestamp: latest.timestamp,
-      open: latest.open,
-      high: latest.high,
-      low: latest.low,
-      close: latest.close,
-      volume: latest.volume,
-    }
-
-    return {
-      bar,
-      indicators: this.collectIndicatorValues(),
-      rollingVolume: this.collectRollingVolumes(),
-      orderBook: undefined,
-      footprint: undefined,
-    }
-  }
-
-  /** 读取当前所有指标实例的最新标量值。 */
-  private collectIndicatorValues(): Record<string, number> {
-    const indicators: Record<string, number> = {}
-    const reader = this.indicatorManager.createRenderStateReader()
-    for (const instance of this.kernel.indicator.readonly.instances.peek()) {
-      const meta = getRegisteredIndicatorDefinition(instance.indicatorId)
-      const state = reader.get<{ series?: unknown }>(instance.instanceId)
-      if (!meta || !state?.series) continue
-      const value = lastSeriesValue(state.series)
-      if (value !== null) indicators[meta.name] = value
-    }
-    return indicators
-  }
-
-  /** 只读滚动量；滑窗由 evaluateAlerts 推进。 */
-  private collectRollingVolumes(): Record<number, number> {
-    const rollingVolume: Record<number, number> = {}
-    if (!this._volumeLookbacks) return rollingVolume
-    for (const [size, calc] of this._volumeLookbacks) rollingVolume[size] = calc.mean
-    return rollingVolume
+  /** 当前主品种的数据身份；计算层只认这份身份，不读视图。 */
+  private currentDataIdentity(): DataIdentity | null {
+    const spec = this.dataManager.symbols.peek()[0]
+    if (!spec) return null
+    return createDataIdentity({
+      source: spec.instrument.source,
+      instrument: spec.instrument.id,
+      period: spec.period,
+      adjustment: spec.adjust,
+      defaultPeriod: DEFAULT_KLINE_PERIOD,
+      defaultAdjustment: DEFAULT_KLINE_ADJUSTMENT,
+    })
   }
 
   /** 获取内容总宽度（用于外部 scroll-content 撑开 scrollWidth） */
@@ -1735,7 +1649,6 @@ export class Chart {
     this.rendererHost.dispose()
     this.drawingCommands.dispose()
     this.kernel.dispose()
-    this.alertController.dispose()
   }
 
   // ==================== Facade API (High-level interface for adapters) ====================
@@ -1925,7 +1838,6 @@ export class Chart {
       if (this.drawing.getSymbolKey() !== nextDrawingSymbol || previousPeriod !== primary?.period) {
         this.kernel.drawing.actions.setSelectedDrawingIds([])
       }
-      this._lastAlertTimestamp = null
       this.interaction.stopInertia()
       this.zoomController.stopAnimation()
       this.unlockAxisWidth()

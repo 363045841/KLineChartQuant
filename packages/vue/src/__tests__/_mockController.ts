@@ -8,9 +8,6 @@
  */
 
 import type {
-  AlertController,
-  AlertEvent,
-  AlertRule,
   ChartController,
   ChartMountOptions,
   ChartViewport,
@@ -190,19 +187,6 @@ export function createMockChartController(
     objectGroups
       .peek()
       .some((group) => group.paneId === paneId && group.rows.some((row) => row.kind === 'system'))
-  const alertController: AlertController = {
-    rules: createSignal<ReadonlyArray<AlertRule>>([]),
-    events: createSignal<ReadonlyArray<AlertEvent>>([]),
-    failures: createSignal([]),
-    addRule: () => false,
-    removeRule: () => false,
-    setRuleEnabled: () => false,
-    updateRule: () => false,
-    evaluate: () => [],
-    clearEvents: () => {},
-    onEvent: () => () => {},
-    dispose: () => {},
-  }
 
   const controller: Partial<ChartController> = {
     viewport,
@@ -434,7 +418,6 @@ export function createMockChartController(
     getDrawingPeriod: () => 'daily',
     getDrawingSymbolKey: () => undefined,
     getDrawingWorkspaceId: () => 'kline' as const,
-    alertController,
     getViewport: () => null,
     getKWidthKGap: () => ({ kWidth: 6, kGap: 2 }),
     getCurrentDpr: () => 1,

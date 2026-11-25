@@ -1,6 +1,5 @@
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import { batch, createSignal } from '@363045841yyt/klinechart-core/reactivity'
-import { useAlerts } from '@vue-src/composables/alerts/useAlerts.js'
 import {
   useControllerSignal,
   useControllerSignalValue,
@@ -35,40 +34,6 @@ function observedSignal<T>(initial: T) {
 }
 
 describe('Core signal views', () => {
-  it('keeps unread alert history local while switching the Core event source', () => {
-    const event = (id: number) => ({
-      ruleId: String(id),
-      ruleName: 'price',
-      triggeredAt: id,
-      snapshotBar: { timestamp: id, open: 1, high: 1, low: 1, close: 1, volume: 1 },
-    })
-    const first = createMockChartController()
-    const second = createMockChartController()
-    const firstEvents = createSignal<readonly ReturnType<typeof event>[]>([event(1)])
-    const secondEvents = createSignal<readonly ReturnType<typeof event>[]>([event(10)])
-    Object.assign(first.alertController, { events: firstEvents })
-    Object.assign(second.alertController, { events: secondEvents })
-    const controller = shallowRef<ChartController | null>(first)
-    const scope = effectScope()
-    const alerts = scope.run(() => useAlerts(controller))!
-    expect(alerts.events.value).toBe(first.alertController.events.peek())
-    expect(alerts.unreadCount.value).toBe(0)
-    firstEvents.set([event(1), event(2)])
-    firstEvents.set([event(1), event(2), event(3)])
-    expect(alerts.unreadCount.value).toBe(2)
-    alerts.resetUnread()
-    firstEvents.set([event(1), event(2), event(3), event(4)])
-    expect(alerts.unreadCount.value).toBe(1)
-    controller.value = second
-    expect(alerts.events.value).toBe(second.alertController.events.peek())
-    expect(alerts.unreadCount.value).toBe(0)
-    firstEvents.set([])
-    expect(alerts.events.value).toBe(second.alertController.events.peek())
-    controller.value = null
-    expect(alerts.events.value).toEqual([])
-    expect(alerts.unreadCount.value).toBe(0)
-    scope.stop()
-  })
   it('preserves Core object identity and batches notifications without a writable Vue value', async () => {
     const signal = createSignal({ count: 1 })
     const scope = effectScope()

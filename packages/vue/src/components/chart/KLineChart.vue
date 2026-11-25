@@ -62,7 +62,6 @@
         <LeftToolbar
           :scripts-enabled="props.scriptsEnabled"
           :scripts-ready="scriptEditorSession.ready.value"
-          :alert-controller="controller"
           :effective-settings="chartSettings"
           :drawing-tool-id="drawingToolId"
           :magnet-mode="magnetMode"

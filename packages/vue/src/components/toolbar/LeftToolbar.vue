@@ -188,29 +188,6 @@
 
     <span class="left-toolbar__divider"></span>
 
-    <div class="left-toolbar__group">
-      <BaseTooltip content="预警">
-        <button
-          type="button"
-          class="left-toolbar__button"
-          :class="{ active: showAlerts }"
-          aria-label="预警"
-          :disabled="!alertController"
-          @click="showAlerts = true"
-          @pointerdown.stop
-          @pointermove.stop
-          @pointerup.stop
-        >
-          <IconTablerBell class="tool-icon" aria-hidden="true" />
-          <span v-if="unreadCount > 0" class="alert-badge">{{
-            unreadCount > 99 ? '99+' : unreadCount
-          }}</span>
-        </button>
-      </BaseTooltip>
-    </div>
-
-    <span class="left-toolbar__divider"></span>
-
     <div class="left-toolbar__group left-toolbar__group--bottom">
       <BaseTooltip placement="top">
         <template #content>
@@ -264,16 +241,9 @@
     @select="onGroupMenuSelect"
     @close="openGroupId = null"
   />
-
-  <AlertDialog
-    :show="showAlerts"
-    :chart-controller="alertController ?? null"
-    @close="showAlerts = false"
-  />
 </template>
 
 <script setup lang="ts">
-  import type { ChartController } from '@363045841yyt/klinechart-core'
   import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
   import {
     type ActiveMagnetMode,
@@ -287,14 +257,12 @@
     drawingKindName,
     getDrawingKind,
   } from '@363045841yyt/klinechart-core/engine/drawing'
-  import AlertDialog from '@vue-src/components/alert/AlertDialog.vue'
   import CommandTooltip from '@vue-src/components/commands/CommandTooltip.vue'
   import type { DropMenuGroup } from '@vue-src/components/common/menu/DropMenu.vue'
   import MenuSurface from '@vue-src/components/common/menu/MenuSurface.vue'
   import { useMenuAnchor } from '@vue-src/components/common/menu/useMenuAnchor.js'
   import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
-  import { useAlerts } from '@vue-src/composables/alerts/useAlerts.js'
   import { useSlidingHighlight } from '@vue-src/composables/ui/useSlidingHighlight.js'
   import { setCanvasProfilerEnabled } from '@vue-src/debug/canvasProfiler.js'
   import { PROJECT_REPOSITORY_URL } from '@vue-src/productLinks.js'
@@ -305,7 +273,6 @@
   import IconTablerArrowRight from '~icons/tabler/arrow-right'
   import IconTablerArrowUpRight from '~icons/tabler/arrow-up-right'
   import IconTablerArrowsHorizontal from '~icons/tabler/arrows-horizontal'
-  import IconTablerBell from '~icons/tabler/bell'
   import IconTablerBrandGithub from '~icons/tabler/brand-github'
   import IconTablerChartDots3 from '~icons/tabler/chart-dots-3'
   import IconTablerChartLine from '~icons/tabler/chart-line'
@@ -476,7 +443,6 @@
 
   const props = withDefaults(
     defineProps<{
-      alertController?: ChartController | null
       scriptsEnabled?: boolean
       /** 脚本服务是否就绪；未就绪时按钮常驻但禁用，避免首屏插入按钮挤动下方分组。 */
       scriptsReady?: boolean
@@ -499,8 +465,6 @@
       scriptsReady: true,
     },
   )
-
-  const { unreadCount } = useAlerts(() => props.alertController ?? null)
 
   const highlight = ref<InstanceType<typeof SlidingHighlight> | null>(null)
   // 主按钮优先；展开箭头命中时高亮其所属按钮。
@@ -551,7 +515,6 @@
     },
     { immediate: true },
   )
-  const showAlerts = ref(false)
 
   /** 高亮 id：range 模式优先，否则 kernel tool，否则本地 click 缓存 */
   const highlightToolId = computed(() => {
@@ -844,26 +807,6 @@
     position: relative;
     display: flex;
     align-items: center;
-  }
-
-  /* --- 预警按钮徽标 --- */
-  .alert-badge {
-    position: absolute;
-    top: -2px;
-    right: -2px;
-    display: inline-grid;
-    place-items: center;
-    min-width: 14px;
-    height: 14px;
-    padding: 0 3px;
-    background: var(--klc-color-ui-danger);
-    color: var(--klc-color-ui-on-accent);
-    font-size: var(--klc-text-11-mono-font-size);
-    line-height: 1;
-    font-variant-numeric: tabular-nums;
-    border-radius: 999px;
-    pointer-events: none;
-    transform: translateY(-1px) translateX(1px);
   }
 
   /* --- GitHub 入口的自定义 tooltip 内容 --- */

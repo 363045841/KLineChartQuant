@@ -401,7 +401,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     comparisonSpecs: chart.comparisonSpecs,
     symbolCatalog,
     catalog: indicatorCatalog,
-    alertController: chart.alertController,
     activeRangePreset: chart.activeRangePreset,
     ...dataMethods.methods,
     ...chartMethods,

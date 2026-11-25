@@ -81,6 +81,7 @@ export {
 export { type FormatErrorOptions, formatKLineChartError, getRecoveryHint } from './errors-help.js'
 export * from './features/agent/index.js'
 // ── Batch 4: Independent business features ────────────────────────────────
+export * from './engine/calculation/index.js'
 export * from './features/alerts/index.js'
 export * from './features/input/index.js'
 export type { ChartSettings } from './foundation/config/chartSettings.js'
