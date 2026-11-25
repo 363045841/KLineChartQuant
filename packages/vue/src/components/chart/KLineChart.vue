@@ -120,7 +120,6 @@
               target="_blank"
               rel="noopener noreferrer"
               :style="{
-                bottom: 'calc(var(--chart-plot-bottom) + 8px)',
                 '--chart-brand-axis-width': `${
                   chartMode === 'timeshare'
                     ? leftAxisHostWidth
@@ -2010,10 +2009,13 @@
 
   .chart-brand {
     position: absolute;
+    /* 绘图区左边缘与图表底边共用同一个内边距。 */
+    --chart-brand-inset: 24px;
     /* 品牌锚定绘图区左边缘，随分时左轴或左侧价格轴的宽度移动。 */
-    left: calc(var(--chart-brand-axis-width) + 12px);
-    /* Canvas 叠层最高为 3；品牌位于其上，低于 tooltip 等交互浮层。 */
-    z-index: 4;
+    left: calc(var(--chart-brand-axis-width) + var(--chart-brand-inset));
+    bottom: var(--chart-brand-inset);
+    /* 品牌与时间轴区域重叠，放在画布层上方、交互浮层下方。 */
+    z-index: 28;
     color: var(--klc-color-ui-text);
     opacity: 0.3;
     font-family: var(--klc-font-family-brand);
