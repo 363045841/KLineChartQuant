@@ -162,11 +162,6 @@ export type IndicatorMetadata<_T = unknown> = ScriptDefinitionKind & {
   readonly info?: string
 
   /**
-   * 可选别名，用于兼容 UI/API 中的大写 ID 或历史名称。
-   */
-  aliases?: readonly string[]
-
-  /**
    * 显示名称（用于日志和调试）
    */
   displayName: string
@@ -175,9 +170,6 @@ export type IndicatorMetadata<_T = unknown> = ScriptDefinitionKind & {
    * 分类：主图/副图
    */
   category: IndicatorCategory
-
-  /** 是否允许同一张图存在多份实例；缺省允许。 */
-  readonly multiInstance?: boolean
 
   /**
    * 在 configSnapshot 中的 paneId 字段名

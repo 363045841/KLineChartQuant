@@ -9,7 +9,7 @@ import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
 import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
 import type { IndicatorRendererNameResolver } from './indicatorMetadata.js'
 
-/** 将名称和别名转换为统一的查询键。 */
+/** 将内部名和展示名转换为统一的查询键。 */
 export function normalizeIndicatorId(id: string): string {
   return id
     .trim()
@@ -24,7 +24,7 @@ type IndicatorLayerNamingRule = {
 
 const namingRules = new Map<string, IndicatorLayerNamingRule>()
 
-/** 按定义身份（内部名、展示名、别名）登记 Layer 命名规则。 */
+/** 按定义身份（内部名、展示名）登记 Layer 命名规则。 */
 export function registerIndicatorLayerNaming(
   identity: ReadonlyArray<string>,
   renderer: IndicatorRendererNameResolver,

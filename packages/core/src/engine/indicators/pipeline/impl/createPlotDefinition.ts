@@ -37,10 +37,11 @@ function resolveInputDefs<P>(inputs: InputSchema<P>): Record<string, IndicatorIn
   return defs
 }
 
-function adaptCompute(compute: IndicatorCompute<CalculationInputs>) {
-  const run: CalculationCompute = (data, params, market, range, live) =>
-    compute({ bars: data.map(toPlotBar), params, market, range, live })
-  return Object.assign(run, { dispose: () => compute.dispose?.() })
+/** 把脚本侧 options 形式的 compute 适配成 Core 侧按位置传参的 compute。 */
+function adaptCompute(sourceCompute: IndicatorCompute<CalculationInputs>) {
+  const adaptedCompute: CalculationCompute = (data, params, market, range, live) =>
+    sourceCompute({ bars: data.map(toPlotBar), params, market, range, live })
+  return Object.assign(adaptedCompute, { dispose: () => sourceCompute.dispose?.() })
 }
 
 /**
@@ -83,12 +84,13 @@ export function createPlotIndicatorDefinition(
       dependency: definition.dependency ?? Object.freeze({ kind: 'stateful' } as const),
       defaultInputs: resolveInputDefaults(definition.inputs),
       inputDefs: resolveInputDefs(definition.inputs),
-      createCompute: definition.createCompute && adaptFactory(definition.createCompute),
+      createCompute: definition.createCompute && adaptComputeFactory(definition.createCompute),
       compute: adaptCompute(definition.compute),
     },
   }
 }
 
-function adaptFactory(create: () => IndicatorCompute<CalculationInputs>) {
-  return () => adaptCompute(create())
+/** 有状态计算会话工厂同样适配为 Core 侧的计算端口。 */
+function adaptComputeFactory(createCompute: () => IndicatorCompute<CalculationInputs>) {
+  return () => adaptCompute(createCompute())
 }

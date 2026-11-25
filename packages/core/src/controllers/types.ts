@@ -626,7 +626,7 @@ export interface ChartController
 
   // ---- Indicators ----
   /**
-   * 按需加载指标实现（名称、展示名或别名）；已加载与未知 ID 直接跳过。
+   * 按需加载指标实现（名称或展示名）；已加载与未知 ID 直接跳过。
    * 同步指标方法只接受已加载的定义，调用前先 await 本方法。
    */
   loadIndicators(definitionIds: ReadonlyArray<string>): Promise<void>

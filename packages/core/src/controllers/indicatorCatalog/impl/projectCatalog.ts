@@ -150,7 +150,7 @@ function normalizeId(id: string): string {
 }
 
 /**
- * 按规范 ID、展示名或别名查找目录项。
+ * 按规范 ID 或展示名查找目录项。
  *
  * @param id 指标 ID 或名称
  * @returns 匹配的定义；未注册时返回 undefined

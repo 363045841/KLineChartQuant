@@ -440,7 +440,7 @@ export class ChartIndicatorManager {
     return changed.length > 0
   }
 
-  /** 解析别名，并确认当前图表已装配这份实现。 */
+  /** 解析名称或展示名，并确认当前图表已装配这份实现。 */
   private getInstalledDefinition(id: string): IndicatorMetadata | undefined {
     const definition = getRegisteredIndicatorDefinition(id)
     return definition && this.installedDefinitions.get(definition.name) === definition

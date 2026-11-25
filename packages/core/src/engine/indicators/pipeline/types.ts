@@ -37,7 +37,6 @@ export type IndicatorStageName = 'collect' | 'compile' | 'register'
 export type IndicatorDescriptor = ScriptDefinitionKind & {
   readonly source?: IndicatorMetadata['source']
   readonly name: string
-  readonly aliases?: readonly string[]
   readonly displayName: string
   /** 指标选择器/图例显示的长名称；缺省用 displayName。 */
   readonly title?: string

@@ -19,33 +19,32 @@ import {
   registerIndicators,
 } from '../index'
 
-/** 声明带别名的真实 Layer 定义，注册由用例决定。 */
+/** 声明真实 Layer 定义；displayName 是除内部名外的另一个查询键。 */
 function declareDefinition(
   name: string,
-  alias: string,
-  scriptDisplayName?: string,
+  displayName = name,
+  scriptName?: string,
   documentIdentity: 'builtin' | 'user' = 'user',
 ) {
   return {
     name,
-    aliases: [alias],
-    displayName: scriptDisplayName ?? name,
-    source: scriptDisplayName === undefined ? 'native' : 'script',
-    ...(scriptDisplayName === undefined
+    displayName,
+    source: scriptName === undefined ? 'native' : 'script',
+    ...(scriptName === undefined
       ? {}
       : {
           document: {
             identity: documentIdentity,
             revision: 1,
-            source: `// ${scriptDisplayName}`,
+            source: `// ${scriptName}`,
             trusted: true,
             folder: '',
-            definition: { kind: 'indicator', name: scriptDisplayName, inputs: {} },
+            definition: { kind: 'indicator', name: scriptName, inputs: {} },
           },
         }),
     kind: 'indicator' as const,
     category: 'oscillator',
-    defaultPaneId: `sub_${alias}`,
+    defaultPaneId: `sub_${name}`,
     scale: { indicatorKey: name },
     rendererFactory: () => createTestRendererLayer(name),
     getRendererName: ({ paneId }: { paneId: string }) => `${name}_${paneId}`,
@@ -136,19 +135,19 @@ describe('Indicator pipeline', () => {
     registerIndicators([
       registrable(
         'script_alpha',
-        declareDefinition('script_alpha', 'alpha_alias', 'Alpha'),
+        declareDefinition('script_alpha', 'Alpha', 'Alpha'),
         'user-script',
       ),
       registrable(
         'script_beta',
-        declareDefinition('script_beta', 'beta_alias', 'Beta'),
+        declareDefinition('script_beta', 'Beta', 'Beta'),
         'user-script',
       ),
     ])
     const report = registerIndicators([
       registrable(
         'script_alpha',
-        declareDefinition('script_alpha', 'alpha_alias', 'Beta'),
+        declareDefinition('script_alpha', 'Beta', 'Beta'),
         'user-script',
       ),
     ])
@@ -221,30 +220,30 @@ describe('Indicator pipeline', () => {
   })
 
   it('同一份内置脚本重复注册保持幂等，源码不同才拒绝', () => {
-    const first = declareDefinition('builtinAlpha', 'BUILTIN_ALPHA', '内置甲', 'builtin')
+    const first = declareDefinition('builtinAlpha', '内置甲', '内置甲', 'builtin')
     registerIndicators([registrable('builtinAlpha', first, 'builtin-script')])
     const revision = indicatorCatalogRevision.peek()
 
     const repeated = registerIndicators([
       registrable(
         'builtinAlpha',
-        declareDefinition('builtinAlpha', 'BUILTIN_ALPHA', '内置甲', 'builtin'),
+        declareDefinition('builtinAlpha', '内置甲', '内置甲', 'builtin'),
         'builtin-script',
       ),
     ])
     expect(repeated.failures).toEqual([])
     expect(indicatorCatalogRevision.peek()).toBe(revision)
-    expect(getRegisteredIndicatorDefinition('BUILTIN_ALPHA')).toBeDefined()
+    expect(getRegisteredIndicatorDefinition('内置甲')).toBeDefined()
 
     const overwritten = registerIndicators([
       registrable(
         'builtinAlpha',
-        declareDefinition('builtinAlpha', 'BUILTIN_ALPHA', '内置乙', 'builtin'),
+        declareDefinition('builtinAlpha', '内置乙', '内置乙', 'builtin'),
         'builtin-script',
       ),
     ])
     expect(overwritten.failures).toHaveLength(1)
-    expect(getRegisteredIndicatorDefinition('BUILTIN_ALPHA')?.displayName).toBe('内置甲')
+    expect(getRegisteredIndicatorDefinition('内置甲')?.displayName).toBe('内置甲')
   })
 
   it('目录项注册与定义注册共用同一次提交', () => {

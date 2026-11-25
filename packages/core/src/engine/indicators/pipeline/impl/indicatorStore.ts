@@ -1,5 +1,5 @@
 /**
- * 指标仓库：定义表、静态目录表、别名索引与懒加载任务的唯一持有者。
+ * 指标仓库：定义表、静态目录表、身份索引与懒加载任务的唯一持有者。
  *
  * 写入只经过 registerIndicators / unregisterIndicator：一次调用完成全部表写入，
  * 并只发出一次变更通知。读取方拿到的永远是同一份已提交快照。
@@ -33,7 +33,7 @@ interface DescriptorEntry {
 
 const definitions = new Map<string, IndicatorMetadata>()
 const descriptors = new Map<string, DescriptorEntry>()
-const aliases = new Map<string, string>()
+const identityIndex = new Map<string, string>()
 const pendingLoads = new Map<string, Promise<void>>()
 
 const revision = createSignal(0)
@@ -52,17 +52,17 @@ export function setIndicatorFailures(list: readonly IndicatorFailure[]): void {
   failures.set(Object.freeze([...list]))
 }
 
-/** 目录身份的全部查询键：内部名、展示名与别名。 */
-function identityAliases(
-  descriptor: Pick<IndicatorDescriptor, 'name' | 'displayName' | 'aliases'>,
-): string[] {
-  return [descriptor.name, descriptor.displayName, ...(descriptor.aliases ?? [])]
+/** 目录身份的查询键：内部名与展示名。 */
+function identityKeys(
+  descriptor: Pick<IndicatorDescriptor, 'name' | 'displayName'>,
+): readonly string[] {
+  return [descriptor.name, descriptor.displayName]
 }
 
-/** 校验全部别名可归属到该身份，避免失败后目录留下部分写入。 */
-function assertAliasesAvailable(names: readonly string[], key: string): void {
+/** 校验全部身份键可归属到该定义，避免失败后目录留下部分写入。 */
+function assertIdentityAvailable(names: readonly string[], key: string): void {
   for (const name of names) {
-    const target = aliases.get(normalizeIndicatorId(name))
+    const target = identityIndex.get(normalizeIndicatorId(name))
     if (target && target !== key) {
       throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_PARAM, `指标身份已被占用：${name}`)
     }
@@ -78,7 +78,6 @@ function descriptorFromMetadata(definition: IndicatorMetadata): IndicatorDescrip
       : { kind: definition.kind }),
     name: definition.name,
     source: definition.source,
-    aliases: definition.aliases,
     displayName: definition.displayName,
     title: definition.title,
     info: definition.info,
@@ -130,7 +129,7 @@ function planDescriptorWrite(
       changed: false,
     }
   }
-  assertAliasesAvailable(identityAliases(item.descriptor), key)
+  assertIdentityAvailable(identityKeys(item.descriptor), key)
   return {
     key,
     descriptor: item.descriptor,
@@ -190,7 +189,7 @@ function planDefinitionWrite(
       return planBuiltinRepeat(previous, metadata, key, item.candidate.origin)
     }
   }
-  assertAliasesAvailable(identityAliases(metadata), key)
+  assertIdentityAvailable(identityKeys(metadata), key)
   return {
     key,
     metadata,
@@ -207,12 +206,12 @@ function planWrite(item: RegistrableIndicator): WritePlan {
   return item.kind === 'descriptor' ? planDescriptorWrite(item) : planDefinitionWrite(item)
 }
 
-/** 删除不再归属新定义的旧身份键，避免旧展示名残留成幽灵别名。 */
-function purgeStaleAliases(previous: IndicatorMetadata, metadata: IndicatorMetadata): void {
-  const nextKeys = new Set(identityAliases(metadata).map(normalizeIndicatorId))
-  for (const stale of identityAliases(previous)) {
+/** 删除不再归属新定义的旧身份键，避免旧展示名残留为幽灵查询键。 */
+function purgeStaleIdentityKeys(previous: IndicatorMetadata, metadata: IndicatorMetadata): void {
+  const nextKeys = new Set(identityKeys(metadata).map(normalizeIndicatorId))
+  for (const stale of identityKeys(previous)) {
     const staleKey = normalizeIndicatorId(stale)
-    if (staleKey && !nextKeys.has(staleKey)) aliases.delete(staleKey)
+    if (staleKey && !nextKeys.has(staleKey)) identityIndex.delete(staleKey)
   }
 }
 
@@ -233,10 +232,10 @@ function nextDescriptor(plan: WritePlan): IndicatorDescriptor {
 
 /** 应用一条定义计划：实现表、静态目录与渲染命名。 */
 function applyDefinitionWrite(plan: WritePlan, metadata: IndicatorMetadata): void {
-  if (plan.replaced) purgeStaleAliases(plan.replaced, metadata)
+  if (plan.replaced) purgeStaleIdentityKeys(plan.replaced, metadata)
   definitions.set(plan.key, metadata)
   descriptors.set(plan.key, { descriptor: nextDescriptor(plan), origin: plan.origin })
-  registerIndicatorLayerNaming(identityAliases(metadata), metadata.getRendererName)
+  registerIndicatorLayerNaming(identityKeys(metadata), metadata.getRendererName)
 }
 
 /** 应用一条目录项计划；同名目录项已存在时保持原样。 */
@@ -249,19 +248,19 @@ function applyDescriptorWrite(plan: WritePlan): void {
   })
 }
 
-/** 写入该目录项的全部查询键。 */
-function indexAliases(key: string, descriptor: IndicatorDescriptor): void {
-  for (const name of identityAliases(descriptor)) {
+/** 写入该目录项的内部名与展示名查询键。 */
+function indexIdentityKeys(key: string, descriptor: IndicatorDescriptor): void {
+  for (const name of identityKeys(descriptor)) {
     const normalized = normalizeIndicatorId(name)
-    if (normalized) aliases.set(normalized, key)
+    if (normalized) identityIndex.set(normalized, key)
   }
 }
 
-/** 应用一条写入计划：定义表、静态目录、别名与渲染命名。 */
+/** 应用一条写入计划：定义表、静态目录、身份索引与渲染命名。 */
 function applyWrite(plan: WritePlan): void {
   if (plan.metadata) applyDefinitionWrite(plan, plan.metadata)
   else applyDescriptorWrite(plan)
-  indexAliases(plan.key, plan.descriptor)
+  indexIdentityKeys(plan.key, plan.descriptor)
 }
 
 /** 逐条校验；单条失败只记录，其它条目继续。 */
@@ -352,8 +351,8 @@ export function unregisterIndicator(id: string): void {
   }
   definitions.delete(key)
   descriptors.delete(key)
-  for (const name of identityAliases(metadata)) {
-    aliases.delete(normalizeIndicatorId(name))
+  for (const name of identityKeys(metadata)) {
+    identityIndex.delete(normalizeIndicatorId(name))
   }
   const nextRevision = revision.peek() + 1
   batch(() => {
@@ -370,10 +369,10 @@ export function unregisterIndicator(id: string): void {
   })
 }
 
-/** 将名称、展示名或别名解析为目录统一键；未知身份返回 undefined。 */
-function resolveKey(nameOrAlias: string): string | undefined {
-  const normalized = normalizeIndicatorId(nameOrAlias)
-  const key = aliases.get(normalized) ?? normalized
+/** 将名称或展示名解析为目录统一键；未知身份返回 undefined。 */
+function resolveKey(nameOrDisplayName: string): string | undefined {
+  const normalized = normalizeIndicatorId(nameOrDisplayName)
+  const key = identityIndex.get(normalized) ?? normalized
   return descriptors.has(key) || definitions.has(key) ? key : undefined
 }
 
@@ -394,8 +393,8 @@ export function readAlertDescriptors(): readonly IndicatorDescriptor[] {
 }
 
 /** 判断定义是否为警报；未知身份返回 false，未知定义保留给稍后注册的来源。 */
-export function isAlertDefinition(nameOrAlias: string): boolean {
-  return getIndicatorDescriptor(nameOrAlias)?.kind === 'alert'
+export function isAlertDefinition(nameOrDisplayName: string): boolean {
+  return getIndicatorDescriptor(nameOrDisplayName)?.kind === 'alert'
 }
 
 /** 返回已装配定义的快照，调用方不能修改目录。 */
@@ -404,14 +403,14 @@ export function readRegisteredDefinitions(): readonly IndicatorMetadata[] {
   return [...definitions.values()]
 }
 
-/** 按名称、展示名或别名查询静态目录项；实现保持懒加载。 */
-export function getIndicatorDescriptor(nameOrAlias: string): IndicatorDescriptor | undefined {
+/** 按名称或展示名查询静态目录项；实现保持懒加载。 */
+export function getIndicatorDescriptor(nameOrDisplayName: string): IndicatorDescriptor | undefined {
   revision()
-  const key = resolveKey(nameOrAlias)
+  const key = resolveKey(nameOrDisplayName)
   return key === undefined ? undefined : descriptors.get(key)?.descriptor
 }
 
-/** 按名称、展示名或别名查询已装配定义；实现仍处于懒加载时返回 undefined。 */
+/** 按名称或展示名查询已装配定义；实现仍处于懒加载时返回 undefined。 */
 export function getRegisteredIndicatorDefinition(name: string): IndicatorMetadata | undefined {
   revision()
   const key = resolveKey(name)
@@ -419,8 +418,8 @@ export function getRegisteredIndicatorDefinition(name: string): IndicatorMetadat
 }
 
 /** 查询某定义的实现是否已装配。 */
-export function isIndicatorDefinitionLoaded(nameOrAlias: string): boolean {
-  return getRegisteredIndicatorDefinition(nameOrAlias) !== undefined
+export function isIndicatorDefinitionLoaded(nameOrDisplayName: string): boolean {
+  return getRegisteredIndicatorDefinition(nameOrDisplayName) !== undefined
 }
 
 /** 装配单个目录项的实现；并发请求共享同一加载任务，失败后可重试。 */
@@ -459,11 +458,11 @@ function loadEntry(key: string): Promise<void> {
 
 /**
  * 懒加载指定定义的实现（每个定义一个模块），已加载与未知身份直接跳过。
- * @param namesOrAliases 名称、展示名或别名
+ * @param names 名称或展示名
  */
-export async function loadIndicatorDefinitions(namesOrAliases: Iterable<string>): Promise<void> {
+export async function loadIndicatorDefinitions(names: Iterable<string>): Promise<void> {
   const keys = new Set<string>()
-  for (const id of namesOrAliases) {
+  for (const id of names) {
     const key = resolveKey(id)
     if (key !== undefined) keys.add(key)
   }
@@ -486,13 +485,13 @@ export function resolveCanonicalIndicatorId(
 }
 
 /**
- * 将指标的 name / displayName / 别名解析为对外规范 ID。
+ * 将指标的 name / displayName 解析为对外规范 ID。
  *
- * @param nameOrAlias 名称、展示名或别名
+ * @param nameOrDisplayName 名称或展示名
  * @returns 规范 ID；未注册时返回 undefined
  */
-export function resolveIndicatorDefinitionId(nameOrAlias: string): string | undefined {
-  const descriptor = getIndicatorDescriptor(nameOrAlias)
+export function resolveIndicatorDefinitionId(nameOrDisplayName: string): string | undefined {
+  const descriptor = getIndicatorDescriptor(nameOrDisplayName)
   return descriptor === undefined ? undefined : resolveCanonicalIndicatorId(descriptor)
 }
 
@@ -500,7 +499,7 @@ export function resolveIndicatorDefinitionId(nameOrAlias: string): string | unde
 export function clearIndicatorStoreForTest(): void {
   definitions.clear()
   descriptors.clear()
-  aliases.clear()
+  identityIndex.clear()
   pendingLoads.clear()
   clearIndicatorLayerNamingForTest()
   setIndicatorFailures([])
