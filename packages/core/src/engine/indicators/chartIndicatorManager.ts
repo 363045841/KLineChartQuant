@@ -6,7 +6,8 @@
  * 2. 订阅计算提交，按实例生成渲染投影；
  * 3. 维护图层与异步可用性。
  *
- * 计算、调度、结果仓库全部在 `engine/calculation`；本类不再持有行情或任务状态。
+ * 计算、调度、结果仓库全部在会话级 `engine/calculation`；本类只创建自己的 client，
+ * 不创建也不释放中枢，不持有行情或任务状态。
  */
 
 import type { ComputeChange } from '@363045841yyt/klinechart-plot-contracts'
@@ -29,18 +30,16 @@ import type {
 } from '../../rendering/scene/types.js'
 import {
   type CalculationClient,
-  type CalculationDefinition,
   type CalculationHub,
   type CalculationInputValue,
-  type CalculationMarketData,
   type CalculationRequest,
   type CalculationResult,
-  createCalculationHub,
   createFeedKey,
   createLocalCalculationKey,
   type DataIdentity,
   type FeedSnapshot,
 } from '../calculation/index.js'
+import type { ReadyMarketSession } from '../data/marketRuntime/types.js'
 import type { ChartOptions, IndicatorInstance, SubPaneInfo } from '../chart/index.js'
 import { type PaneAxisSpec, resolveObjectAxisMap } from '../pane/axisResolver.js'
 import { UpdateLevel } from '../pane/index.js'
@@ -62,7 +61,6 @@ import {
   type IndicatorInstanceCatalog,
   type IndicatorInstanceDescriptor,
 } from './instances/api/indicatorRenderBinding.js'
-import { createIndicatorCalculators } from './instances/assembly/indicatorCalculatorCatalog.js'
 import { createIndicatorTimelineProjection } from './projection/impl/indicatorTimelineProjection.js'
 import type { IndicatorTimelineProjection } from './projection/types.js'
 import {
@@ -127,7 +125,10 @@ interface PlannedInstance {
 }
 
 export interface IndicatorDependencies {
-  getMarketData?: () => CalculationMarketData
+  /** 会话级计算中枢；图表只是消费者，不创建也不释放。 */
+  readonly hub: CalculationHub
+  /** 行情修订参与结果新旧判断；来自图表自己的行情运行时。 */
+  getMarketRevision: () => number
   getPeriod: () => string
   plotColors$: ReadonlySignal<ColorTokens>
   getOption: () => ResolvedChartOptions
@@ -163,8 +164,7 @@ export class ChartIndicatorManager {
   private deps: IndicatorDependencies
   private readonly hub: CalculationHub
   private readonly client: CalculationClient
-  /** 已安装定义的计算端口；计算层按 identity 读取，不持有定义仓库。 */
-  private readonly calculators = new Map<string, CalculationDefinition>()
+  /** 定义安装快照；计算端口由会话定义仓库统一提供。 */
   private installedDefinitions: ReadonlyMap<string, IndicatorMetadata> = new Map()
   private appliedDefinitionRevision = -1
   private _indicatorsComputed: Computed<ReadonlyArray<IndicatorInstance>>
@@ -248,10 +248,7 @@ export class ChartIndicatorManager {
 
   constructor(deps: IndicatorDependencies) {
     this.deps = deps
-    this.hub = createCalculationHub({
-      resolveDefinition: (id) => this.calculators.get(id),
-      marketData: deps.getMarketData,
-    })
+    this.hub = deps.hub
     this.client = this.hub.createClient('chart', {
       onCommit: (commit) => this.publishResults(commit.results),
       onPending: (owners, pending) => {
@@ -298,11 +295,6 @@ export class ChartIndicatorManager {
             (paneOrder.get(right.paneId) ?? Number.MAX_SAFE_INTEGER),
         )
     })
-  }
-
-  /** 暴露给同一宿主上的其他消费者（警报、Agent）；计算层只有一份。 */
-  getCalculationHub(): CalculationHub {
-    return this.hub
   }
 
   /** 当前行情身份；没有数据时为 null。 */
@@ -411,33 +403,20 @@ export class ChartIndicatorManager {
   }
 
   /** 比对完整目录快照，合并通知时也能同步全部新增、替换和注销。 */
-  private synchronizeDefinitions(revision: number): boolean {
-    if (revision === this.appliedDefinitionRevision) return false
+  private synchronizeDefinitions(revision: number): void {
+    if (revision === this.appliedDefinitionRevision) return
     const next = new Map(
       readRegisteredDefinitions().map((definition) => [definition.name, definition]),
     )
     const previous = this.installedDefinitions
-    const outdated = [...previous.values()].filter(
-      (definition) => next.get(definition.name) !== definition,
-    )
-    const install = [...next.values()].filter(
-      (definition) => previous.get(definition.name) !== definition,
-    )
-    // 先安装新计算端口，再让计算层丢弃旧结果；否则无效定义会被当成最终结果提交。
-    for (const definition of outdated) this.calculators.delete(definition.name)
-    for (const definition of createIndicatorCalculators(install)) {
-      this.calculators.set(definition.definitionId, definition)
-    }
-    const changed = [...outdated, ...install].map((definition) => definition.name)
-    if (changed.length > 0) this.hub.invalidateDefinitions(changed)
     this.installedDefinitions = next
     this.appliedDefinitionRevision = revision
-    for (const definition of outdated) {
+    // 定义被注销时回收它创建的实例；替换定义保留实例，由计算层按新定义重算。
+    for (const definition of previous.values()) {
       if (!next.has(definition.name)) {
         this.deps.removeInstancesByDefinition(resolveCanonicalIndicatorId(definition))
       }
     }
-    return changed.length > 0
   }
 
   /** 解析名称或展示名，并确认当前图表已装配这份实现。 */
@@ -553,6 +532,7 @@ export class ChartIndicatorManager {
     dataRevision: number,
     displayTimestamps: readonly number[] | null,
     identity: DataIdentity,
+    marketSession: ReadyMarketSession | null,
     live: boolean,
   ): void {
     this.visibleRange = visibleRange
@@ -570,12 +550,13 @@ export class ChartIndicatorManager {
     this.feed = {
       identity,
       dataRevision,
-      marketRevision: this.deps.getMarketData?.().revision ?? 0,
+      marketRevision: this.deps.getMarketRevision(),
       timestamps: data.map((item) => item.timestamp),
       data,
       change,
       // 由数据层显式给出：只有追加与末根更新才是实时 bar。
       live,
+      ...(marketSession === null ? {} : { marketSession }),
     }
     this.hub.updateFeed(this.feed)
     this.applyPlan()
@@ -850,7 +831,6 @@ export class ChartIndicatorManager {
 
   destroy(): void {
     this.client.dispose()
-    this.hub.dispose()
     this.destroyed = true
     this.releaseLayerResources()
     this.paneAxes = new Map()

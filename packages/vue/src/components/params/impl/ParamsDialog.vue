@@ -1,4 +1,4 @@
-<!-- 指标参数弹窗：按草稿中的模式选择显示适用参数。 -->
+<!-- 定义参数弹窗：按草稿中的模式选择显示适用参数；指标与警报共用。 -->
 <template>
   <BaseModal
     :open="visible"
@@ -22,13 +22,13 @@
     </template>
 
     <Transition name="slide">
-      <div v-if="showDescription && indicatorDescription" class="indicator-description">
-        <p>{{ indicatorDescription }}</p>
+      <div v-if="showDescription && description" class="definition-description">
+        <p>{{ description }}</p>
       </div>
     </Transition>
 
     <div class="params-body">
-      <IndicatorParamItem
+      <ParamItem
         v-for="param in visibleParams"
         :key="param.key"
         :param="param"
@@ -55,23 +55,22 @@
   import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import { computed } from 'vue'
   import IconTablerHelpCircle from '~icons/tabler/help-circle'
-  import type { IndicatorParamsDialogProps, IndicatorParamValues } from '../types.js'
-  import IndicatorParamItem from './IndicatorParamItem.vue'
-  import { useIndicatorParams } from './useIndicatorParams.js'
+  import type { ParamsDialogProps, ParamValues } from '../types.js'
+  import ParamItem from './ParamItem.vue'
+  import { useParams } from './useParams.js'
 
-  const props = defineProps<IndicatorParamsDialogProps>()
+  const props = defineProps<ParamsDialogProps>()
 
   const emit = defineEmits<{
     close: []
     reset: []
-    confirm: [values: IndicatorParamValues]
+    confirm: [values: ParamValues]
   }>()
 
-  /** 弹窗标题统一为「参数设置 · 指标名」。 */
-  const dialogTitle = computed(() => `参数设置 · ${props.indicatorName}`)
+  /** 弹窗标题统一为「参数设置 · 定义名」。 */
+  const dialogTitle = computed(() => `参数设置 · ${props.definitionName}`)
 
-  const { localValues, visibleParams, showDescription, setValue, onReset } =
-    useIndicatorParams(props)
+  const { localValues, visibleParams, showDescription, setValue, onReset } = useParams(props)
 
   function reset() {
     onReset()
@@ -91,8 +90,8 @@
     flex-direction: column;
   }
 
-  /* ── 指标描述 ── */
-  .indicator-description {
+  /* ── 定义说明 ── */
+  .definition-description {
     margin-bottom: 8px;
     margin-inline: var(--base-modal-content-inset);
     padding: 10px 12px;
@@ -101,7 +100,7 @@
     border: 1px solid var(--klc-color-ui-border);
   }
 
-  .indicator-description p {
+  .definition-description p {
     margin: 0;
     font-size: 12px;
     line-height: 1.6;
@@ -127,7 +126,7 @@
     gap: 8px;
   }
 
-  /* ── 指标描述的展开/收起动画 ── */
+  /* ── 定义的展开/收起动画 ── */
   .slide-enter-active,
   .slide-leave-active {
     transition:

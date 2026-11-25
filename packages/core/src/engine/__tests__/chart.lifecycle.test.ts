@@ -12,6 +12,7 @@ import { MAIN_PANE_ID } from '../pane/types'
 import { PRICE_SERIES_AXIS_ID } from '../renderers/rendererIds.js'
 import { createChartDom, ResizeObserverMock } from './helpers/chartDomTestKit'
 import {
+  createTestChartRuntime,
   defaultOptions,
   installChartTestHooks,
   mountChart,
@@ -79,7 +80,7 @@ describe('Chart lifecycle without a market selection', () => {
     dom.container.setPointerCapture = () => {}
     dom.container.hasPointerCapture = () => false
     dom.container.releasePointerCapture = () => {}
-    const chart = new Chart(dom, defaultOptions)
+    const chart = new Chart(dom, defaultOptions, createTestChartRuntime())
     try {
       chart.resize()
       const check = vi.spyOn(chart, 'checkVisibleRangeGap').mockImplementation(() => {})
@@ -110,7 +111,7 @@ describe('Chart lifecycle without a market selection', () => {
     dom.container.setPointerCapture = () => {}
     dom.container.hasPointerCapture = () => false
     dom.container.releasePointerCapture = () => {}
-    const chart = new Chart(dom, defaultOptions)
+    const chart = new Chart(dom, defaultOptions, createTestChartRuntime())
     try {
       chart.resize()
       chart.handlePointerEvent(
@@ -140,7 +141,7 @@ describe('Chart lifecycle without a market selection', () => {
     dom.container.setPointerCapture = () => {}
     dom.container.hasPointerCapture = () => false
     dom.container.releasePointerCapture = () => {}
-    const chart = new Chart(dom, defaultOptions)
+    const chart = new Chart(dom, defaultOptions, createTestChartRuntime())
     try {
       chart.resize()
       const check = vi.spyOn(chart, 'checkVisibleRangeGap').mockImplementation(() => {})

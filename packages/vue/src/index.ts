@@ -102,11 +102,11 @@ export type {
 } from '@vue-src/components/index.js'
 export {
   DrawingStyleToolbar,
-  IndicatorParams,
   IndicatorSelector,
   KLineTooltip,
   KlineChart,
   LeftToolbar,
+  ParamsDialog,
 } from '@vue-src/components/index.js'
 export {
   SCRIPT_SOURCE_STORE_KEY,

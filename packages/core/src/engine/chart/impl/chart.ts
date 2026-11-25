@@ -51,13 +51,12 @@ import {
   DEFAULT_KLINE_PERIOD,
 } from '../../../data/provider/types.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
-import { createDataIdentity, type DataIdentity } from '../../calculation/index.js'
+import { type CalculationHub, createDataIdentity, type DataIdentity } from '../../calculation/index.js'
 import {
   type ChartSettings,
   resolveKLineGapRatio,
   resolvePriceScaleTypeSetting,
 } from '../../../foundation/config/chartSettings.js'
-import { applyMarketSessions } from '../../../foundation/config/marketSession/applyMarketSessions.js'
 import { MarketSessionRegistry } from '../../../foundation/config/marketSession/marketSessionRegistry.js'
 import { resolveSymbolMarketSession } from '../../../foundation/config/marketSession/resolveSymbolMarketSession.js'
 import type { PriceAxisRangeMode } from '../../../foundation/config/priceAxisRangeMode.js'
@@ -183,11 +182,14 @@ function resolveDrawingPointerHandler(
   return undefined
 }
 
-/** Chart 可选运行时注入；所有字段都有默认值。 */
+/** Chart 运行时注入；计算会话与市场时段由宿主提供。 */
 interface ChartRuntime {
   rendererHost?: RendererHost
   initialSettings?: Partial<ChartSettings>
-  marketSessions?: Readonly<Record<string, MarketSessionConfig>>
+  /** 会话级计算中枢；图表只创建 client，不拥有中枢。 */
+  readonly calculationHub: CalculationHub
+  /** 会话级市场时段表；图表与计算行情共用同一份。 */
+  readonly marketSessionRegistry: MarketSessionRegistry
   marketDataContext?: MarketDataContext
   /** 帧时间源，测试或宿主可注入 Unix 毫秒时钟。 */
   clock?: import('../../../foundation/utils/clock.js').Clock
@@ -328,7 +330,6 @@ export class Chart {
   private _kLineMode = new KLineMode()
   private _timeShareMode = new TimeShareMode()
   private readonly marketSessions: MarketSessionRegistry
-  private readonly unsubscribeMarketSessions: () => void
   private readonly marketDataProviderRegistry: MarketDataProviderRegistry
 
   /** 右轴 host 当前生效的 CSS 宽度；提交后锁定，布局变化时才重新评估。 */
@@ -342,7 +343,7 @@ export class Chart {
    * @param dom 由 Vue 组件传入的 DOM 句柄
    * @param opt 初始配置
    */
-  constructor(dom: ChartDom, opt: ChartOptions, runtime?: ChartRuntime) {
+  constructor(dom: ChartDom, opt: ChartOptions, runtime: ChartRuntime) {
     this.dom = dom
     this.marketDataProviderRegistry = resolveMarketDataContext(runtime).registry
     this.legendDom = createLegendDomRenderer(
@@ -351,18 +352,8 @@ export class Chart {
       (id, action) => this.legend.execute(id, action),
     )
     this.viewportScrollBridge = new ViewportScrollBridge(() => this.dom.container)
-    // 会话表只有一份：内置表 + 数据源声明 + 图表覆盖，动态注册的数据源也同步进来。
-    this.marketSessions = new MarketSessionRegistry()
-    const sessionOverrides = runtime?.marketSessions
-    const syncMarketSessions = () =>
-      applyMarketSessions(
-        this.marketSessions,
-        this.marketDataProviderRegistry.getAll().map((provider) => provider.source),
-        sessionOverrides,
-      )
-    syncMarketSessions()
-    this.unsubscribeMarketSessions =
-      this.marketDataProviderRegistry.state.subscribe(syncMarketSessions)
+    // 会话表只有一份：图表与计算会话共用的注册表由宿主传入。
+    this.marketSessions = runtime.marketSessionRegistry
     this.pluginHost = createPluginHost()
     this.rendererHost = resolveRendererHost(runtime)
 
@@ -468,6 +459,7 @@ export class Chart {
             dataRevision,
             displayTimestamps,
             identity,
+            this.kernel.data.readonly.readyMarket.peek(),
             live,
           )
         },
@@ -703,7 +695,8 @@ export class Chart {
     ]
 
     this.indicatorManager = new ChartIndicatorManager({
-      getMarketData: () => this.dataManager.indicatorMarketData,
+      hub: runtime.calculationHub,
+      getMarketRevision: () => this.dataManager.marketRevision,
       getPeriod: () => this.dataManager.currentPeriod,
       plotColors$: computed(() => {
         const settings = this.kernel.settings.readonly.settings()
@@ -1619,7 +1612,6 @@ export class Chart {
 
   /** 先完成插件卸载，再释放 Scene 与图表状态；重复销毁复用同一任务。 */
   private async destroyChart(): Promise<void> {
-    this.unsubscribeMarketSessions()
     this.interaction.stopInertia()
     this.zoomController.stopAnimation()
     this.renderer.stopScheduling()

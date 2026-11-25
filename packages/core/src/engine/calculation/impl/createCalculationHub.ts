@@ -102,7 +102,10 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
   const desired = new Map<string, DesiredRequest>()
   const store = new Map<string, StoredResult>()
   const lanes = new Map<string, Lane>()
-  const calculators = new Map<string, CalculationDefinition & { dispose?(): void }>()
+  const calculators = new Map<
+    string,
+    CalculationDefinition & { dispose?(): void; resolved: CalculationDefinition }
+  >()
   /** 预览结果的有界保留顺序；不参与任何消费者提交。 */
   const previewKeys = new Set<string>()
   let disposed = false
@@ -112,17 +115,22 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
     return createCalculationKey(feed, localKey)
   }
 
-  /** 取或创建单任务计算器；失败直接返回 undefined，由执行阶段报错。 */
+  /** 取或创建单任务计算器；定义身份变化时替换旧会话，失败由执行阶段报错。 */
   function ensureCalculator(internal: string, definitionId: string) {
-    const existing = calculators.get(internal)
-    if (existing && existing.definitionId === definitionId) return existing
     const definition = options.resolveDefinition(definitionId)
     if (!definition) return undefined
+    const existing = calculators.get(internal)
+    if (existing?.resolved === definition) return existing
+    if (existing) {
+      existing.dispose?.()
+      calculators.delete(internal)
+    }
     const compute = definition.createCompute?.()
     const entry = {
       ...definition,
       compute: compute ?? definition.compute,
       dispose: compute?.dispose,
+      resolved: definition,
     }
     calculators.set(internal, entry)
     return entry

@@ -14,6 +14,7 @@ import {
 } from '../data/__tests__/helpers/chartDataManagerTestKit'
 import { MAIN_PANE_ID } from '../pane/types'
 import { createChartDom, installChartDomStubs } from './helpers/chartDomTestKit'
+import { createTestChartRuntime } from './helpers/chartLifecycleTestKit'
 
 const options: ChartOptions = {
   yPaddingPx: 0,
@@ -58,7 +59,7 @@ describe('Chart range preset flow', () => {
 
   beforeEach(() => {
     restoreDom = installChartDomStubs()
-    chart = new Chart(createChartDom(1000, 600), options)
+    chart = new Chart(createChartDom(1000, 600), options, createTestChartRuntime())
   })
 
   afterEach(async () => {

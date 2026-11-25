@@ -1,4 +1,4 @@
-<!-- 指标参数单行：标签、取值范围与按类型渲染的控件。 -->
+<!-- 参数单行：标签、取值范围与按类型渲染的控件；指标与警报共用。 -->
 <template>
   <div class="param-item">
     <div class="param-header">
@@ -74,9 +74,9 @@
   import IconChevronDown from '~icons/tabler/chevron-down'
   import IconTablerMinus from '~icons/tabler/minus'
   import IconTablerPlus from '~icons/tabler/plus'
-  import type { IndicatorParamItemProps } from '../types.js'
+  import type { ParamItemProps } from '../types.js'
 
-  const props = defineProps<IndicatorParamItemProps>()
+  const props = defineProps<ParamItemProps>()
 
   const emit = defineEmits<{ update: [value: number | string | boolean] }>()
 

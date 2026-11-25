@@ -24,7 +24,6 @@ import {
   type TradeDataSource,
   type TradeStream,
 } from '@/data/trades/types.js'
-import type { CalculationMarketData } from '@/engine/calculation/index.js'
 import { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import {
@@ -33,6 +32,7 @@ import {
   supportsRawTradeStream,
 } from '../types.js'
 import { IndicatorBarsRepository } from './indicatorBarsRepository.js'
+import { createScriptTimeContext } from './scriptTimeContext.js'
 
 /** 成交流订阅的身份与传输目标；由就绪会话和指标需求解析得到。 */
 interface TradeTarget {
@@ -83,11 +83,8 @@ function needsRebind(current: TradeBinding | null, target: TradeTarget): boolean
   )
 }
 
-/** 租约来源：计划快照可以回收自己声明的租约，临时计算只由自身生命周期释放。 */
-type OwnerSource = 'plan' | 'temporary'
-
 /** 一个图表只有一个运行模块；视口变化只更新需求，连接身份由就绪快照决定。 */
-export class MarketRuntime implements CalculationMarketData {
+export class MarketRuntime {
   private readonly marketSessions: MarketSessionRegistry
   private readonly registry: MarketDataProviderRegistry
   private readonly stream: StreamHub
@@ -101,9 +98,8 @@ export class MarketRuntime implements CalculationMarketData {
   >()
   private readonly requests: IndicatorBarsRepository
   private requestRevision = 0
-  /** 行情租约的唯一事实：key → 来源。请求与需求条目只是它的投影。 */
-  private readonly owners = new Map<string, OwnerSource>()
-  private readonly independentOwners = new Set<string>()
+  /** 临时计算租约：上下文结束即撤销，需求与请求只是它的投影。 */
+  private readonly owners = new Set<string>()
   private temporarySequence = 0
 
   /** 临时计算持有一份租约，结束后只释放自己的请求与需求。 */
@@ -112,7 +108,7 @@ export class MarketRuntime implements CalculationMarketData {
     compute: (market: IndicatorMarketContext) => Promise<T>,
   ): Promise<T> {
     const owner = `temporary_${++this.temporarySequence}`
-    this.owners.set(owner, 'temporary')
+    this.owners.add(owner)
     try {
       return await compute(this.context(owner, bars))
     } finally {
@@ -169,44 +165,19 @@ export class MarketRuntime implements CalculationMarketData {
   }
 
   /** 给计算任务提供只读取数端口，完整 Buffer 永不进入脚本。 */
-  context(owner: string, bars: readonly KLineData[], independentSession?: ReadyMarketSession): IndicatorMarketContext {
-    if (independentSession) this.independentOwners.add(owner)
-    const session = independentSession ?? this.deps.session.peek()
-    const symbol = session === null ? '' : session.instrument.symbol
-    const profile =
-      session?.instrument.sessionId === undefined
-        ? undefined
-        : this.marketSessions.getRequired(session.instrument.sessionId)
-    const venue = profile?.extendedSessions?.[session!.instrument.exchange]
+  context(owner: string, bars: readonly KLineData[]): IndicatorMarketContext {
+    const session = this.deps.session.peek()
     return Object.freeze({
-      symbol,
-      time:
-        session === null || profile === undefined
-          ? undefined
-          : {
-              period: session.selection.period,
-              session:
-                venue === undefined
-                  ? profile
-                  : { ...profile, premarket: venue.premarket, postmarket: venue.postmarket },
-            },
+      symbol: session === null ? '' : session.instrument.symbol,
+      time: session === null ? undefined : createScriptTimeContext(session, this.marketSessions),
       loadBars: (request: IndicatorBarsRequest, signal?: AbortSignal) =>
-        this.requests.read(owner, bars, request, session, signal, independentSession !== undefined),
+        this.requests.read(owner, bars, request, session, signal),
     })
-  }
-
-  /** 执行计划的全量快照：只增删计划自己拥有的租约，临时计算不受影响。 */
-  retain(planOwners: ReadonlySet<string>): void {
-    for (const [owner, source] of this.owners)
-      if (source === 'plan' && !planOwners.has(owner)) this.owners.delete(owner)
-    for (const owner of planOwners) this.owners.set(owner, 'plan')
-    this.sweep()
   }
 
   /** 把请求与需求投影对齐到租约集合，再回收无引用的 Buffer 与连接。 */
   private sweep(): void {
-    for (const owner of this.independentOwners) if (!this.owners.has(owner)) this.independentOwners.delete(owner)
-    this.requests.retain(new Set(this.owners.keys()))
+    this.requests.retain(this.owners)
     for (const demand of this.barDemands.values())
       for (const owner of demand.owners) if (!this.owners.has(owner)) demand.owners.delete(owner)
     this.releaseUnusedBars()
@@ -390,9 +361,9 @@ export class MarketRuntime implements CalculationMarketData {
     const next = this.deps.session.peek()
     if (next !== this.session) {
       this.session = next
-      this.requests.retain(this.independentOwners)
+      this.requests.retain(this.owners)
       for (const demand of this.barDemands.values()) {
-        for (const owner of demand.owners) if (!this.independentOwners.has(owner)) demand.owners.delete(owner)
+        for (const owner of demand.owners) if (!this.owners.has(owner)) demand.owners.delete(owner)
       }
       this.releaseUnusedBars()
       this.requestRevision++

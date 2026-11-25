@@ -8,7 +8,7 @@ import {
   indicatorCatalog,
 } from '@363045841yyt/klinechart-core/controllers'
 import { createScriptService, type ScriptService } from '@363045841yyt/klinechart-script-chart'
-import { useIndicatorParams } from '@vue-src/components/indicator/params/impl/useIndicatorParams.js'
+import { useParams } from '@vue-src/components/params/impl/useParams.js'
 import { coreSignalToVueRef } from '@vue-src/utils/signalBridge.js'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { effectScope, ref } from 'vue'
@@ -86,7 +86,7 @@ describe('Script selector catalog', () => {
     })
     const params = findIndicatorDefinition(definition.id)!.inputs
     scope.run(() => {
-      const draft = useIndicatorParams({ visible: true, values: {}, params })
+      const draft = useParams({ visible: true, values: {}, params })
       draft.onReset()
       expect(draft.localValues.value).toEqual({ period: 5, text: 'close', enabled: false })
     })

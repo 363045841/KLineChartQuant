@@ -1,10 +1,10 @@
-/** 指标参数编辑草稿：维护草稿值、可见参数与重置。 */
+/** 参数编辑草稿：维护草稿值、可见参数与重置。 */
 import { computed, ref, watch } from 'vue'
-import type { IndicatorParamsDraftInput, IndicatorParamValues } from '../types.js'
+import type { ParamsDraftInput, ParamValues } from '../types.js'
 
 /** 创建参数草稿；弹窗打开或外部值变化时重新载入。 */
-export function useIndicatorParams(props: IndicatorParamsDraftInput) {
-  const localValues = ref<IndicatorParamValues>({ ...props.values })
+export function useParams(props: ParamsDraftInput) {
+  const localValues = ref<ParamValues>({ ...props.values })
   const showDescription = ref(true)
   // 使用草稿值推导可见项，切换模式立即生效，并保留隐藏参数的编辑值。
   const visibleParams = computed(() =>
@@ -37,7 +37,7 @@ export function useIndicatorParams(props: IndicatorParamsDraftInput) {
 
   /** 将全部参数恢复为定义默认值。 */
   function onReset(): void {
-    const defaults: IndicatorParamValues = {}
+    const defaults: ParamValues = {}
     for (const param of props.params) {
       defaults[param.key] = param.default ?? props.values[param.key] ?? 0
     }

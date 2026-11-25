@@ -15,6 +15,7 @@ import { INSTANCE_MOVE_KIND, MAIN_PANE_ID } from '../pane/types'
 import { PRICE_SERIES_AXIS_ID } from '../renderers/rendererIds.js'
 import { ResizeObserverMock } from './helpers/chartDomTestKit'
 import {
+  createTestChartRuntime,
   importPaneFixture,
   installChartTestHooks,
   mountChart,
@@ -136,9 +137,13 @@ describe('Chart pane layout', () => {
   })
 
   it('derives the initial primary scale from settings without writing projection defaults into layout', async () => {
-    const chart = mountChart(1000, 600, {
-      initialSettings: { mainRightAxisTypeSetting: ScaleType.Log },
-    })
+    const chart = mountChart(
+      1000,
+      600,
+      createTestChartRuntime({
+        initialSettings: { mainRightAxisTypeSetting: ScaleType.Log },
+      }),
+    )
     try {
       expect(chart.axes.configuration(PRICE_SERIES_AXIS_ID).scaleType).toBe(ScaleType.Log)
       expect(chart.kernel.pane.readonly.paneScaleTypes.peek().has(PRICE_SERIES_AXIS_ID)).toBe(false)
@@ -479,9 +484,13 @@ describe('Chart pane layout', () => {
     source.axes.setScaleType(PRICE_SERIES_AXIS_ID, ScaleType.Log)
     const workspaces = source.kernel.snapshotViewWorkspaces()
     await source.destroy()
-    const chart = mountChart(1000, 600, {
-      initialSettings: { mainRightAxisTypeSetting: ScaleType.Linear },
-    })
+    const chart = mountChart(
+      1000,
+      600,
+      createTestChartRuntime({
+        initialSettings: { mainRightAxisTypeSetting: ScaleType.Linear },
+      }),
+    )
     try {
       chart.kernel.applyLayout({
         version: LAYOUT_DOCUMENT_VERSION,

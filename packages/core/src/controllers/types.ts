@@ -378,7 +378,6 @@ export interface ChartMountOptions {
   zoomLevels?: number
   theme?: 'light' | 'dark'
   marketSessions?: Readonly<Record<string, MarketSessionConfig>>
-
   // Pre-existing DOM elements (skip buildDom when provided)
   canvasLayer?: HTMLElement
   rightAxisLayer?: HTMLElement
@@ -441,7 +440,7 @@ export interface ChartController
     ChartRendererAccess,
     LayoutApi,
     IndicatorTemplateApi {
-  /** 警报服务；规则只引用警报脚本，与图表实例无关。 */
+  /** 会话级警报服务；与图表平级，由控制器作为会话根持有并在销毁时释放。 */
   readonly alerts: AlertService
   /** 一次临时指标计算，共享当前行情与 Request 上下文，完成后释放行情使用权。 */
   withIndicatorData<T>(

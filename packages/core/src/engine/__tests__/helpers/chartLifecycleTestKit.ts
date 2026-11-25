@@ -6,7 +6,20 @@ import { afterEach, beforeAll, beforeEach, vi } from 'vitest'
 import { Chart, type ChartOptions } from '@/core/chart/index'
 import { loadBuiltinIndicators } from '@/core/indicators/registerBuiltins'
 import { MAIN_PANE_ID } from '@/core/pane/types'
+import { createCalculationHub } from '@/engine/calculation/index'
+import { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry'
 import { createChartDom, installChartDomStubs } from './chartDomTestKit'
+
+/** 测试图表共用的会话依赖：计算中枢只解析不到定义，市场时段用空表。 */
+export function createTestChartRuntime(
+  overrides: Partial<ConstructorParameters<typeof Chart>[2]> = {},
+): ConstructorParameters<typeof Chart>[2] {
+  return {
+    calculationHub: createCalculationHub({ resolveDefinition: () => undefined }),
+    marketSessionRegistry: new MarketSessionRegistry(),
+    ...overrides,
+  }
+}
 
 /** 不含行情选择时的图表选项；用例只验证独立于行情的职责。 */
 export const defaultOptions: ChartOptions = {
@@ -24,7 +37,7 @@ export const defaultOptions: ChartOptions = {
 export function mountChart(
   width = 1000,
   height = 600,
-  runtime?: ConstructorParameters<typeof Chart>[2],
+  runtime: ConstructorParameters<typeof Chart>[2] = createTestChartRuntime(),
 ): Chart {
   return new Chart(createChartDom(width, height), defaultOptions, runtime)
 }

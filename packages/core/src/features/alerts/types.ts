@@ -84,6 +84,9 @@ export interface AlertService {
   readonly alerts: ReadonlySignal<readonly Alert[]>
   readonly fires: ReadonlySignal<readonly AlertFire[]>
 
+  /** 指定品种的规则投影；身份换算与 `list({ symbol })` 完全一致。 */
+  forSymbol(symbol: SymbolSpec): ReadonlySignal<readonly Alert[]>
+
   create(draft: AlertDraft): Alert
   update(id: AlertId, patch: Partial<AlertDraft>): Alert
   remove(id: AlertId): void

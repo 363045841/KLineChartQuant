@@ -1,15 +1,15 @@
 /** 端到端：脚本 alert → Worker → CalculationHub → AlertService → 通知。 */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  createCalculationHub,
+  createCalculationSession,
   createDataIdentity,
   createFeedKey,
-} from '../../../../core/src/engine/calculation/index.js'
+} from '@363045841yyt/klinechart-core'
+import { marketDataProviderRegistry } from '@363045841yyt/klinechart-core/market-data'
 import {
   type AlertFiresDocument,
   type AlertRulesDocument,
   createAlertService,
-  getRegisteredIndicatorDefinition,
 } from '@363045841yyt/klinechart-core'
 import { createMemoryDocumentStore } from '@363045841yyt/klinechart-core/persistence'
 import { NodeScriptWorker } from '../../../../script/src/worker/__tests__/nodeWorker.js'
@@ -52,25 +52,15 @@ const IDENTITY = { ...CHART_IDENTITY, scope: 'alerts' }
 afterEach(() => vi.unstubAllGlobals())
 
 describe('alert pipeline', () => {
-  it('delivers an intrabar crossing even when a later price and a chart update are already queued', async () => {
+  it('delivers an intrabar crossing with no chart instance, only a calculation session', async () => {
     vi.stubGlobal('Worker', NodeScriptWorker)
     const service = await createScriptService([], {
       persistence: { load: async () => null, save: async () => true },
       builtinSources: [SOURCE],
     })
-    const metadata = getRegisteredIndicatorDefinition('PipelineAlert')
-    if (!metadata?.runtime) throw new Error('Missing PipelineAlert definition')
-    const runtime = metadata.runtime
-    const calculator = {
-      definitionId: metadata.name,
-      dependency: runtime.dependency ?? { kind: 'stateful' as const },
-      compute: runtime.compute,
-      ...(runtime.createCompute ? { createCompute: runtime.createCompute } : {}),
-    }
-
-    const hub = createCalculationHub({
-      resolveDefinition: (id) => (id === 'PipelineAlert' ? calculator : undefined),
-    })
+    // 会话是唯一所有者：警报与图表都只是它的消费者。
+    const session = createCalculationSession({ registry: marketDataProviderRegistry })
+    const hub = session.hub
     const alerts = await createAlertService({
       hub,
       rules: createMemoryDocumentStore<AlertRulesDocument>(null),
@@ -133,7 +123,7 @@ describe('alert pipeline', () => {
       source: { ticker: 'BTCUSDT', interval: '1' },
     })
     await alerts.dispose()
-    hub.dispose()
+    session.dispose()
     service.dispose()
   })
 })

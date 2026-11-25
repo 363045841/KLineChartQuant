@@ -175,12 +175,12 @@
       </div>
     </BaseModal>
 
-    <IndicatorParams
+    <ParamsDialog
       v-if="currentIndicator"
       :visible="paramsVisible"
-      :indicator-id="currentIndicator.id"
-      :indicator-name="currentIndicatorName"
-      :indicator-description="currentIndicator.description"
+      :definition-id="currentIndicator.id"
+      :definition-name="currentIndicatorName"
+      :description="currentIndicator.description"
       :params="currentIndicator.inputs || []"
       :values="paramValues"
       @close="paramsVisible = false"
@@ -200,7 +200,7 @@
           </DropMenu>
         </div>
       </template>
-    </IndicatorParams>
+    </ParamsDialog>
   </div>
 </template>
 
@@ -229,7 +229,7 @@
   import BasePopover from '@vue-src/components/common/overlay/BasePopover.vue'
   import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
-  import IndicatorParams from '@vue-src/components/indicator/params/impl/IndicatorParams.vue'
+  import ParamsDialog from '@vue-src/components/params/impl/ParamsDialog.vue'
   import { K_LINE_LEVEL_OPTIONS } from '@vue-src/components/toolbar/kLineLevel.js'
   import { SCRIPT_SOURCE_STORE_KEY } from '@vue-src/composables/chart/scriptEditor/types.js'
   import {

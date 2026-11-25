@@ -12,6 +12,7 @@ import { ChartDataViewId } from '../chartModel/index'
 import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
 import { MAIN_PANE_ID } from '../pane/types'
 import { createChartDom, installChartDomStubs } from './helpers/chartDomTestKit'
+import { createTestChartRuntime } from './helpers/chartLifecycleTestKit'
 
 const options: ChartOptions = {
   yPaddingPx: 0,
@@ -53,7 +54,7 @@ describe('Chart market validation boundaries', () => {
   beforeAll(loadBuiltinIndicators)
   beforeEach(() => {
     restoreDom = installChartDomStubs()
-    chart = new Chart(createChartDom(1000, 600), options)
+    chart = new Chart(createChartDom(1000, 600), options, createTestChartRuntime())
     chart.setPrimaryMarket(currentSpec())
   })
   afterEach(async () => {

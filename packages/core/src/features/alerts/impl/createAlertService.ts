@@ -13,7 +13,7 @@ import {
 import { getIndicatorDescriptor, indicatorCatalogRevision } from '../../../engine/indicators/pipeline/index.js'
 import { ALERT_ERROR_CODES, KLineChartError } from '../../../errors.js'
 import type { DocumentStore } from '../../../foundation/persistence/index.js'
-import { asReadonlySignal, batch, createSignal } from '../../../foundation/reactivity/signal.js'
+import { asReadonlySignal, batch, computed, createSignal, type ReadonlySignal } from '../../../foundation/reactivity/signal.js'
 import { deepFreezeSnapshot } from '../../../foundation/utils/deepFreezeSnapshot.js'
 import { generateUUID } from '../../../foundation/utils/uuid.js'
 import type {
@@ -138,6 +138,7 @@ export async function createAlertService(deps: AlertServiceDependencies): Promis
   const fires = createSignal<readonly AlertFire[]>(Object.freeze(history))
   const evaluations = new Map<string, RuleEvaluation>()
   const listeners = new Map<AlertChannel, Set<(fire: AlertFire) => void>>()
+  const scopedSignals = new Map<FeedKey, ReadonlySignal<readonly Alert[]>>()
   let routes = new Map<string, string[]>()
   let writes = Promise.resolve()
   let disposed = false
@@ -285,6 +286,20 @@ export async function createAlertService(deps: AlertServiceDependencies): Promis
   return {
     alerts: asReadonlySignal(alerts),
     fires: asReadonlySignal(fires),
+    forSymbol(symbol) {
+      const feed = createFeedKey(alertFeedIdentity(symbol))
+      const existing = scopedSignals.get(feed)
+      if (existing) return existing
+      const scoped = computed(() =>
+        Object.freeze(
+          [...alerts()].filter(
+            (alert) => createFeedKey(alertFeedIdentity(alert.symbol)) === feed,
+          ),
+        ),
+      )
+      scopedSignals.set(feed, scoped)
+      return scoped
+    },
     create(draft) {
       validateDraft(draft)
       if (rules.size >= limits.maxAlerts) {
@@ -357,6 +372,7 @@ export async function createAlertService(deps: AlertServiceDependencies): Promis
         unsubscribeCatalog()
         client.dispose()
         listeners.clear()
+        scopedSignals.clear()
         deps.feeds.retain([])
       }
       return writes

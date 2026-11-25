@@ -142,9 +142,8 @@ export interface CalculationDefinition {
   readonly compute: CalculationCompute
 }
 
-/** 图表级行情上下文端口；只供执行器读取，不承载调度状态。 */
+/** 计算级行情上下文端口；只供执行器读取，不承载调度状态。 */
 export interface CalculationMarketData {
-  readonly revision: number
   context(owner: string, bars: readonly KLineData[], session?: ReadyMarketSession): IndicatorMarketContext
   /** 提交当前计划的全部租约；只回收计划自己拥有、本次未声明的 key。 */
   retain(owners: ReadonlySet<string>): void

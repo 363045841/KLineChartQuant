@@ -171,9 +171,9 @@ export class ChartDataManager {
   private _loadHint: IncrementalLoadHint
   private _pendingIncrementalLoadFlushTimer = 0
 
-  /** 跨周期行情复用市场运行模块。 */
-  get indicatorMarketData(): import('../calculation/index.js').CalculationMarketData {
-    return this.marketRuntime
+  /** 行情修订参与指标结果新旧判断；图表只提供数值，不暴露运行时。 */
+  get marketRevision(): number {
+    return this.marketRuntime.revision
   }
 
   /** 临时计算的行情使用权也由唯一市场运行模块管理。 */

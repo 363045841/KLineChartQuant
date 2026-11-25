@@ -17,6 +17,7 @@ import { IndicatorTemplateManager } from '@/engine/indicatorTemplate/impl/templa
 import { collectLayoutIndicatorIds } from '@/engine/layout/impl/layoutIndicators.js'
 import { LayoutManager } from '@/engine/layout/impl/layoutManager.js'
 import { MAIN_PANE_ID } from '@/engine/pane/types.js'
+import { createCalculationSession } from '@/engine/session/index.js'
 import { CONTROLLER_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { createAlertFeedSource, createAlertService } from '@/features/alerts/index.js'
 import { createAlertStores, trackAlertService } from '@/features/alerts/impl/alertPersistence.js'
@@ -104,7 +105,13 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   // 系统图层随图表创建；布局先恢复配置，再按需加载引用的指标实现。
   if (opts.indicatorLoading === 'all') await loadBuiltinIndicators()
-  const mounted = mountChartDom(opts)
+
+  const marketContext = opts.marketDataContext ?? defaultMarketDataContext
+  // 计算会话先于图表创建：图表与警报都是它的消费者，谁也不拥有它。
+  const calculation = createCalculationSession({
+    registry: marketContext.registry,
+    ...(opts.marketSessions === undefined ? {} : { marketSessions: opts.marketSessions }),
+  })
 
   const initialZoomLevel = opts.initialZoomLevel ?? DEFAULT_OPTS.initialZoomLevel
   const zoomLevelCount = opts.zoomLevels ?? DEFAULT_OPTS.zoomLevels
@@ -122,30 +129,48 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     initialZoomLevel,
   }
 
-  const initialSettings = normalizeSettings({
-    ...opts.settings,
-    ...(opts.theme && { theme: opts.theme }),
-  })
-  const rendererHost = await createDefaultRendererHost(
-    initialSettings.rendererBackend as RendererBackend,
-  )
-  const chart = new Chart(
-    {
-      container: mounted.container,
-      scrollContent: mounted.scrollContent,
-      canvasLayer: mounted.canvasLayer,
-      rightAxisLayer: mounted.rightAxisLayer,
-      leftAxisLayer: mounted.leftAxisLayer,
-      xAxisCanvas: mounted.xAxisCanvas,
-    },
-    chartOptions,
-    {
-      rendererHost,
-      initialSettings,
-      marketSessions: opts.marketSessions,
-      marketDataContext: opts.marketDataContext,
-    },
-  )
+  /** 挂载 DOM 与图表；失败时释放会话，不留下半截所有权。 */
+  async function mountChart(): Promise<{
+    mounted: ReturnType<typeof mountChartDom>
+    chart: Chart
+  }> {
+    let mounted: ReturnType<typeof mountChartDom> | undefined
+    try {
+      mounted = mountChartDom(opts)
+      const initialSettings = normalizeSettings({
+        ...opts.settings,
+        ...(opts.theme && { theme: opts.theme }),
+      })
+      const rendererHost = await createDefaultRendererHost(
+        initialSettings.rendererBackend as RendererBackend,
+      )
+      const chart = new Chart(
+        {
+          container: mounted.container,
+          scrollContent: mounted.scrollContent,
+          canvasLayer: mounted.canvasLayer,
+          rightAxisLayer: mounted.rightAxisLayer,
+          leftAxisLayer: mounted.leftAxisLayer,
+          xAxisCanvas: mounted.xAxisCanvas,
+        },
+        chartOptions,
+        {
+          rendererHost,
+          initialSettings,
+          calculationHub: calculation.hub,
+          marketSessionRegistry: calculation.marketSessions,
+          marketDataContext: opts.marketDataContext,
+        },
+      )
+      return { mounted, chart }
+    } catch (error) {
+      mounted?.cleanup()
+      calculation.dispose()
+      throw error
+    }
+  }
+
+  const { mounted, chart } = await mountChart()
 
   if (import.meta.env?.MODE !== 'production' && typeof window !== 'undefined') {
     ;(window as Window & { __chart?: Chart }).__chart = chart
@@ -230,7 +255,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     ].map((signal) => signal.subscribe(() => layoutManager.scheduleCoalescedAutoSave())),
   ]
 
-  const marketRegistry = (opts.marketDataContext ?? defaultMarketDataContext).registry
+  const marketRegistry = marketContext.registry
   const marketFormatter = createMarketDataTextFormatter()
   // 窗格身份只来自布局：行号是唯一坐标，指标实例身份不参与落点解析。
   const layoutPanes = () => chart.panes.getLayoutSpecs()
@@ -310,13 +335,11 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   let disposal: Promise<void> | undefined
 
-  // 警报只消费计算结果；行情由独立行情源提交，不依赖图表当前品种。
-  const alertHub = chart.indicators.getCalculationHub()
-  const alertMarket = opts.marketDataContext ?? defaultMarketDataContext
+  // 警报是会话的另一个消费者：计算中枢来自会话，行情自己订阅，不依赖图表品种。
   const alertFeeds = createAlertFeedSource({
-    hub: alertHub,
-    registry: alertMarket.registry,
-    stream: alertMarket.stream,
+    hub: calculation.hub,
+    registry: marketContext.registry,
+    stream: marketContext.stream,
     onError: (symbol, error) => {
       console.error('[AlertFeed]', symbol.instrument.symbol, error)
     },
@@ -324,7 +347,11 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const alertStores = createAlertStores()
   let alerts: Awaited<ReturnType<typeof createAlertService>>
   try {
-    alerts = await createAlertService({ hub: alertHub, ...alertStores, feeds: alertFeeds })
+    alerts = await createAlertService({
+      hub: calculation.hub,
+      ...alertStores,
+      feeds: alertFeeds,
+    })
   } catch (error) {
     for (const unsubscribe of layoutSubscriptions) unsubscribe()
     alertFeeds.dispose()
@@ -336,6 +363,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       Promise.resolve().then(() => layoutManager.dispose()),
       Promise.resolve().then(() => chart.destroy()),
     ])
+    calculation.dispose()
     throw error
   }
   const untrackAlerts = trackAlertService(alerts)
@@ -356,6 +384,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
         () => templateManager.dispose(),
         () => layoutManager.dispose(),
         () => chart.destroy(),
+        () => calculation.dispose(),
       ]) {
         try {
           await release()

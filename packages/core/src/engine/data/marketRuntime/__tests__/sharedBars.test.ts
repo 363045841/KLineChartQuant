@@ -1,4 +1,4 @@
-/** 使用真实仓库和现有 Provider 夹具验证比较品种与 Request 的共享使用权与来源约定。 */
+/** 图表行情运行时：临时计算与比较品种共用 Buffer 的回归。 */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DataBuffer } from '@/data/buffer/impl/dataBuffer.js'
 import type { BarsCacheQuery } from '@/data/buffer/impl/marketDataCache.js'
@@ -27,7 +27,7 @@ import type { ReadyMarketSession } from '../types.js'
 
 afterEach(unregisterTestProvider)
 
-/** 注册测试 Provider 并构造真实缓存、MarketRuntime 与查询记录；图表品种固定为 MAIN。 */
+/** 注册测试 Provider 并构造真实缓存与 MarketRuntime；图表品种固定为 MAIN。 */
 function createHarness(stream?: StreamHub) {
   const data = [makeKLine(100), makeKLine(200)]
   const provider = createTestProvider({ fetchBars: { fetch: async () => makeBarsPage(data) } })
@@ -79,15 +79,14 @@ function createHarness(stream?: StreamHub) {
   return { runtime, cache, data, capabilities, selectionFor, queries }
 }
 
-describe('比较品种与 Request 共用行情', () => {
+describe('临时计算与比较品种共用行情', () => {
   it.each([false, true])(
-    '临时计算不受指标 retain 取消，结束后释放独占 Buffer（失败=%s）',
+    '临时计算结束后释放独占 Buffer（失败=%s）',
     async (fail) => {
       const { runtime, cache, data, selectionFor } = createHarness()
       try {
         const task = runtime.withContext(data, async (market) => {
           await market.loadBars({ symbol: 'CMP', timeframe: 'D', source: 'test', calcBarsCount: 2 })
-          runtime.retain(new Set())
           expect(cache.repository.getBars(selectionFor('CMP'))).toBeDefined()
           if (fail) throw new Error('temporary failure')
           return 42
@@ -102,40 +101,7 @@ describe('比较品种与 Request 共用行情', () => {
     },
   )
 
-  it('临时租约与计划租约互不回收，结束后只释放自己', async () => {
-    const { runtime, cache, data, selectionFor } = createHarness()
-    try {
-      const planOwner = 'plan-task'
-      runtime.retain(new Set([planOwner]))
-      await runtime
-        .context(planOwner, data)
-        .loadBars({ symbol: 'CMP', timeframe: 'D', source: 'test', calcBarsCount: 2 })
-      expect(cache.repository.getBars(selectionFor('CMP'))).toBeDefined()
-
-      await runtime.withContext(data, async (temporary) => {
-        await temporary.loadBars({
-          symbol: 'CMP',
-          timeframe: 'D',
-          source: 'test',
-          calcBarsCount: 2,
-        })
-        // 计划重复提交快照只能回收自己的租约。
-        runtime.retain(new Set([planOwner]))
-        expect(cache.repository.getBars(selectionFor('CMP'))).toBeDefined()
-      })
-
-      // 临时租约退出后计划仍需要这份行情。
-      expect(cache.repository.getBars(selectionFor('CMP'))).toBeDefined()
-
-      runtime.retain(new Set())
-      expect(cache.repository.getBars(selectionFor('CMP'))).toBeUndefined()
-    } finally {
-      runtime.dispose()
-      cache.destroy()
-    }
-  })
-
-  it.each(['comparison-first', 'request-first'])(
+  it.each(['release-during-request', 'release-after-request'])(
     '%s：最后使用者退出才释放 Buffer',
     async (order) => {
       const { runtime, cache, data, capabilities, selectionFor } = createHarness()
@@ -148,21 +114,23 @@ describe('比较品种与 Request 共用行情', () => {
           buffer,
         )
         const previousSnapshot = buffer.data.peek()
-        const result = await runtime
-          .context('script', data)
-          .loadBars({ symbol: 'CMP', timeframe: 'D', source: 'test', calcBarsCount: 2 })
-        expect(result.map((bar) => bar.close)).toEqual(data.map((bar) => bar.close))
-        expect(cache.repository.getBars(compared)).toBe(buffer)
-        expect(buffer.data.peek()).toBe(previousSnapshot)
-        if (order === 'comparison-first') {
-          expect(runtime.releaseComparison(compared)).toBe(false)
+        await runtime.withContext(data, async (market) => {
+          const result = await market.loadBars({
+            symbol: 'CMP',
+            timeframe: 'D',
+            source: 'test',
+            calcBarsCount: 2,
+          })
+          expect(result.map((bar) => bar.close)).toEqual(data.map((bar) => bar.close))
           expect(cache.repository.getBars(compared)).toBe(buffer)
-          runtime.retain(new Set())
-        } else {
-          runtime.retain(new Set())
-          expect(cache.repository.getBars(compared)).toBe(buffer)
-          expect(runtime.releaseComparison(compared)).toBe(true)
-        }
+          expect(buffer.data.peek()).toBe(previousSnapshot)
+          if (order === 'release-during-request') {
+            // 请求仍持有使用权时只释放比较，不回收 Buffer。
+            expect(runtime.releaseComparison(compared)).toBe(false)
+            expect(cache.repository.getBars(compared)).toBe(buffer)
+          }
+        })
+        expect(runtime.releaseComparison(compared)).toBe(true)
         expect(cache.repository.getBars(compared)).toBeUndefined()
       } finally {
         runtime.dispose()
@@ -173,39 +141,6 @@ describe('比较品种与 Request 共用行情', () => {
 })
 
 describe('Request 来源约定', () => {
-  it('相同数据需求共享历史准备，最后一个使用者退出才取消请求', async () => {
-    const { runtime, cache, data } = createHarness()
-    try {
-      runtime.retain(new Set(['a', 'b']))
-      let signal!: AbortSignal
-      vi.mocked(cache.queryBars).mockImplementationOnce((query) => {
-        signal = query.signal!
-        return new Promise((_resolve, reject) => {
-          signal.addEventListener('abort', () => reject(signal.reason), { once: true })
-        })
-      })
-      const request = {
-        symbol: 'MAIN',
-        timeframe: 'D',
-        mode: 'lower_tf' as const,
-        calcBarsCount: 2,
-      }
-      const first = runtime.context('a', data).loadBars(request)
-      const second = runtime.context('b', data).loadBars(request)
-      const firstRejected = expect(first).rejects.toMatchObject({ name: 'AbortError' })
-      const secondRejected = expect(second).rejects.toMatchObject({ name: 'AbortError' })
-      await vi.waitFor(() => expect(cache.queryBars).toHaveBeenCalledTimes(1))
-      runtime.retain(new Set(['b']))
-      expect(signal.aborted).toBe(false)
-      runtime.retain(new Set())
-      expect(signal.aborted).toBe(true)
-      await Promise.all([firstRejected, secondRejected])
-    } finally {
-      runtime.dispose()
-      cache.destroy()
-    }
-  })
-
   it('实时订阅在历史返回前建立；推送不被旧历史覆盖，后续计算不重查历史', async () => {
     const receivers = new Map<string, (frame: StreamFrame) => void>()
     const stream: StreamHub = {

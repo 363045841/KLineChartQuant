@@ -81,6 +81,27 @@ describe('alert rules', () => {
     }
   })
 
+  it('keeps one rule per script per symbol and projects them independently', async () => {
+    const { hub, service } = await setup('all')
+    const other = makeSymbolSpec({
+      id: 'ETH',
+      symbol: 'ETHUSDT',
+      source: 'binance',
+      period: '1',
+      adjust: 'none',
+    })
+    const btc = service.create(draft)
+    const eth = service.create({ ...draft, name: 'PriceCross ETH', symbol: other })
+    expect(service.forSymbol(symbol).peek()).toEqual([btc])
+    expect(service.forSymbol(other).peek()).toEqual([eth])
+    expect(service.list()).toHaveLength(2)
+    service.remove(btc.id)
+    expect(service.forSymbol(symbol).peek()).toEqual([])
+    expect(service.forSymbol(other).peek()).toEqual([eth])
+    await service.dispose()
+    hub.dispose()
+  })
+
   it('uses current defaults and cooldown and routes only to the selected channel', async () => {
     const { hub, service, observed, push, advance } = await setup('all')
     const inApp = vi.fn()

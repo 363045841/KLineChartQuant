@@ -108,6 +108,37 @@ describe('calculation hub', () => {
     hub.dispose()
   })
 
+  it('rebuilds the calculator when a definition id resolves to a new object', async () => {
+    const firstDispose = vi.fn()
+    let current: CalculationDefinition = {
+      definitionId: 'ma',
+      dependency: { kind: 'stateful' },
+      compute: async () => ({ series: 'first' }),
+      createCompute: () =>
+        Object.assign(async () => ({ series: 'first' }), { dispose: firstDispose }),
+    }
+    const hub = createCalculationHub({ resolveDefinition: () => current })
+    const sink = collect()
+    const client = hub.createClient('sink', sink.handlers)
+    hub.updateFeed(feed(1))
+    client.setPlan([plan()])
+    await vi.waitFor(() => {
+      expect(sink.commits.at(-1)?.results.get('ma')?.series).toBe('first')
+    })
+
+    current = {
+      definitionId: 'ma',
+      dependency: { kind: 'stateful' },
+      compute: async () => ({ series: 'second' }),
+    }
+    hub.updateFeed(feed(2))
+    await vi.waitFor(() => {
+      expect(sink.commits.at(-1)?.results.get('ma')?.series).toBe('second')
+    })
+    expect(firstDispose).toHaveBeenCalledOnce()
+    hub.dispose()
+  })
+
   it('commits every feed revision even when the plan has no requests', async () => {
     const hub = createCalculationHub({ resolveDefinition: () => undefined })
     const sink = collect()
