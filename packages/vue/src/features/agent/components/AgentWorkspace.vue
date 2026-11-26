@@ -230,10 +230,6 @@
     --base-icon-button-color: var(--klc-color-ui-muted);
     --base-icon-button-hover-color: var(--klc-color-ui-text);
     --base-icon-button-hover-bg: var(--klc-color-ui-hover);
-    --toggle-switch-track-background: var(--klc-color-ui-control-background);
-    --toggle-switch-thumb-background: var(--klc-color-ui-on-accent);
-    --toggle-switch-active-background: var(--klc-color-ui-accent);
-    --toggle-switch-focus-color: var(--klc-color-ui-focus);
 
     height: 100%;
     min-width: 0;

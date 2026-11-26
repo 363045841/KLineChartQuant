@@ -1,18 +1,18 @@
 /**
- * 弹窗列表行的共享排版：指标、商品与模板列表共用同一套行结构。
+ * 弹窗列表行的共享排版：指标、警报、商品与模板列表共用同一套行结构。
  *
  * 只放跨弹窗复用的行内元素；侧栏、滑动高亮与弹窗专属控件仍留在各自组件。
  */
 
 /* 行列表容器：行在滚动内容内自上而下堆叠。 */
-.indicator-list {
+.modal-list {
   position: relative;
   display: flex;
   flex-direction: column;
 }
 
 /* 横向留白由 .modal-list-row 统一提供，条目只负责纵向节奏。 */
-.indicator-item {
+.modal-list-entry {
   position: relative;
   z-index: 1;
   gap: var(--klc-space-4, 4px);
@@ -80,6 +80,18 @@
   color: var(--klc-color-ui-muted);
 }
 
+/* 选中勾：列表行尾部，仅选中时参与布局。 */
+.item-check {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: var(--klc-color-ui-text);
+  pointer-events: none;
+}
+
 /* 类型列：胶囊在自己的列内水平居中。 */
 .item-tags {
   display: flex;
@@ -88,13 +100,13 @@
   gap: var(--klc-space-4, 4px);
 }
 
-.indicator-description__title {
+.modal-list-description__title {
   margin: 0 0 var(--klc-space-4, 4px);
   font-size: var(--klc-text-label-13-font-size, 13px);
   color: var(--klc-color-ui-text);
 }
 
-.indicator-description {
+.modal-list-description {
   margin: 0;
   font-size: var(--klc-text-copy-13-font-size, 13px);
   line-height: 1.65;

@@ -51,7 +51,7 @@
   }
 
   .toggle-switch:has(input:focus-visible) {
-    outline: 2px solid var(--toggle-switch-focus-color, var(--klc-color-ui-focus));
+    outline: 2px solid var(--klc-color-ui-focus);
     outline-offset: 2px;
     border-radius: var(--klc-radius-full, 9999px);
   }

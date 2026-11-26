@@ -1,6 +1,25 @@
 <template>
-  <div ref="chipWrapRef" class="symbol-chip-wrap">
+  <div class="symbol-selector" :class="{ 'symbol-selector--field': variant === 'field' }">
+    <SelectionField
+      v-if="variant === 'field'"
+      :value="displayText"
+      placeholder="选择品种"
+      aria-haspopup="dialog"
+      :aria-expanded="picker.showPopup"
+      @click="picker.togglePopup"
+    >
+      <template v-if="loading && !retrying" #status>
+        <LoadingSpinner class="symbol-selector__spinner" />
+      </template>
+      <template v-else-if="error || retrying" #status>
+        <span class="symbol-selector__error" role="status">
+          <IconTablerAlertTriangle class="symbol-selector__warn" aria-hidden="true" />
+          <span class="symbol-selector__error-text">{{ errorTagText }}</span>
+        </span>
+      </template>
+    </SelectionField>
     <BaseTooltip
+      v-else
       :content="error || retrying ? `${displayText} · ${errorTagText}` : displayText"
       placement="bottom"
       trigger-display="contents"
@@ -9,20 +28,19 @@
     <button
       type="button"
       class="control-button symbol-chip"
-      :class="{ 'is-open': picker.showPopup }"
       :aria-expanded="picker.showPopup"
       aria-haspopup="dialog"
       @click="picker.togglePopup"
     >
       <span class="symbol-chip__code">{{ displayText }}</span>
-      <LoadingSpinner v-if="loading && !retrying" class="symbol-chip__spinner" />
+      <LoadingSpinner v-if="loading && !retrying" class="symbol-selector__spinner" />
       <span
         v-else-if="error || retrying"
-        class="symbol-chip__error"
+        class="symbol-selector__error"
         role="status"
       >
-        <IconTablerAlertTriangle class="symbol-chip__warn" aria-hidden="true" />
-        <span class="symbol-chip__error-text">{{ errorTagText }}</span>
+        <IconTablerAlertTriangle class="symbol-selector__warn" aria-hidden="true" />
+        <span class="symbol-selector__error-text">{{ errorTagText }}</span>
       </span>
     </button>
     </BaseTooltip>
@@ -106,6 +124,7 @@
 
   import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
   import LoadingSpinner from '@vue-src/components/common/feedback/LoadingSpinner.vue'
+  import SelectionField from '@vue-src/components/common/form/SelectionField.vue'
   import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
   import BaseTabs from '@vue-src/components/common/tabs/BaseTabs.vue'
@@ -138,6 +157,8 @@
       retrying?: boolean
       /** 主品种拉取失败原因；与 error 同时为真时作为 chip title */
       errorMessage?: string
+      /** chip 用于工具栏；field 用于表单里的通栏入口。 */
+      variant?: 'chip' | 'field'
       /** 已注册数据源，用于 Tabs 展示名 */
       aggregationSources?: ReadonlyArray<AggregationSourceDefinition>
       /** 已启用的搜索源名称 */
@@ -155,6 +176,7 @@
       watchlistKeys: () => new Set<string>(),
       showWatchlistAction: true,
       showManageSources: true,
+      variant: 'chip',
     },
   )
 
@@ -164,7 +186,6 @@
     (e: 'manageSources'): void
   }>()
 
-  const chipWrapRef = ref<HTMLElement | null>(null)
   const picker = useSymbolSourcePickerFromProps<SymbolItem>(props)
 
   const highlight = ref<InstanceType<typeof SlidingHighlight> | null>(null)
@@ -214,10 +235,16 @@
 
 
 <style scoped>
-  .symbol-chip-wrap {
+  .symbol-selector {
     position: relative;
     display: inline-flex;
     flex: 0 0 auto;
+  }
+
+  /* 表单里的通栏入口：占满字段列，触发器自己负责宽度。 */
+  .symbol-selector--field {
+    display: flex;
+    width: 100%;
   }
 
   .symbol-chip__code {
@@ -279,11 +306,11 @@
     }
   }
 
-  .symbol-chip__spinner {
+  .symbol-selector__spinner {
     color: var(--klc-color-ui-muted);
   }
 
-  .symbol-chip__error {
+  .symbol-selector__error {
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -293,7 +320,7 @@
     line-height: 1;
   }
 
-  .symbol-chip__warn {
+  .symbol-selector__warn {
     display: block;
     width: 14px;
     height: 14px;
@@ -301,7 +328,7 @@
     flex-shrink: 0;
   }
 
-  .symbol-chip__error-text {
+  .symbol-selector__error-text {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

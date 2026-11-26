@@ -1,15 +1,15 @@
 <!--
   新建警报弹窗：选择警报脚本与作用品种，独立于警报面板。
-  - 脚本用下拉菜单选择，不在弹窗内平铺全部脚本；
+  - 脚本入口打开独立选择弹窗，目录由选择器自己读取，本组件只持有选中的定义；
   - 品种默认当前图表品种，可搜索切换；
-  - 字号统一 12px，标题走 title 插槽，不使用 deep。
+  - 标题 13px，字段与提示 12–13px，全部走 token，不使用 deep。
 -->
 <template>
   <BaseModal
     body="list"
     :open="open"
     size="sm"
-    footer-align="space-between"
+    footer-align="flex-end"
     @update:open="!$event && emit('update:open', false)"
   >
     <template #title>
@@ -23,30 +23,23 @@
 
     <ModalScrollArea>
       <div class="alert-draft">
-        <section class="alert-draft__section">
-          <h3 class="alert-draft__section-title">警报脚本</h3>
+        <div class="alert-draft__section" role="group" :aria-labelledby="scriptLabelId">
+          <h3 :id="scriptLabelId" class="alert-draft__section-title">警报脚本</h3>
 
-          <DropMenu
-            class="selection-menu"
-            label="选择警报脚本"
-            :groups="scriptGroups"
-            empty-text="没有可用的警报脚本"
-            fill
-            @select="onSelectScript"
-          >
-            <template #trigger>
-              <span class="selection-menu__value">
-                {{ selectedScript?.label ?? '选择脚本' }}
-              </span>
-              <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />
-            </template>
-          </DropMenu>
-        </section>
+          <SelectionField
+            :value="selectedScript?.label ?? ''"
+            placeholder="选择脚本"
+            aria-haspopup="dialog"
+            :aria-expanded="scriptPickerOpen"
+            @click="scriptPickerOpen = true"
+          />
+        </div>
 
-        <section class="alert-draft__section">
-          <h3 class="alert-draft__section-title">作用品种</h3>
+        <div class="alert-draft__section" role="group" :aria-labelledby="symbolLabelId">
+          <h3 :id="symbolLabelId" class="alert-draft__section-title">作用品种</h3>
 
           <SymbolSelector
+            variant="field"
             :symbol="instrument?.symbol ?? ''"
             :selected-item="instrument ?? undefined"
             :symbols="instruments"
@@ -57,40 +50,40 @@
             :show-manage-sources="false"
             @change="selectInstrument"
           />
-        </section>
+        </div>
       </div>
     </ModalScrollArea>
 
+    <AlertScriptSelector
+      v-model:open="scriptPickerOpen"
+      :definition-id="selectedScript?.id ?? null"
+      @select="selectScript"
+    />
+
     <template #footer>
-      <BaseButton size="sm" @click="close">取消</BaseButton>
-      <BaseButton variant="primary" size="sm" :disabled="!canAdd" @click="submit">
-        添加
-      </BaseButton>
+      <BaseButton @click="close">取消</BaseButton>
+      <BaseButton variant="primary" :disabled="!canAdd" @click="submit">添加</BaseButton>
     </template>
   </BaseModal>
 </template>
 
 <script setup lang="ts">
-  import '@vue-src/components/common/menu/selection-menu.css'
-
   import type {
     AlertService,
     SymbolSpec,
   } from '@363045841yyt/klinechart-core/controllers'
+  import AlertScriptSelector from '@vue-src/components/alert/AlertScriptSelector.vue'
   import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
   import ModalScrollArea from '@vue-src/components/common/dialog/ModalScrollArea.vue'
-  import DropMenu, {
-    type DropMenuGroup,
-  } from '@vue-src/components/common/menu/DropMenu.vue'
+  import SelectionField from '@vue-src/components/common/form/SelectionField.vue'
   import type { SymbolItem } from '@vue-src/components/symbol/SymbolSelector.vue'
   import SymbolSelector from '@vue-src/components/symbol/SymbolSelector.vue'
   import { useAlertDraft } from '@vue-src/composables/alerts/useAlertDraft.js'
   import type { AggregationSourceDefinition } from '@vue-src/composables/market/useAggregationSources.js'
   import type { SymbolSearchFn } from '@vue-src/composables/symbol/useSymbolSearch.js'
-  import { computed, watch } from 'vue'
+  import { ref, useId, watch } from 'vue'
   import IconTablerAlertTriangle from '~icons/tabler/alert-triangle'
-  import IconChevronDown from '~icons/tabler/chevron-down'
 
   const props = defineProps<{
     open: boolean
@@ -108,8 +101,6 @@
   const emit = defineEmits<{ 'update:open': [open: boolean] }>()
 
   const {
-    scripts,
-    definitionId,
     instrument,
     error,
     selectedScript,
@@ -123,29 +114,19 @@
     currentSpec: () => props.currentSpec,
   })
 
-  const scriptGroups = computed<DropMenuGroup[]>(() => [
-    {
-      id: 'alerts',
-      label: '',
-      items: scripts.value.map((script) => ({
-        id: script.id,
-        label: script.label,
-        checked: script.id === definitionId.value,
-        selection: 'radio' as const,
-      })),
-    },
-  ])
+  const scriptPickerOpen = ref(false)
+  // 字段组的可访问名称：视觉标签与控件通过 id 关联，读屏进入分组时能听到字段用途。
+  const scriptLabelId = useId()
+  const symbolLabelId = useId()
 
   watch(
     () => props.open,
     (open) => {
+      // 任一方向都先收起脚本选择器；打开时再重置草稿。
+      scriptPickerOpen.value = false
       if (open) reset()
     },
   )
-
-  function onSelectScript(_groupId: string, itemId: string): void {
-    selectScript(itemId)
-  }
 
   function close(): void {
     emit('update:open', false)
@@ -158,8 +139,8 @@
 
 <style scoped>
   .alert-draft__dialog-title {
-    font-size: var(--klc-text-12-font-size);
-    line-height: var(--klc-text-12-line-height);
+    font-size: var(--klc-text-label-13-font-size, 13px);
+    line-height: var(--klc-text-label-13-line-height, 18px);
   }
 
   .alert-draft__error {
@@ -198,6 +179,6 @@
     font-size: var(--klc-text-12-font-size);
     line-height: var(--klc-text-12-line-height);
     font-weight: var(--klc-text-label-12-font-weight);
-    color: var(--klc-color-ui-text);
+    color: var(--klc-color-ui-muted);
   }
 </style>

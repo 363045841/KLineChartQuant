@@ -31,7 +31,7 @@
     width: 34px;
     height: 20px;
     border-radius: var(--klc-radius-full, 9999px);
-    background: var(--toggle-switch-track-background, var(--klc-color-border-button));
+    background: var(--klc-color-ui-switch-off);
     transition: background var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 
@@ -41,7 +41,7 @@
   }
 
   .toggle-switch-track.is-checked {
-    background: var(--toggle-switch-active-background, var(--klc-color-ui-accent));
+    background: var(--klc-color-ui-switch-on);
   }
 
   .toggle-switch-track__thumb {
@@ -51,8 +51,9 @@
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    background: var(--toggle-switch-thumb-background, var(--klc-color-background));
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    background: var(--klc-color-ui-switch-thumb);
+    /* 圆钮的浮起量走统一阴影阶梯，不在组件里手写 rgba。 */
+    box-shadow: var(--klc-elevation-1);
     transition: transform var(--klc-motion-dur-fast) var(--klc-motion-ease-standard);
   }
 

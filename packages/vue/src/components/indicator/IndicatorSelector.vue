@@ -62,7 +62,7 @@
         <p v-if="removalError" class="selector-error modal-list-item" role="alert">{{ removalError }}</p>
         <ModalScrollArea>
           <div
-            class="indicator-list"
+            class="modal-list"
             role="list"
             aria-label="指标列表"
             @pointerover="onListPointerOver"
@@ -70,11 +70,11 @@
             @focusin="onListFocusIn"
             @focusout="hideListHighlight"
           >
-            <SlidingHighlight ref="listHighlight" class="indicator-list__highlight" />
+            <SlidingHighlight ref="listHighlight" class="modal-list__highlight" />
             <div
               v-for="indicator in filteredIndicators"
               :key="indicator.id"
-              class="indicator-item modal-list-row"
+              class="modal-list-entry modal-list-row"
               role="listitem"
             >
               <button
@@ -85,39 +85,40 @@
               >
                 <div class="item-header">
                   <span class="item-label">
-                    <!-- 文本单独一层：省略号只裁文本，说明图标不被裁掉。 -->
+                    <!-- 文本单独一层：省略号只裁文本。 -->
                     <span class="item-label__text">
                       {{ indicator.label }}
                       <span v-if="indicator.name && indicator.name !== indicator.label" class="item-name">
                         {{ indicator.name }}
                       </span>
                     </span>
-                    <BasePopover
-                      v-if="indicator.description"
-                      :label="`${indicator.name} 指标说明`"
-                      role="note"
-                      placement="auto"
-                      trigger="hover"
-                    >
-                      <template #trigger="{ props: triggerProps }">
-                        <BaseIconButton
-                          size="xs"
-                          class="item-info-btn"
-                          :label="`查看指标说明：${indicator.name}`"
-                          v-bind="triggerProps"
-                        >
-                          <IconTablerInfoCircle aria-hidden="true" />
-                        </BaseIconButton>
-                      </template>
-                      <p class="indicator-description__title">{{ indicator.name }}</p>
-                      <p class="indicator-description">{{ indicator.description }}</p>
-                    </BasePopover>
                   </span>
                   <span class="item-tags">
                     <BaseChip>{{ indicator.role === INDICATOR_ROLE.MAIN ? '主图' : '副图' }}</BaseChip>
                   </span>
                 </div>
               </button>
+              <!-- 说明入口是整行的兄弟节点，不能嵌在选择按钮里。 -->
+              <BasePopover
+                v-if="indicator.description"
+                :label="`${indicator.name} 指标说明`"
+                role="note"
+                placement="auto"
+                trigger="hover"
+              >
+                <template #trigger="{ props: triggerProps }">
+                  <BaseIconButton
+                    size="xs"
+                    class="item-info-btn"
+                    :label="`查看指标说明：${indicator.name}`"
+                    v-bind="triggerProps"
+                  >
+                    <IconTablerInfoCircle aria-hidden="true" />
+                  </BaseIconButton>
+                </template>
+                <p class="modal-list-description__title">{{ indicator.name }}</p>
+                <p class="modal-list-description">{{ indicator.description }}</p>
+              </BasePopover>
               <!-- 自定义脚本与图例的编辑脚本共用同一入口，打开代码编辑器。 -->
               <BaseTooltip v-if="scriptsEnabled !== false" content="编辑脚本" placement="top">
                 <BaseIconButton
@@ -189,15 +190,22 @@
     >
       <template v-if="instancePeriod" #after-params>
         <div class="indicator-timeframe-visibility">
-          <span>{{ TIMEFRAME_VISIBILITY_LABEL }}</span>
-          <DropMenu
-            :label="TIMEFRAME_VISIBILITY_LABEL"
-            :groups="visibilityGroups"
-            :tooltip="false"
-            @select="(_group, item) => selectVisibility(item)"
-          >
-            <template #trigger>{{ visibilityLabel }}</template>
-          </DropMenu>
+          <FormRow :for-id="timeframeControlId">
+            <template #label>{{ TIMEFRAME_VISIBILITY_LABEL }}</template>
+            <DropMenu
+              :label="TIMEFRAME_VISIBILITY_LABEL"
+              :groups="visibilityGroups"
+              :tooltip="false"
+              trigger-variant="field"
+              :trigger-id="timeframeControlId"
+              @select="(_group, item) => selectVisibility(item)"
+            >
+              <template #trigger>
+                <span class="selection-menu__value">{{ visibilityLabel }}</span>
+                <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />
+              </template>
+            </DropMenu>
+          </FormRow>
         </div>
       </template>
     </ParamsDialog>
@@ -207,6 +215,7 @@
 <script setup lang="ts">
   import '@vue-src/components/common/dialog/modal-list.css'
   import '@vue-src/components/common/dialog/modal-list-item.css'
+  import '@vue-src/components/common/menu/selection-menu.css'
 
   import {
     type ChartController,
@@ -225,6 +234,7 @@
   import ModalScrollArea from '@vue-src/components/common/dialog/ModalScrollArea.vue'
   import ModalSearchBar from '@vue-src/components/common/dialog/ModalSearchBar.vue'
   import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
+  import FormRow from '@vue-src/components/common/form/FormRow.vue'
   import DropMenu from '@vue-src/components/common/menu/DropMenu.vue'
   import BasePopover from '@vue-src/components/common/overlay/BasePopover.vue'
   import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
@@ -244,8 +254,9 @@
   import { useScriptRemoval } from '@vue-src/composables/indicator/useScriptRemoval.js'
   import { useSlidingHighlight } from '@vue-src/composables/ui/useSlidingHighlight.js'
   import { coreSignalToVueRef } from '@vue-src/utils/signalBridge.js'
-  import { computed, inject, ref, shallowRef, watch } from 'vue'
+  import { computed, inject, ref, shallowRef, useId, watch } from 'vue'
   import IconTablerCheck from '~icons/tabler/check'
+  import IconChevronDown from '~icons/tabler/chevron-down'
   import IconTablerCode from '~icons/tabler/code'
   import IconTablerInfoCircle from '~icons/tabler/info-circle'
   import IconTablerMathFunction from '~icons/tabler/math-function'
@@ -306,6 +317,8 @@
 
   const paramsSession = shallowRef<ParamsSession | null>(null)
   const paramsVisible = ref(false)
+  /** 时间周期可见性行的按钮 id，供 FormRow 的可见标签关联。 */
+  const timeframeControlId = useId()
   /** 会话在关闭后保留到退场结束；下一次打开整体替换。 */
   const currentIndicator = computed(() => paramsSession.value?.indicator)
   const instancePeriod = computed(() =>
@@ -368,7 +381,7 @@
     onPointerOver: onListPointerOver,
     onFocusIn: onListFocusIn,
     hide: hideListHighlight,
-  } = useSlidingHighlight(listHighlight, (target) => target.closest<HTMLElement>('.indicator-item'))
+  } = useSlidingHighlight(listHighlight, (target) => target.closest<HTMLElement>('.modal-list-entry'))
 
   // 收藏、分区或搜索让当前行消失时指针不会移动，高亮块会停在旧位置，这里主动收起。
   watch(filteredIndicators, () => hideListHighlight())
@@ -533,13 +546,8 @@
 
 <style scoped>
   .indicator-timeframe-visibility {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
     margin-inline: var(--base-modal-content-inset);
-    padding-block: 8px;
+    padding-block: var(--klc-space-8);
   }
   .indicator-selector {
     display: none;
@@ -562,7 +570,7 @@
 
   /* 导航项通栏紧邻，高亮块保持直角贴边。 */
   .selector-nav__highlight,
-  .indicator-list__highlight {
+  .modal-list__highlight {
     --sliding-highlight-radius: 0;
   }
 
@@ -609,18 +617,6 @@
     padding-block: var(--klc-space-8, 8px);
     font-size: var(--klc-text-12-font-size, 12px);
     color: var(--klc-color-danger, #e04a4a);
-  }
-
-  /* 勾号仅开启时参与布局，保持在所有操作按钮的最右侧。 */
-  .item-check {
-    display: flex;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
-    width: 16px;
-    height: 16px;
-    color: var(--klc-color-ui-text);
-    pointer-events: none;
   }
 
   .item-favorite-btn[aria-pressed='true'] {

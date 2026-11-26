@@ -8,6 +8,7 @@ import {
   draft,
   ETH,
   registerScript,
+  scriptDefinition,
   settle,
 } from './helpers/alertTestKit.js'
 import { effectScope } from 'vue'
@@ -39,7 +40,7 @@ describe('useAlertDraft', () => {
     const { service, draft: state, dispose } = await setup()
     try {
       expect(state.instrument.value?.id).toBe(BTC.id)
-      state.selectScript('PriceCross')
+      state.selectScript(scriptDefinition())
       expect(state.canAdd.value).toBe(true)
       expect(state.confirm()).toBe(true)
       await settle()
@@ -57,7 +58,7 @@ describe('useAlertDraft', () => {
     const { service, draft: state, dispose } = await setup()
     try {
       const existing = service.create({ ...draft(CURRENT), enabled: false })
-      state.selectScript('PriceCross')
+      state.selectScript(scriptDefinition())
       expect(state.confirm()).toBe(true)
       await settle()
 
@@ -71,7 +72,7 @@ describe('useAlertDraft', () => {
   it('creates on another instrument chosen from search', async () => {
     const { service, draft: state, dispose } = await setup()
     try {
-      state.selectScript('PriceCross')
+      state.selectScript(scriptDefinition())
       state.selectInstrument(ETH)
       expect(state.confirm()).toBe(true)
       await settle()
@@ -85,11 +86,11 @@ describe('useAlertDraft', () => {
   it('reset clears the script, returns to the current instrument and blocks submit', async () => {
     const { service, draft: state, dispose } = await setup()
     try {
-      state.selectScript('PriceCross')
+      state.selectScript(scriptDefinition())
       state.selectInstrument(ETH)
       state.reset()
 
-      expect(state.definitionId.value).toBeNull()
+      expect(state.selectedScript.value).toBeNull()
       expect(state.instrument.value?.id).toBe(BTC.id)
       expect(state.canAdd.value).toBe(false)
       expect(state.confirm()).toBe(false)

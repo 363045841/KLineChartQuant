@@ -1,16 +1,15 @@
 /**
- * 新建警报草稿：脚本选择、品种选择与创建策略的唯一 UI 语义。
+ * 新建警报草稿：选中脚本、品种选择与创建策略的唯一 UI 语义。
  *
- * 警报面板只负责展示与规则操作；新建使用独立弹窗和独立草稿。
+ * 脚本目录由 AlertScriptSelector 自己订阅，本模块只接收选中的定义；
+ * 警报面板只负责展示与规则操作，新建使用独立弹窗和独立草稿。
  */
-import type { InstrumentDescriptor } from '@363045841yyt/klinechart-core/market-data'
-import {
-  type AlertScriptDefinition,
-  alertCatalog,
-  type AlertService,
-  type SymbolSpec,
+import type {
+  AlertScriptDefinition,
+  AlertService,
+  SymbolSpec,
 } from '@363045841yyt/klinechart-core/controllers'
-import { coreSignalToVueRef } from '@vue-src/utils/signalBridge.js'
+import type { InstrumentDescriptor } from '@363045841yyt/klinechart-core/market-data'
 import { computed, ref, shallowRef } from 'vue'
 
 export interface AlertDraftOptions {
@@ -19,6 +18,9 @@ export interface AlertDraftOptions {
   readonly currentSpec: () => SymbolSpec | null
 }
 
+/** 新建弹窗实际消费的脚本字段；目录项的其它字段只属于选择器。 */
+export type AlertScriptSelection = Pick<AlertScriptDefinition, 'id' | 'label'>
+
 /**
  * 创建新建警报草稿。
  *
@@ -26,31 +28,29 @@ export interface AlertDraftOptions {
  * @returns 脚本/品种选择、可用性与创建命令
  */
 export function useAlertDraft(options: AlertDraftOptions) {
-  const scripts = coreSignalToVueRef(alertCatalog)
-  const definitionId = ref<string | null>(null)
+  const selectedScript = shallowRef<AlertScriptSelection | null>(null)
   const targetSpec = shallowRef<SymbolSpec | null>(options.currentSpec())
   const error = ref<string | null>(null)
 
   const instrument = computed<InstrumentDescriptor | null>(
     () => targetSpec.value?.instrument ?? null,
   )
-  const selectedScript = computed<AlertScriptDefinition | undefined>(() =>
-    scripts.value.find((script) => script.id === definitionId.value),
-  )
   const canAdd = computed(() => Boolean(selectedScript.value && instrument.value))
 
-  /** 重开草稿：品种回到当前图表快照，脚本清空。 */
+  /** 重开草稿：清空脚本并回到当前图表品种。 */
   function reset(): void {
-    definitionId.value = null
+    selectedScript.value = null
     targetSpec.value = options.currentSpec()
     error.value = null
   }
 
-  function selectScript(nextDefinitionId: string): void {
-    definitionId.value = nextDefinitionId
+  /** 记录选择器给出的脚本身份与展示名；草稿不保存目录项的其它字段。 */
+  function selectScript(script: AlertScriptSelection): void {
+    selectedScript.value = script
     error.value = null
   }
 
+  /** 切换作用品种，保留草稿里的周期与复权。 */
   function selectInstrument(next: InstrumentDescriptor): void {
     const current = targetSpec.value
     targetSpec.value = current ? { ...current, instrument: next } : { instrument: next }
@@ -94,11 +94,9 @@ export function useAlertDraft(options: AlertDraftOptions) {
   }
 
   return {
-    scripts,
-    definitionId,
+    selectedScript,
     instrument,
     error,
-    selectedScript,
     canAdd,
     reset,
     selectScript,

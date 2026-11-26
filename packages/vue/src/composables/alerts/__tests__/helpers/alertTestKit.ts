@@ -3,7 +3,9 @@ import { expect } from 'vitest'
 import {
   type AlertFiresDocument,
   type AlertRulesDocument,
+  type AlertScriptDefinition,
   type AlertService,
+  alertCatalog,
   createAlertService,
   createCalculationHub,
   registerIndicators,
@@ -50,10 +52,18 @@ export function registerScript(): void {
           category: 'sub',
           defaultPaneId: 'sub_alert',
           defaultInputs: { price: 100 },
+          info: '收盘价上穿设定价格时触发。',
         },
       },
     ]).failures,
   ).toEqual([])
+}
+
+/** 目录中的警报脚本定义；必须在 registerScript 之后读取。 */
+export function scriptDefinition(id: string = SCRIPT_ID): AlertScriptDefinition {
+  const script = alertCatalog().find((item) => item.id === id)
+  if (!script) throw new Error(`Missing alert script fixture: ${id}`)
+  return script
 }
 
 /** 新建真实的警报服务；计算中枢不参与这些 UI 用例。 */
