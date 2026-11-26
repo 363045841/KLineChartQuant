@@ -5,10 +5,11 @@ import {
   type AlertRulesDocument,
   type AlertScriptDefinition,
   type AlertService,
-  alertCatalog,
+  createAlertCatalog,
   createAlertService,
   createCalculationHub,
-  registerIndicators,
+  createDefinitionRegistry,
+  type DefinitionRegistry,
   type SymbolSpec,
 } from '@363045841yyt/klinechart-core'
 import { createMemoryDocumentStore } from '@363045841yyt/klinechart-core/persistence'
@@ -36,53 +37,71 @@ export const BTC = instrument('btc', 'BTCUSDT')
 export const ETH = instrument('eth', 'ETHUSDT')
 export const CURRENT: SymbolSpec = { instrument: BTC, period: '1min', adjust: 'none' }
 
-/** 注册一个警报脚本描述符；目录、规则校验与工作区共用同一份注册表。 */
-export function registerScript(): void {
-  expect(
-    registerIndicators([
-      {
-        kind: 'descriptor',
-        candidate: { key: SCRIPT_ID, origin: 'third-party', identity: 'native' },
-        descriptor: {
-          kind: 'alert',
-          source: 'script',
-          frequency: 'per-bar',
-          name: SCRIPT_ID,
-          displayName: '价格穿越',
-          category: 'sub',
-          defaultPaneId: 'sub_alert',
-          defaultInputs: { price: 100 },
-          info: '收盘价上穿设定价格时触发。',
+/** 一个用例独占的警报夹具：注册表、脚本注册与真实服务。 */
+export interface AlertTestContext {
+  readonly definitions: DefinitionRegistry
+  registerScript(): void
+  scriptDefinition(id?: string): AlertScriptDefinition
+  createBackend(): Promise<{
+    service: AlertService
+    dispose(): Promise<void>
+  }>
+}
+
+/** 创建用例级上下文；每次调用都得到独立的定义注册表与服务。 */
+export function createAlertTestContext(): AlertTestContext {
+  const definitions = createDefinitionRegistry()
+
+  /** 注册一个警报脚本描述符；目录、规则校验与工作区共用本上下文的注册表。 */
+  function registerScript(): void {
+    expect(
+      definitions.register([
+        {
+          kind: 'descriptor',
+          candidate: { key: SCRIPT_ID, origin: 'third-party', identity: 'native' },
+          descriptor: {
+            kind: 'alert',
+            source: 'script',
+            frequency: 'per-bar',
+            name: SCRIPT_ID,
+            displayName: '价格穿越',
+            category: 'sub',
+            defaultPaneId: 'sub_alert',
+            defaultInputs: { price: 100 },
+            info: '收盘价上穿设定价格时触发。',
+          },
         },
-      },
-    ]).failures,
-  ).toEqual([])
-}
-
-/** 目录中的警报脚本定义；必须在 registerScript 之后读取。 */
-export function scriptDefinition(id: string = SCRIPT_ID): AlertScriptDefinition {
-  const script = alertCatalog().find((item) => item.id === id)
-  if (!script) throw new Error(`Missing alert script fixture: ${id}`)
-  return script
-}
-
-/** 新建真实的警报服务；计算中枢不参与这些 UI 用例。 */
-export async function createAlertBackend() {
-  const hub = createCalculationHub({ resolveDefinition: () => undefined })
-  const service: AlertService = await createAlertService({
-    hub,
-    rules: createMemoryDocumentStore<AlertRulesDocument>(null),
-    fires: createMemoryDocumentStore<AlertFiresDocument>(null),
-    feeds: { retain: () => {} },
-  })
-  return {
-    hub,
-    service,
-    async dispose() {
-      await service.dispose()
-      hub.dispose()
-    },
+      ]).failures,
+    ).toEqual([])
   }
+
+  /** 目录中的警报脚本定义；必须在 registerScript 之后读取。 */
+  function scriptDefinition(id: string = SCRIPT_ID): AlertScriptDefinition {
+    const script = createAlertCatalog(definitions)().find((item) => item.id === id)
+    if (!script) throw new Error(`Missing alert script fixture: ${id}`)
+    return script
+  }
+
+  /** 新建真实的警报服务；计算中枢不参与这些 UI 用例。 */
+  async function createBackend() {
+    const hub = createCalculationHub({ resolveDefinition: () => undefined })
+    const service: AlertService = await createAlertService({
+      hub,
+      definitions,
+      rules: createMemoryDocumentStore<AlertRulesDocument>(null),
+      fires: createMemoryDocumentStore<AlertFiresDocument>(null),
+      feeds: { retain: () => {} },
+    })
+    return {
+      service,
+      async dispose() {
+        await service.dispose()
+        hub.dispose()
+      },
+    }
+  }
+
+  return { definitions, registerScript, scriptDefinition, createBackend }
 }
 
 /** 规则草稿；默认使用当前图表品种。 */

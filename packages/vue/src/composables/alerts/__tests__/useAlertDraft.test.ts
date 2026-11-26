@@ -1,22 +1,20 @@
 /** 新建警报草稿：默认品种、同键复用与跨品种创建。 */
-import { beforeAll, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { useAlertDraft } from '@vue-src/composables/alerts/useAlertDraft.js'
 import {
   BTC,
-  createAlertBackend,
+  createAlertTestContext,
   CURRENT,
   draft,
   ETH,
-  registerScript,
-  scriptDefinition,
   settle,
 } from './helpers/alertTestKit.js'
 import { effectScope } from 'vue'
 
-beforeAll(registerScript)
-
 async function setup() {
-  const backend = await createAlertBackend()
+  const context = createAlertTestContext()
+  context.registerScript()
+  const backend = await context.createBackend()
   const scope = effectScope()
   const draftState = scope.run(() =>
     useAlertDraft({
@@ -28,6 +26,7 @@ async function setup() {
   return {
     service: backend.service,
     draft: draftState,
+    scriptDefinition: context.scriptDefinition,
     async dispose() {
       scope.stop()
       await backend.dispose()
@@ -37,7 +36,7 @@ async function setup() {
 
 describe('useAlertDraft', () => {
   it('defaults to the current instrument and creates the rule there', async () => {
-    const { service, draft: state, dispose } = await setup()
+    const { service, draft: state, scriptDefinition, dispose } = await setup()
     try {
       expect(state.instrument.value?.id).toBe(BTC.id)
       state.selectScript(scriptDefinition())
@@ -55,7 +54,7 @@ describe('useAlertDraft', () => {
   })
 
   it('re-enables the same script and instrument instead of creating a duplicate', async () => {
-    const { service, draft: state, dispose } = await setup()
+    const { service, draft: state, scriptDefinition, dispose } = await setup()
     try {
       const existing = service.create({ ...draft(CURRENT), enabled: false })
       state.selectScript(scriptDefinition())
@@ -70,7 +69,7 @@ describe('useAlertDraft', () => {
   })
 
   it('creates on another instrument chosen from search', async () => {
-    const { service, draft: state, dispose } = await setup()
+    const { service, draft: state, scriptDefinition, dispose } = await setup()
     try {
       state.selectScript(scriptDefinition())
       state.selectInstrument(ETH)
@@ -84,7 +83,7 @@ describe('useAlertDraft', () => {
   })
 
   it('reset clears the script, returns to the current instrument and blocks submit', async () => {
-    const { service, draft: state, dispose } = await setup()
+    const { service, draft: state, scriptDefinition, dispose } = await setup()
     try {
       state.selectScript(scriptDefinition())
       state.selectInstrument(ETH)

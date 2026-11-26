@@ -4,9 +4,9 @@
  * 目录服务、库保存与启动管线只决定“写什么”，不再各自拼同一组字段。
  */
 import {
+  type DefinitionRegistry,
   type IndicatorCandidate,
   type RegistrableIndicator,
-  registerIndicators,
 } from '@363045841yyt/klinechart-core'
 import type { SavedScript, ScriptDocument } from '../types.js'
 import type { CompiledScript, CompiledScriptIdentity } from './scriptExecutor.js'
@@ -63,8 +63,11 @@ export function candidateIdentity(
 }
 
 /** 一次性注册全部定义；首个失败直接抛出，调用方负责回滚未提交的句柄。 */
-export function commitIndicators(items: readonly RegistrableIndicator[]): void {
-  const [failure] = registerIndicators(items).failures
+export function commitIndicators(
+  definitions: DefinitionRegistry,
+  items: readonly RegistrableIndicator[],
+): void {
+  const [failure] = definitions.register(items).failures
   if (failure) throw failure.error
 }
 

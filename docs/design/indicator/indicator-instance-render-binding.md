@@ -2,15 +2,15 @@
 
 ## 背景
 
-计算结果以 `calculationKey` 保存在 `IndicatorResultStore`，图表根据当前计划按 `instanceId` 展开结果池。每个实例有自己的渲染投影，同一组计算输入可以跨窗格共享结果。
+计算结果由 `CalculationHub` 按数据身份与计算身份保存，图表在 `onCommit` 中得到当前计划的完整结果，再按 `instanceId` 生成渲染投影。每个实例有自己的渲染投影，同一组计算输入可以跨窗格共享结果。
 
 ## 身份
 
-| 标识                    | 作用                             | 是否进入 calculator |
-| ----------------------- | -------------------------------- | ------------------- |
-| `instanceId`            | 图表上的一次启用实例             | 否                  |
-| `calculationKey`        | `definitionId + 计算参数 + 上下文` | 是（去重身份）      |
-| `paneId`                | 实例所在绘图区                   | 否                  |
+| 标识                    | 作用                             | 是否进入计算请求 |
+| ----------------------- | -------------------------------- | ---------------- |
+| `instanceId`            | 图表上的一次启用实例             | 否               |
+| `calculationKey`        | `definitionId + 计算参数 + 上下文` | 是（去重身份）   |
+| `paneId`                | 实例所在绘图区                   | 否               |
 
 渲染只认 `instanceId`。`paneId` 只决定投影落在哪个 pane，不参与状态寻址。
 
@@ -42,7 +42,8 @@ interface IndicatorRenderStateReader {
 ## 结果池与投影
 
 ```text
-实例结果池（instanceId -> 结果）
+CalculationHub.onCommit（calculationKey -> CalculationResult）
+  -> 按实例请求键取结果
   -> 按实例投影（instanceId -> RenderState）
   -> 帧级 reader.get(instanceId)
   -> renderer / scale renderer

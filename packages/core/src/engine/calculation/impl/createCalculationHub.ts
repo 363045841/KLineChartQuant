@@ -30,10 +30,6 @@ import type {
 /** 预览结果保留份数；超出后按最久未使用淘汰。 */
 const PREVIEW_RESULT_LIMIT = 16
 
-interface StoredResult {
-  readonly result: CalculationResult
-}
-
 interface ClientState {
   readonly id: string
   readonly handlers: CalculationClientHandlers
@@ -100,12 +96,9 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
   const feeds = new Map<FeedKey, FeedSnapshot>()
   const clients = new Map<string, ClientState>()
   const desired = new Map<string, DesiredRequest>()
-  const store = new Map<string, StoredResult>()
+  const store = new Map<string, CalculationResult>()
   const lanes = new Map<string, Lane>()
-  const calculators = new Map<
-    string,
-    CalculationDefinition & { dispose?(): void; resolved: CalculationDefinition }
-  >()
+  const calculators = new Map<string, CalculationDefinition & { dispose?(): void }>()
   /** 预览结果的有界保留顺序；不参与任何消费者提交。 */
   const previewKeys = new Set<string>()
   let disposed = false
@@ -115,12 +108,12 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
     return createCalculationKey(feed, localKey)
   }
 
-  /** 取或创建单任务计算器；定义身份变化时替换旧会话，失败由执行阶段报错。 */
+  /** 取或创建单任务计算器；版本身份变化时替换旧会话，失败由执行阶段报错。 */
   function ensureCalculator(internal: string, definitionId: string) {
     const definition = options.resolveDefinition(definitionId)
     if (!definition) return undefined
     const existing = calculators.get(internal)
-    if (existing?.resolved === definition) return existing
+    if (existing?.identity === definition.identity) return existing
     if (existing) {
       existing.dispose?.()
       calculators.delete(internal)
@@ -130,7 +123,6 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
       ...definition,
       compute: compute ?? definition.compute,
       dispose: compute?.dispose,
-      resolved: definition,
     }
     calculators.set(internal, entry)
     return entry
@@ -269,7 +261,7 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
     if (client.committed.get(feedKey) === revision) return
     const results = new Map<string, CalculationResult>()
     for (const request of entry.requests) {
-      const stored = store.get(internalKey(feedKey, request.key))?.result
+      const stored = store.get(internalKey(feedKey, request.key))
       if (!isFresh(stored, feed)) return
       results.set(request.key, stored!)
     }
@@ -318,7 +310,7 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
     const current = lanes.get(work.internalKey)
     if (disposed || current !== lane || lane.running !== work) return
     if (result) {
-      store.set(work.internalKey, { result })
+      store.set(work.internalKey, result)
       for (const id of desired.get(work.internalKey)?.clients ?? []) {
         try {
           clients.get(id)?.handlers.onResult?.(work.feedKey, result)
@@ -341,7 +333,7 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
     // 运行期间行情又前进了：用最新快照再排一版，旧结果不会被提交。
     const live = feeds.get(work.feedKey)
     const pending = desired.get(work.internalKey)
-    if (live && pending && !isFresh(store.get(work.internalKey)?.result, live)) {
+    if (live && pending && !isFresh(store.get(work.internalKey), live)) {
       startWork(pending.feed, live, pending.request, work.internalKey)
     }
   }
@@ -374,7 +366,7 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
     if (!feed) return
     for (const [key, entry] of desired) {
       if (entry.feed !== feedKey) continue
-      if (isFresh(store.get(key)?.result, feed)) continue
+      if (isFresh(store.get(key), feed)) continue
       startWork(feedKey, feed, entry.request, key)
     }
   }
@@ -463,12 +455,12 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
       const feed = feeds.get(feedKey)
       if (!feed) throw new Error(`Calculation feed is not registered: ${feedKey}`)
       const internal = internalKey(feedKey, request.key)
-      const stored = store.get(internal)?.result
+      const stored = store.get(internal)
       if (isFresh(stored, feed)) return stored!
       const ownsCalculator = !calculators.has(internal)
       const result = await execute(request, feed, signal)
       if (!result) throw signal.reason ?? new DOMException('Calculation aborted', 'AbortError')
-      store.set(internal, { result })
+      store.set(internal, result)
       rememberPreview(internal)
       if (ownsCalculator) {
         calculators.get(internal)?.dispose?.()
@@ -478,14 +470,14 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
     },
 
     peek(feedKey, key) {
-      return store.get(internalKey(feedKey, key))?.result
+      return store.get(internalKey(feedKey, key))
     },
 
     invalidateDefinitions(definitionIds) {
       if (disposed || definitionIds.length === 0) return
       const changed = new Set(definitionIds)
       for (const [key, stored] of store) {
-        if (changed.has(stored.result.definitionId)) store.delete(key)
+        if (changed.has(stored.definitionId)) store.delete(key)
       }
       for (const [key, calculator] of calculators) {
         if (!changed.has(calculator.definitionId)) continue

@@ -1,21 +1,26 @@
 // 使用真实 Kernel 与 IndexedDB 替身验证布局归档、自动保存和列表顺序。
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { indicatorCatalog } from '../../../controllers/indicatorCatalog/index.js'
+import { createIndicatorCatalog } from '../../../controllers/indicatorCatalog/index.js'
+import { createTestDefinitions } from '@/engine/indicators/__tests__/helpers/definitionsTestKit.js'
+import type { DefinitionRegistry } from '@/engine/indicators/registry/index.js'
 import type { SymbolSpec } from '../../../controllers/types.js'
 import { PRICE_AXIS_RANGE_MODE } from '../../../foundation/config/priceAxisRangeMode.js'
 import { createDocumentStore } from '../../../foundation/persistence/index.js'
 import type { DrawingObject } from '../../drawing/types.js'
 import { registerEmptyPlot } from '../../indicators/__tests__/helpers/plotIndicatorTestKit.js'
-import { registerIndicators } from '../../indicators/pipeline/index.js'
 import { MAIN_PANE_ID } from '../../pane/types.js'
 import { PRICE_SERIES_AXIS_ID } from '../../renderers/rendererIds.js'
 import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel.js'
 import { LayoutManager } from '../impl/layoutManager.js'
 import { LAYOUT_DOCUMENT_VERSION } from '../types.js'
 
-/** 每个用例使用独立数据库，避免归档相互污染。 */
+/** 本用例独立的定义注册表。 */
+let definitions: DefinitionRegistry
+
+/** 每个用例使用独立数据库与注册表，避免归档与定义相互污染。 */
 beforeEach(async () => {
+  definitions = createTestDefinitions()
   await new Promise<void>((resolve, reject) => {
     const request = indexedDB.deleteDatabase('@363045841yyt/klinechart-layouts')
     request.onsuccess = () => resolve()
@@ -27,7 +32,7 @@ afterEach(() => vi.useRealTimers())
 
 /** 以生产 Kernel 快照和恢复方法构造领域管理器。 */
 function createManager(restore = true, storageId?: string) {
-  const kernel = createTestChartStateKernel({ initialSettings: { theme: 'light' } })
+  const kernel = createTestChartStateKernel({ initialSettings: { theme: 'light' }, definitions })
   const manager = new LayoutManager(
     {
       exportLayout: () => kernel.exportLayout(),
@@ -51,7 +56,7 @@ function createRawLayoutStorage() {
 }
 
 it('独立标签归档并发自动保存，重新挂载恢复各自指标、参数、窗格与活动布局', async () => {
-  registerEmptyPlot('tab-layout-indicator')
+  registerEmptyPlot(definitions, 'tab-layout-indicator')
   const first = createManager(true, 'tab-a')
   const second = createManager(true, 'tab-b')
   await Promise.all([first.manager.initialize(), second.manager.initialize()])
@@ -287,7 +292,7 @@ function subscribeDrawingAutoSave({ kernel, manager }: ReturnType<typeof createM
 }
 
 it('收藏独立于开启状态，随布局保存、复制和恢复，旧布局清空收藏', async () => {
-  registerIndicators([
+  definitions.register([
     {
       kind: 'descriptor',
       candidate: { key: 'layout-test', origin: 'third-party', identity: 'native' },
@@ -300,7 +305,7 @@ it('收藏独立于开启状态，随布局保存、复制和恢复，旧布局�
       },
     },
   ])
-  const definition = indicatorCatalog()[0]
+  const definition = createIndicatorCatalog(definitions)()[0]
   if (!definition) throw new Error('测试指标未注册')
   const first = createManager()
   await first.manager.initialize()

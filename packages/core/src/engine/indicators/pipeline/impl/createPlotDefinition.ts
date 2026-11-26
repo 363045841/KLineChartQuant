@@ -69,7 +69,7 @@ export function createPlotIndicatorDefinition(
     info: definition.info,
     category: main ? 'main' : 'sub',
     defaultPaneId: paneId,
-    rendererFactory: plotRenderer(internalName),
+    rendererFactory: plotRenderer(),
     getRendererName: ({ paneId }) => `${internalName}_${paneId}`,
     scale: {
       label: definition.name,

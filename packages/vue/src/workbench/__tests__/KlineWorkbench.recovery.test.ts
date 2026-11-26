@@ -36,7 +36,8 @@ describe('workbench recovery', () => {
     initialize.mockImplementationOnce(() => new Promise((_resolve, reject) => {
       rejectInitialization = reject
     }))
-    const wrapper = mount(KlineWorkbench, { props: { agent: false } })
+    const host = createMarketDataHost()
+    const wrapper = mount(KlineWorkbench, { props: { agent: false, marketDataContext: host } })
     try {
       expect(wrapper.find('[data-chart]').exists()).toBe(true)
       const error = new Error('Script initialization failed')
@@ -46,6 +47,7 @@ describe('workbench recovery', () => {
       expect(wrapper.find('[data-chart]').exists()).toBe(true)
     } finally {
       wrapper.unmount()
+      host.dispose()
       vi.clearAllMocks()
     }
   })

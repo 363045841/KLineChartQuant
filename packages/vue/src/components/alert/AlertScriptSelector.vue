@@ -81,11 +81,11 @@
           </div>
         </div>
 
-        <BaseEmptyState v-if="filteredScripts.length === 0" class="modal-list-item" role="status">
-          <template v-if="isSearchEmpty" #icon><IconTablerSearch /></template>
-          {{ emptyTitle }}
-          <template v-if="isSearchEmpty" #hint>请尝试其他关键词</template>
-        </BaseEmptyState>
+        <ModalListEmptyState
+          v-if="filteredScripts.length === 0"
+          :title="emptyTitle"
+          :search-empty="isSearchEmpty"
+        />
       </ModalScrollArea>
     </div>
   </BaseModal>
@@ -95,12 +95,12 @@
   import '@vue-src/components/common/dialog/modal-list.css'
   import '@vue-src/components/common/dialog/modal-list-item.css'
 
-  import { alertCatalog } from '@363045841yyt/klinechart-core/controllers'
+  import { createAlertCatalog } from '@363045841yyt/klinechart-core/controllers'
   import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
   import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
+  import ModalListEmptyState from '@vue-src/components/common/dialog/ModalListEmptyState.vue'
   import ModalScrollArea from '@vue-src/components/common/dialog/ModalScrollArea.vue'
   import ModalSearchBar from '@vue-src/components/common/dialog/ModalSearchBar.vue'
-  import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
   import BasePopover from '@vue-src/components/common/overlay/BasePopover.vue'
   import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
   import type { AlertScriptSelection } from '@vue-src/composables/alerts/useAlertDraft.js'
@@ -109,12 +109,13 @@
   import { computed, ref, watch } from 'vue'
   import IconTablerCheck from '~icons/tabler/check'
   import IconTablerInfoCircle from '~icons/tabler/info-circle'
-  import IconTablerSearch from '~icons/tabler/search'
 
   const props = defineProps<{
     open: boolean
     /** 当前选中的脚本身份；只用于列表打勾，不参与筛选。 */
     definitionId: string | null
+    /** 运行时定义注册表；目录由它投影。 */
+    definitions: import('@363045841yyt/klinechart-core').DefinitionRegistry
   }>()
 
   const emit = defineEmits<{
@@ -123,7 +124,7 @@
   }>()
 
   // 目录是 Core 注册表投影，选择器自己订阅；宿主只拿到用户选中的那一项。
-  const scripts = coreSignalToVueRef(alertCatalog)
+  const scripts = coreSignalToVueRef(createAlertCatalog(props.definitions))
   const searchQuery = ref('')
 
   const isSearchEmpty = computed(() => searchQuery.value.trim().length > 0)

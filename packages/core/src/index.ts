@@ -6,7 +6,7 @@ export * from './components/orderBookHeatmap/index.js'
 // ── Batch 5: Component data models ────────────────────────────────────────
 export * from './components/volumeProfile/index.js'
 export * from './controllers/index.js'
-export { resolveIndicatorLayerId } from './engine/indicators/indicatorLayerNaming.js'
+export { createIndicatorLayerId } from './engine/indicators/indicatorLayerNaming.js'
 export {
   type IndicatorInputDisplay,
   type IndicatorMetadata,
@@ -16,8 +16,6 @@ export {
 } from './engine/indicators/indicatorMetadata.js'
 export {
   createPlotIndicatorDefinition,
-  getIndicatorDescriptor,
-  getRegisteredIndicatorDefinition,
   type IndicatorCandidate,
   type IndicatorCatalogCommit,
   type IndicatorCollector,
@@ -29,26 +27,20 @@ export {
   type IndicatorOrigin,
   type IndicatorPipelineReport,
   type IndicatorStage,
-  indicatorCatalogRevision,
-  indicatorCommits,
-  indicatorFailures,
-  isAlertDefinition,
-  isIndicatorDefinitionLoaded,
-  loadAllIndicatorDefinitions,
-  loadIndicatorDefinitions,
   logIndicatorFailure,
   type RegistrableIndicator,
-  readAlertDescriptors,
-  readIndicatorDescriptors,
-  readRegisteredDefinitions,
-  registerIndicators,
-  resolveCanonicalIndicatorId,
-  resolveIndicatorDefinitionId,
   runIndicatorPipeline,
   type StageResult,
-  setIndicatorFailures,
-  unregisterIndicator,
 } from './engine/indicators/pipeline/index.js'
+export {
+  createDefinitionRegistry,
+  type DefinitionRegistry,
+} from './engine/indicators/registry/index.js'
+export {
+  createMarketRuntime,
+  type MarketRuntime,
+  type MarketRuntimeOptions,
+} from './engine/runtime/index.js'
 // ── Batch 2: Framework-agnostic foundation ────────────────────────────────
 export * from './engine/legend/index.js'
 export type * from './engine/objects/index.js'
@@ -84,7 +76,6 @@ export { type FormatErrorOptions, formatKLineChartError, getRecoveryHint } from 
 export * from './features/agent/index.js'
 // ── Batch 4: Independent business features ────────────────────────────────
 export * from './engine/calculation/index.js'
-export * from './engine/session/index.js'
 export * from './features/alerts/index.js'
 export * from './features/input/index.js'
 export type { ChartSettings } from './foundation/config/chartSettings.js'

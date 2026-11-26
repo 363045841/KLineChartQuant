@@ -1,13 +1,29 @@
-import { createDocumentStore, createMemoryDocumentStore, type DocumentStore } from '../../../foundation/persistence/index.js'
-import type { AlertService } from '../types.js'
-import { ALERT_DOCUMENT_VERSION, type AlertFiresDocument, type AlertRulesDocument, decodeFires, decodeRules } from './alertCodec.js'
+/**
+ * 警报持久化：按命名空间隔离的文档仓库。
+ *
+ * 规则与触发日志分开存储；读取失败按损坏数据处理，不伪造空文档。
+ */
+import {
+  createDocumentStore,
+  createMemoryDocumentStore,
+  type DocumentStore,
+} from '../../../foundation/persistence/index.js'
+import {
+  ALERT_DOCUMENT_VERSION,
+  type AlertFiresDocument,
+  type AlertRulesDocument,
+  decodeFires,
+  decodeRules,
+} from './alertCodec.js'
 
-const activeServices = new Set<AlertService>()
-
-function store<T>(name: 'rules' | 'fires', decode: (value: unknown) => T): DocumentStore<T> {
+function store<T>(
+  namespace: string,
+  name: 'rules' | 'fires',
+  decode: (value: unknown) => T,
+): DocumentStore<T> {
   if (typeof indexedDB === 'undefined') return createMemoryDocumentStore<T>(null)
   return createDocumentStore({
-    databaseName: `@363045841yyt/klinechart-alert-${name}`,
+    databaseName: `@363045841yyt/klinechart-alert-${namespace}-${name}`,
     version: ALERT_DOCUMENT_VERSION,
     storeName: name,
     key: name,
@@ -15,29 +31,13 @@ function store<T>(name: 'rules' | 'fires', decode: (value: unknown) => T): Docum
   })
 }
 
-export function createAlertStores(): {
+/** 创建某一运行时的警报存储；命名空间由宿主决定。 */
+export function createAlertStores(namespace: string): {
   rules: DocumentStore<AlertRulesDocument>
   fires: DocumentStore<AlertFiresDocument>
 } {
-  return { rules: store('rules', decodeRules), fires: store('fires', decodeFires) }
-}
-
-export function trackAlertService(service: AlertService): () => void {
-  activeServices.add(service)
-  return () => activeServices.delete(service)
-}
-
-/** 检查已恢复和已持久化的规则，包括停用规则。 */
-export async function hasAlertScriptReference(definitionId: string): Promise<boolean> {
-  if (activeServices.size > 0) {
-    return [...activeServices].some((service) =>
-      service.alerts.peek().some((alert) => alert.script.definitionId === definitionId),
-    )
-  }
-  const rules = store('rules', decodeRules)
-  try {
-    return (await rules.read())?.alerts.some((alert) => alert.script.definitionId === definitionId) ?? false
-  } finally {
-    await rules.dispose()
+  return {
+    rules: store(namespace, 'rules', decodeRules),
+    fires: store(namespace, 'fires', decodeFires),
   }
 }

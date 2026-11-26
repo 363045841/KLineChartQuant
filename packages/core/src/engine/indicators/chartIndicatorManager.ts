@@ -63,13 +63,7 @@ import {
 } from './instances/api/indicatorRenderBinding.js'
 import { createIndicatorTimelineProjection } from './projection/impl/indicatorTimelineProjection.js'
 import type { IndicatorTimelineProjection } from './projection/types.js'
-import {
-  getIndicatorDescriptor,
-  getRegisteredIndicatorDefinition,
-  indicatorCatalogRevision,
-  readRegisteredDefinitions,
-  resolveCanonicalIndicatorId,
-} from './pipeline/index.js'
+import type { DefinitionRegistry } from './registry/index.js'
 import { projectIndicatorSeries } from './projection/impl/indicatorTimelineProjection.js'
 import { composeInstanceRenderState } from './stateComposer.js'
 
@@ -149,6 +143,8 @@ export interface IndicatorDependencies {
   getLayer: (id: string) => Layer | null
   /** 主图/副图统一的指标实例配置状态 */
   indicator: IndicatorStateModule
+  /** 指标与警报定义注册表；图表只读取已提交定义。 */
+  definitions: DefinitionRegistry
   /** 定义注销时统一走 Pane 命令，避免绕过布局与轴偏好清理。 */
   removeInstancesByDefinition: (definitionId: string) => void
 }
@@ -164,9 +160,8 @@ export class ChartIndicatorManager {
   private deps: IndicatorDependencies
   private readonly hub: CalculationHub
   private readonly client: CalculationClient
-  /** 定义安装快照；计算端口由会话定义仓库统一提供。 */
-  private installedDefinitions: ReadonlyMap<string, IndicatorMetadata> = new Map()
-  private appliedDefinitionRevision = -1
+  private readonly definitions: DefinitionRegistry
+  private readonly unsubscribeDefinitions: () => void
   private _indicatorsComputed: Computed<ReadonlyArray<IndicatorInstance>>
   private _subPanesComputed: Computed<ReadonlyArray<SubPaneInfo>>
   /** 只记录实际拥有的图层资源，不承载实例归属、参数或更新判断。 */
@@ -231,7 +226,7 @@ export class ChartIndicatorManager {
     const visible = new Map<string, unknown>()
     for (const instance of instances) {
       if (instance.hidden === true || !this.renderStates.has(instance.instanceId)) continue
-      const definition = this.getInstalledDefinition(instance.indicatorId)
+      const definition = this.definitions.getDefinition(instance.indicatorId)
       if (
         !isIndicatorVisibleOnPeriod(
           period,
@@ -249,6 +244,7 @@ export class ChartIndicatorManager {
   constructor(deps: IndicatorDependencies) {
     this.deps = deps
     this.hub = deps.hub
+    this.definitions = deps.definitions
     this.client = this.hub.createClient('chart', {
       onCommit: (commit) => this.publishResults(commit.results),
       onPending: (owners, pending) => {
@@ -257,6 +253,13 @@ export class ChartIndicatorManager {
       },
       onError: (error) => this.handleCalculationError(error),
     })
+    this.unsubscribeDefinitions = this.definitions.commits.subscribe(() => {
+      const commit = this.definitions.commits.peek()
+      if (!commit) return
+      for (const definition of commit.removed) {
+        this.deps.removeInstancesByDefinition(this.definitions.resolveCanonicalId(definition))
+      }
+    })
 
     this.registerPluginServices()
 
@@ -264,7 +267,7 @@ export class ChartIndicatorManager {
     this._indicatorsComputed = computed<ReadonlyArray<IndicatorInstance>>(() =>
       this.deps.indicator.readonly.instances().map((instance) => {
         const label =
-          getIndicatorDescriptor(instance.indicatorId)?.displayName ?? instance.indicatorId
+          this.definitions.getDescriptor(instance.indicatorId)?.displayName ?? instance.indicatorId
         return {
           id: instance.instanceId,
           definitionId: instance.indicatorId,
@@ -297,17 +300,12 @@ export class ChartIndicatorManager {
     })
   }
 
-  /** 当前行情身份；没有数据时为 null。 */
-  getFeedKey(): string | null {
-    return this.feedKey
-  }
-
   /** 仅捕获资源输入，追踪依赖由协调者的唯一订阅负责。 */
   readRuntimeInputs(): IndicatorRuntimeInputs {
     return {
       instances: this.deps.indicator.readonly.instances(),
       colors: this.deps.plotColors$(),
-      definitionRevision: indicatorCatalogRevision(),
+      definitionRevision: this.definitions.revision(),
     }
   }
 
@@ -323,7 +321,6 @@ export class ChartIndicatorManager {
 
   /** 在协调者的提交内同步计算器、发布完整计划、挂载图层。 */
   projectIndicators(inputs: IndicatorRuntimeInputs): void {
-    this.synchronizeDefinitions(inputs.definitionRevision)
     this.planned = this.createPlan(inputs.instances)
     this.applyPlan()
     const activeInstanceIds = new Set(inputs.instances.map((instance) => instance.instanceId))
@@ -360,7 +357,7 @@ export class ChartIndicatorManager {
   private createPlan(instances: readonly IndicatorInstanceSpec[]): readonly PlannedInstance[] {
     const planned: PlannedInstance[] = []
     for (const spec of instances) {
-      const metadata = this.getInstalledDefinition(spec.indicatorId)
+      const metadata = this.definitions.getDefinition(spec.indicatorId)
       if (!metadata) continue
       planned.push({
         spec,
@@ -400,31 +397,6 @@ export class ChartIndicatorManager {
     if (!this.feedKey) return
     const requests = this.planned.flatMap((entry) => (entry.request ? [entry.request] : []))
     this.client.setPlan([{ feed: this.feedKey, requests }])
-  }
-
-  /** 比对完整目录快照，合并通知时也能同步全部新增、替换和注销。 */
-  private synchronizeDefinitions(revision: number): void {
-    if (revision === this.appliedDefinitionRevision) return
-    const next = new Map(
-      readRegisteredDefinitions().map((definition) => [definition.name, definition]),
-    )
-    const previous = this.installedDefinitions
-    this.installedDefinitions = next
-    this.appliedDefinitionRevision = revision
-    // 定义被注销时回收它创建的实例；替换定义保留实例，由计算层按新定义重算。
-    for (const definition of previous.values()) {
-      if (!next.has(definition.name)) {
-        this.deps.removeInstancesByDefinition(resolveCanonicalIndicatorId(definition))
-      }
-    }
-  }
-
-  /** 解析名称或展示名，并确认当前图表已装配这份实现。 */
-  private getInstalledDefinition(id: string): IndicatorMetadata | undefined {
-    const definition = getRegisteredIndicatorDefinition(id)
-    return definition && this.installedDefinitions.get(definition.name) === definition
-      ? definition
-      : undefined
   }
 
   /** 解析 runtime.defaultInputs，支持函数与常量两种声明。 */
@@ -598,7 +570,7 @@ export class ChartIndicatorManager {
         INDICATOR_SERIES_ERROR_CODES.NO_DATA,
         'Reading indicator series requires active market data.',
       )
-    const metadata = this.getInstalledDefinition(request.definitionId)
+    const metadata = this.definitions.getDefinition(request.definitionId)
     if (!metadata?.runtime)
       throw new KLineChartError(
         INDICATOR_SERIES_ERROR_CODES.INDICATOR_NOT_REGISTERED,
@@ -830,6 +802,7 @@ export class ChartIndicatorManager {
   }
 
   destroy(): void {
+    this.unsubscribeDefinitions()
     this.client.dispose()
     this.destroyed = true
     this.releaseLayerResources()

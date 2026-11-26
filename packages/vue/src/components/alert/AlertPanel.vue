@@ -112,7 +112,8 @@
 
     <AlertAddDialog
       v-model:open="addOpen"
-      :alerts="controller?.alerts ?? null"
+      :alerts="runtime.alerts.value"
+      :definitions="runtime.definitions"
       :current-spec="currentSpec"
       :instruments="instrumentPool"
       :search-symbols="searchSymbols"
@@ -123,7 +124,6 @@
     <ParamsDialog
       v-if="paramsScript"
       :visible="paramsVisible"
-      :definition-id="paramsScript.id"
       :definition-name="paramsScript.name"
       :description="paramsScript.description"
       :params="paramsScript.inputs"
@@ -147,6 +147,7 @@
   import ParamsDialog from '@vue-src/components/params/impl/ParamsDialog.vue'
   import type { SymbolItem } from '@vue-src/components/symbol/SymbolSelector.vue'
   import { useAlertPanel } from '@vue-src/composables/alerts/useAlertPanel.js'
+  import { useAppRuntime } from '@vue-src/composables/runtime/useAppRuntime.js'
   import { useControllerSignal } from '@vue-src/composables/chart/useControllerSignal.js'
   import type { AggregationSourceDefinition } from '@vue-src/composables/market/useAggregationSources.js'
   import { fromSymbolInfo } from '@vue-src/composables/symbol/symbolSpec.js'
@@ -170,6 +171,7 @@
   }>()
 
   const addOpen = ref(false)
+  const runtime = useAppRuntime()
   const controllerRef = toRef(props, 'controller')
   // 当前品种与本地品种池都从控制器派生，新建规则默认沿用图表的品种、周期与复权。
   const symbols = useControllerSignal(controllerRef, (ctrl) => ctrl.symbols, () => [])
@@ -193,7 +195,8 @@
     closeParams,
     confirmParams,
   } = useAlertPanel({
-    alerts: () => props.controller?.alerts ?? null,
+    alerts: () => runtime.alerts.value,
+    definitions: runtime.definitions,
   })
 </script>
 

@@ -120,7 +120,7 @@ flowchart TB
 
 适配器只测桥接，不实例化完整引擎：用 mock `ChartControllerFactory` 验证生命周期、signal 桥接与错误处理。
 
-- Vue：`__setControllerFactory(factory)` 覆盖，测试后重置为 `null`；生产入口在 import 时注入 `createChartController`。
+- Vue：组件直接调用 `createChartController`，不再提供工厂注入；契约测试通过真实或桩容器验证挂载、信号桥接与释放。
 - React：`<KLineChart factory={mockFactory} />` 或 `useKLineChart(ref, { factory })`。
 - Angular：`provideKLineChart({ factory: mockFactory })`。
 

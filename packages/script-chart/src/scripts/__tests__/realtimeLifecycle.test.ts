@@ -11,10 +11,10 @@ import {
   type FeedKey,
   type FeedSnapshot,
 } from '../../../../core/src/engine/calculation/index.js'
-import { getRegisteredIndicatorDefinition } from '@363045841yyt/klinechart-core'
 import type { Bar } from '@363045841yyt/klinechart-plot-contracts'
 import { describe, expect, it, vi } from 'vitest'
 import { createTestData } from '../../../../core/src/engine/indicators/__tests__/helpers/instanceTestKit.js'
+import { createDefinitionRegistry } from '@363045841yyt/klinechart-core'
 import { NodeScriptWorker } from '../../../../script/src/worker/__tests__/nodeWorker.js'
 import { createScriptService } from '../impl/createScriptService.js'
 
@@ -26,8 +26,8 @@ const IDENTITY = createDataIdentity({
 })
 
 /** 断言脚本运行端口存在；缺失直接失败，不提供替身。 */
-function requireRuntime(id: string) {
-  const runtime = getRegisteredIndicatorDefinition(id)?.runtime
+function requireRuntime(definitions: ReturnType<typeof createDefinitionRegistry>, id: string) {
+  const runtime = definitions.getDefinition(id)?.runtime
   if (!runtime) throw new Error(`Missing registered runtime: ${id}`)
   return runtime
 }
@@ -37,6 +37,7 @@ function definitionOf(id: string, runtime: ReturnType<typeof requireRuntime>): C
   const compute = runtime.compute
   return {
     definitionId: id,
+    identity: runtime,
     dependency: { kind: 'stateful' },
     compute,
     ...(runtime.createCompute
@@ -70,7 +71,8 @@ describe('realtime script lifecycle', () => {
       }
     }
     vi.stubGlobal('Worker', ObservedWorker)
-    const service = await createScriptService([], {
+    const registry = createDefinitionRegistry()
+    const service = await createScriptService([], { definitions: registry,
       persistence: { load: async () => null, save: async () => true },
       builtinSources: [
         `defineIndicator({ version: 2,name:'LifetimeSlow',position:Position.main,onBar(){
@@ -86,8 +88,8 @@ describe('realtime script lifecycle', () => {
     })
     const loadBars = vi.fn(() => history)
     const definitions = new Map<string, CalculationDefinition>([
-      ['slow', definitionOf('slow', requireRuntime('LifetimeSlow'))],
-      ['fast', definitionOf('fast', requireRuntime('LifetimeFast'))],
+      ['slow', definitionOf('slow', requireRuntime(registry, 'LifetimeSlow'))],
+      ['fast', definitionOf('fast', requireRuntime(registry, 'LifetimeFast'))],
     ])
     const hub: CalculationHub = createCalculationHub({
       resolveDefinition: (id) => definitions.get(id),

@@ -10,6 +10,7 @@ import {
   DEFAULT_MIN_K_WIDTH,
   DEFAULT_ZOOM_LEVEL_COUNT,
 } from '@/engine/viewport/zoom'
+import { createTestDefinitions } from '@/engine/indicators/__tests__/helpers/definitionsTestKit.js'
 import { ChartStateKernel, type ChartStateKernelDeps } from '../../chartStateKernel'
 
 /** 测试默认布局，与生产 DEFAULT_OPTS 保持一致。 */
@@ -48,6 +49,7 @@ export function createTestChartStateKernel(
   const { options, initialZoomLevel = 3, scheduleDraw = () => {}, ...rest } = overrides
   return new ChartStateKernel({
     ...rest,
+    definitions: rest.definitions ?? createTestDefinitions(),
     initialZoomLevel,
     scheduleDraw,
     initialOptions: { ...TEST_KERNEL_OPTIONS, ...options },

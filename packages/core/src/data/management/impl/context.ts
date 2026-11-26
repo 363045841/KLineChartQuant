@@ -2,10 +2,7 @@
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { batch, type ReadonlySignal } from '@/foundation/reactivity/signal.js'
 import { createRegisteredDataSource } from '../../provider/impl/registeredDataSource.js'
-import {
-  MarketDataProviderRegistry,
-  marketDataProviderRegistry,
-} from '../../provider/impl/registry.js'
+import { MarketDataProviderRegistry } from '../../provider/impl/registry.js'
 import type { MarketDataSource } from '../../provider/types.js'
 import { createStreamHub } from '../../stream/impl/hub.js'
 import { createSseTransport } from '../../stream/impl/sseTransport.js'
@@ -180,9 +177,6 @@ export class MarketDataContext {
     this.health.dispose()
   }
 }
-
-/** 兼容未提供实例的宿主；不隐式访问 localStorage。 */
-export const defaultMarketDataContext = new MarketDataContext(marketDataProviderRegistry)
 
 /** 创建独立行情宿主；公开注册 API 复用同一管理实例。 */
 export function createMarketDataHost(): MarketDataContext {

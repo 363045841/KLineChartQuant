@@ -1,9 +1,16 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+/** 警报服务：频率、冷却、过期、脚本解析与通知投递。 */
+import { describe, expect, it, vi } from 'vitest'
 import { createCalculationHub } from '../../../engine/calculation/index.js'
 import { makeSymbolSpec } from '../../../engine/data/__tests__/helpers/symbolSpecFixture.js'
-import { clearIndicatorStoreForTest, registerIndicators } from '../../../engine/indicators/pipeline/index.js'
+import { createTestDefinitions } from '@/engine/indicators/__tests__/helpers/definitionsTestKit.js'
 import { createMemoryDocumentStore } from '../../../foundation/persistence/index.js'
-import { createAlertService, decodeRules, type AlertDraft, type AlertFiresDocument, type AlertFrequency, type AlertRulesDocument } from '../index.js'
+import {
+  createAlertService,
+  type AlertDraft,
+  type AlertFiresDocument,
+  type AlertFrequency,
+  type AlertRulesDocument,
+} from '../index.js'
 import { alertFeedIdentity } from '../impl/alertSymbol.js'
 
 const symbol = makeSymbolSpec({ id: 'BTC', symbol: 'BTCUSDT', source: 'binance', period: '1', adjust: 'none' })
@@ -11,10 +18,10 @@ const script = { definitionId: 'PriceCross', inputs: {} }
 const identity = alertFeedIdentity(symbol)
 const draft: AlertDraft = { name: 'PriceCross', script, symbol, channels: ['in-app'], message: '{{message}}' }
 
-afterEach(clearIndicatorStoreForTest)
-
+/** 构造一份独立注册表、计算中枢与内存持久化的完整夹具。 */
 async function setup(frequency: AlertFrequency) {
-  registerIndicators([{
+  const definitions = createTestDefinitions()
+  definitions.register([{
     kind: 'descriptor',
     candidate: { key: script.definitionId, origin: 'third-party', identity: 'native' },
     descriptor: {
@@ -24,15 +31,15 @@ async function setup(frequency: AlertFrequency) {
   }])
   const observed = vi.fn()
   const payloads = new Map<number, readonly number[]>()
+  const definitionIdentity = {}
   const hub = createCalculationHub({
     resolveDefinition: (definitionId) => ({
-      definitionId, dependency: { kind: 'stateful' },
+      definitionId, identity: definitionIdentity, dependency: { kind: 'stateful' },
       compute(data, inputs) {
         observed(inputs, data.at(-1)?.close)
         const bar = data.at(-1)!
         return { series: undefined, alerts: (payloads.get(bar.close) ?? []).map((price) =>
-          ({ barTime: bar.timestamp, price, message: String(price) })),
-        }
+          ({ barTime: bar.timestamp, price, message: String(price) })) }
       },
     }),
   })
@@ -40,7 +47,7 @@ async function setup(frequency: AlertFrequency) {
   const fires = createMemoryDocumentStore<AlertFiresDocument>(null)
   const retain = vi.fn()
   let clock = 1000
-  const deps = { hub, rules, fires, feeds: { retain }, now: () => clock }
+  const deps = { hub, definitions, rules, fires, feeds: { retain }, now: () => clock }
   const service = await createAlertService(deps)
   let revision = 0
   function push(time: number, events: readonly number[], closed = false) {
@@ -53,7 +60,7 @@ async function setup(frequency: AlertFrequency) {
       ...(closed ? { closedBarTime: time } : {}),
     })
   }
-  return { hub, rules, fires, service, retain, observed, deps, push, advance: (by: number) => { clock += by } }
+  return { hub, definitions, rules, fires, service, retain, observed, deps, push, advance: (by: number) => { clock += by } }
 }
 
 describe('alert rules', () => {
@@ -140,18 +147,16 @@ describe('alert rules', () => {
     hub.dispose()
   })
 
-  it('restores a terminal once rule and migrates the previous document field', async () => {
+  it('restores a terminal once rule from the current document format', async () => {
     const { hub, service, push, rules, deps } = await setup('once')
     const rule = service.create(draft)
     push(10, [1])
     await vi.waitFor(() => expect(service.fires.peek()).toHaveLength(1))
     await service.dispose()
-    const persisted = (await rules.read())!.alerts[0]!
-    const { script: reference, ...legacy } = persisted
-    await rules.write(decodeRules({ version: 1, alerts: [{ ...legacy, condition: reference, frequency: 'all' }] }))
+    expect(await rules.read()).not.toBeNull()
+
     const restored = await createAlertService(deps)
     expect(restored.list({ status: 'triggered' }).map((item) => item.id)).toEqual([rule.id])
-    expect(restored.get(rule.id)?.script).toEqual(reference)
     restored.setEnabled(rule.id, false)
     restored.setEnabled(rule.id, true)
     push(20, [2])

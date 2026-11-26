@@ -14,7 +14,6 @@ export interface ParamsDraftInput {
 /** 参数弹窗入参。 */
 export interface ParamsDialogProps {
   visible: boolean
-  definitionId: string
   definitionName: string
   description?: string
   params: readonly IndicatorInputDef[]

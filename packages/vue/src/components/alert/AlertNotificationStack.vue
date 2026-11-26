@@ -113,26 +113,26 @@
 <style scoped>
   .alert-notification-stack {
     position: fixed;
-    right: 16px;
-    bottom: 16px;
+    right: var(--klc-space-16);
+    bottom: var(--klc-space-16);
     z-index: 40;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    max-width: min(360px, calc(100vw - 32px));
+    gap: var(--klc-space-8);
+    max-width: min(360px, calc(100vw - var(--klc-space-32)));
     pointer-events: none;
   }
 
   .alert-card {
     display: flex;
     align-items: flex-start;
-    gap: 4px;
-    padding: 10px 12px;
-    border: 1px solid var(--klc-color-ui-border, rgba(127, 127, 127, 0.3));
+    gap: var(--klc-space-4);
+    padding: var(--klc-space-8) var(--klc-space-12);
+    border: 1px solid var(--klc-color-ui-border);
     border-radius: var(--klc-radius-lg, 10px);
     background: var(--klc-color-ui-surface);
     color: var(--klc-color-ui-text);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    box-shadow: var(--klc-elevation-3);
     pointer-events: auto;
   }
 
@@ -140,26 +140,27 @@
     display: flex;
     flex: 1;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--klc-space-2);
   }
 
   .alert-card__head {
     display: flex;
     justify-content: space-between;
-    gap: 12px;
-    font-size: 0.75rem;
+    gap: var(--klc-space-12);
+    font-size: var(--klc-text-12-font-size);
+    line-height: var(--klc-text-12-line-height);
     color: var(--klc-color-ui-text-soft);
   }
 
   .alert-card__message {
-    font-size: 0.875rem;
+    font-size: var(--klc-text-14-font-size);
+    line-height: var(--klc-text-14-line-height);
     font-weight: 600;
-    line-height: 1.35;
   }
 
   .alert-card__meta {
-    font-size: 0.75rem;
+    font-size: var(--klc-text-12-font-size);
+    line-height: var(--klc-text-12-line-height);
     color: var(--klc-color-ui-text-soft);
   }
-
 </style>

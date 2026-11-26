@@ -354,6 +354,7 @@
     />
     <IndicatorSelector
       :scripts-enabled="scriptsAvailable"
+      :definitions="runtime.definitions"
       ref="indicatorSelectorRef"
       :chart-controller="controller"
       :active-indicators="activeIndicators"
@@ -367,7 +368,7 @@
       @create-script="openBlankScriptEditor"
       @close="replacementPaneId = null"
     />
-    <AlertNotificationStack v-if="controller" :alerts="controller.alerts" />
+    <AlertNotificationStack v-if="appRuntime?.alerts.value" :alerts="appRuntime.alerts.value" />
     <ChartSettingsDialog
       v-model:open="chartSettingsOpen"
       :initial-section="chartSettingsSection"
@@ -457,7 +458,6 @@
     KLINE_PERIODS,
     KLineAdjustment,
     KLinePeriod,
-    type MarketDataContext,
   } from '@363045841yyt/klinechart-core/market-data'
   import {
     BRAND_MARK_PATH,
@@ -467,7 +467,6 @@
   import { useAggregationSources } from '@vue-src/composables/market/useAggregationSources.js'
   import {
     provideMarketDataContext,
-    useMarketDataContext,
   } from '@vue-src/composables/market/useMarketDataContext.js'
   import { useMarketDataSourceCatalog } from '@vue-src/composables/market/useMarketDataSourceCatalog.js'
   import { provideToast, TOAST_STORE_KEY, useToast } from '@vue-src/composables/toast/useToast.js'
@@ -568,6 +567,7 @@
     toSymbolSpec,
   } from '@vue-src/composables/symbol/symbolSpec.js'
   import { createInstrumentSearch } from '@vue-src/composables/symbol/createInstrumentSearch.js'
+  import { tryUseAppRuntime } from '@vue-src/composables/runtime/useAppRuntime.js'
   import { symbolIdentityKey } from '@vue-src/composables/symbol/useSymbolSearch.js'
   import { useWatchlist } from '@vue-src/composables/watchlist/useWatchlist.js'
 
@@ -593,9 +593,8 @@
       indicators?: ReadonlyArray<ChartIndicatorConfig>
 
       /** 当前图表实例的市场交易时段覆盖 */
-      marketSessions?: ChartMountOptions['marketSessions']
-      /** 挂载时确定的行情管理实例；其生命周期归宿主所有。 */
-      marketDataContext?: MarketDataContext
+      /** 共享运行时；图表只消费，不创建也不释放。 */
+      runtime: import('@363045841yyt/klinechart-core').MarketRuntime
       /** 由产品功能配置控制脚本入口；低层组件默认保留脚本能力。 */
       scriptsEnabled?: boolean
 
@@ -641,9 +640,8 @@
     },
   )
 
-  const marketDataContext = provideMarketDataContext(
-    props.marketDataContext ?? useMarketDataContext(),
-  )
+  const marketDataContext = provideMarketDataContext(props.runtime.market)
+  const appRuntime = tryUseAppRuntime()
   const aggregationSources = useMarketDataSourceCatalog(marketDataContext)
   const { enabledNames: enabledSourceNames, enabledNameSet: enabledSourceNameSet } =
     useAggregationSources(aggregationSources, marketDataContext)
@@ -1097,7 +1095,7 @@
     switchSubIndicator,
     handleIndicatorToggle,
     handleUpdateParams,
-  } = useIndicatorManager(controller)
+  } = useIndicatorManager(controller, props.runtime.definitions)
 
   const paneAxisItems = usePaneAxisItems(controller)
   /** 按 Pane 分区：带子上界是本 Pane 顶，最后一条带子延伸到图表底。 */
@@ -1726,8 +1724,7 @@
   ): Promise<ChartController> {
     const ctrl = createChartController({
       container,
-      marketSessions: props.marketSessions,
-      marketDataContext,
+      runtime: props.runtime,
       canvasLayer,
       rightAxisLayer,
       leftAxisLayer: leftAxisLayerRef.value ?? undefined,
@@ -1745,7 +1742,15 @@
       settings: props.settings,
       layoutRestore: props.restoreLayout,
       layoutStorageId: props.layoutStorageId,
-      scripts: createScriptsPort(sharedScriptService),
+      scripts: createScriptsPort(() =>
+        sharedScriptService(
+          props.runtime.definitions,
+          (definitionId) =>
+            appRuntime?.alerts.value?.alerts
+              .peek()
+              .some((rule) => rule.script.definitionId === definitionId) ?? false,
+        ),
+      ),
     })
     return ctrl
   }

@@ -1,9 +1,5 @@
 /**
- * 指标渲染 Layer 命名：按定义身份解析 renderer / scale 的 plugin 名称。
- *
- * 独立成叶子模块，使指标实现只依赖「命名解析」而不依赖「定义目录」，避免
- * 「注册表 → 生成的目录 → 指标实现 → 注册表」形成循环依赖。命名规则由注册表在
- * 装配定义时写入，实现层只读取。
+ * 指标渲染 Layer 命名：由定义自带的 renderer 解析器直接计算，不维护全局表。
  */
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
 import { makePluginLayerId } from '../../foundation/plugin/impl/rendererLayerId.js'
@@ -17,44 +13,19 @@ export function normalizeIndicatorId(id: string): string {
     .replace(/[^\p{L}\p{N}]/gu, '')
 }
 
-/** 单个定义的 Layer 命名规则：renderer 与 scale 两个解析器。 */
-type IndicatorLayerNamingRule = {
-  readonly renderer: IndicatorRendererNameResolver
-}
-
-const namingRules = new Map<string, IndicatorLayerNamingRule>()
-
-/** 按定义身份（内部名、展示名）登记 Layer 命名规则。 */
-export function registerIndicatorLayerNaming(
-  identity: ReadonlyArray<string>,
-  renderer: IndicatorRendererNameResolver,
-): void {
-  const rule: IndicatorLayerNamingRule = { renderer }
-  for (const id of identity) {
-    const key = normalizeIndicatorId(id)
-    if (key) namingRules.set(key, rule)
-  }
-}
-
 /** 按定义身份解析数据或坐标轴 Layer ID；实例图层必须带 instanceId 以保证多实例唯一。 */
-export function resolveIndicatorLayerId(
+export function createIndicatorLayerId(
+  renderer: IndicatorRendererNameResolver,
   definitionId: string,
   paneId: string,
-  part: 'renderer' = 'renderer',
   instanceId?: string,
 ): string {
-  const rule = namingRules.get(normalizeIndicatorId(definitionId))
-  const options = { paneId, indicatorId: definitionId, instanceId }
-  const name = rule?.renderer(options)
-  if (!name)
+  const name = renderer({ paneId, indicatorId: definitionId, instanceId })
+  if (!name) {
     throw new KLineChartError(
       GENERIC_ERROR_CODES.INVALID_PARAM,
-      `[Indicator] missing ${part} identity for '${definitionId}'`,
+      `[Indicator] missing renderer identity for '${definitionId}'`,
     )
+  }
   return makePluginLayerId(instanceId ? `${name}@${instanceId}` : name)
-}
-
-/** 清空测试用命名规则。 */
-export function clearIndicatorLayerNamingForTest(): void {
-  namingRules.clear()
 }

@@ -4,12 +4,15 @@ import {
   INDICATOR_ROLE,
   type SubIndicatorType,
 } from '@363045841yyt/klinechart-core/controllers'
-import { getIndicatorDescriptor } from '@363045841yyt/klinechart-core/indicators'
+import type { DefinitionRegistry } from '@363045841yyt/klinechart-core/controllers'
 import { computed, type Ref } from 'vue'
 import { useControllerSignal } from './useControllerSignal.js'
 
 /** 保留所有实例，仅从 Core 配置读取容器身份和顺序。 */
-export function useIndicatorManager(ctrl: Ref<ChartController | null>) {
+export function useIndicatorManager(
+  ctrl: Ref<ChartController | null>,
+  definitions: DefinitionRegistry,
+) {
   const indicatorInstances = useControllerSignal(
     ctrl,
     (controller) => controller.indicators,
@@ -38,12 +41,12 @@ export function useIndicatorManager(ctrl: Ref<ChartController | null>) {
 
   /** 创建入口读取目录默认值，已有实例参数不会被布局逻辑重新解释。 */
   function getDefaultParams(indicatorId: SubIndicatorType): Record<string, unknown> {
-    return { ...getIndicatorDescriptor(indicatorId)?.defaultInputs }
+    return { ...definitions.getDescriptor(indicatorId)?.defaultInputs }
   }
 
   /** 目录类别仅决定默认创建位置，不决定实例当前归属。 */
   function isSubPaneIndicator(id: string): boolean {
-    const definition = getIndicatorDescriptor(id)
+    const definition = definitions.getDescriptor(id)
     return definition !== undefined && definition.category !== 'main'
   }
 
@@ -121,7 +124,7 @@ export function useIndicatorManager(ctrl: Ref<ChartController | null>) {
       return
     }
     if (
-      !getIndicatorDescriptor(indicatorId) ||
+      !definitions.getDescriptor(indicatorId) ||
       controller.indicators.peek().some((instance) => instance.definitionId === indicatorId)
     )
       return

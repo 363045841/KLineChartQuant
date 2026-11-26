@@ -17,7 +17,7 @@ import {
   resolveScriptLibraries,
 } from '@363045841yyt/klinechart-script'
 import { createScriptWorkerPool } from '@363045841yyt/klinechart-script/worker'
-import type { ScriptRunResult } from '@363045841yyt/klinechart-script/worker'
+import type { ScriptRunResult, ScriptWorkerPool, ScriptWorkerPoolOptions } from '@363045841yyt/klinechart-script/worker'
 import type { ScriptDocument } from '../types.js'
 import type { createScriptLog } from './createScriptLog.js'
 import { prepareScriptMarketData } from './prepareScriptMarketData.js'
@@ -61,6 +61,7 @@ interface CompiledEntry {
 export function createScriptExecutor(
   documents: ScriptDocumentStore,
   log: ReturnType<typeof createScriptLog>,
+  createWorkerPool: (options: ScriptWorkerPoolOptions) => ScriptWorkerPool = createScriptWorkerPool,
 ) {
   /** 编译句柄 → 源码与日志频道；一张表同时承担源码快照与输出路由。 */
   const compiled = new Map<string, CompiledEntry>()
@@ -70,7 +71,7 @@ export function createScriptExecutor(
   const executionOwners = new Map<string, string>()
   const executions = new Set<() => void>()
   let disposed = false
-  const worker = createScriptWorkerPool({
+  const worker = createWorkerPool({
     onOutput: (handle, events) => {
       // 计算会话与编译句柄共用一条路由，未登记频道的句柄不产生输出。
       const channel = executionOwners.get(handle) ?? compiled.get(handle)?.logId

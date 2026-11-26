@@ -17,7 +17,7 @@
       <KlineChart
         ref="chart"
         v-bind="{ ...chart, ...$attrs }"
-        :market-data-context="market.context"
+        :runtime="marketRuntime"
         :restore-layout="restoreLayout"
         :layout-storage-id="layoutStorageId"
         :symbols="market.symbols.value"
@@ -57,9 +57,15 @@
 
 <script setup lang="ts">
   import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
+  import {
+    createAlertRuntime,
+    createAlertStores,
+    createDefinitionRegistry,
+    createMarketRuntime,
+  } from '@363045841yyt/klinechart-core'
   import AlertPanel from '@vue-src/components/alert/AlertPanel.vue'
   import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
-  import { computed, defineAsyncComponent, shallowRef, useTemplateRef } from 'vue'
+  import { computed, defineAsyncComponent, onScopeDispose, shallowRef, useTemplateRef } from 'vue'
   import IconBookmark from '~icons/tabler/bookmark'
   import IconTablerBell from '~icons/tabler/bell'
   import IconSettings from '~icons/tabler/settings'
@@ -70,10 +76,12 @@
   import { provideChartCommands } from '../../composables/commands/useCommands.js'
   import { useAggregationSources } from '../../composables/market/useAggregationSources.js'
   import { provideMarketDataContext } from '../../composables/market/useMarketDataContext.js'
+  import { useMarketDataContext } from '../../composables/market/useMarketDataContext.js'
   import { useMarketDataSourceCatalog } from '../../composables/market/useMarketDataSourceCatalog.js'
   import { createInstrumentSearch } from '../../composables/symbol/createInstrumentSearch.js'
   import { switchChartSymbol } from '../../composables/symbol/chartSymbolSwitch.js'
   import type { SearchableSymbol } from '../../composables/symbol/useSymbolSearch.js'
+  import { provideAppRuntime } from '../../composables/runtime/useAppRuntime.js'
   import { useToast } from '../../composables/toast/useToast.js'
   import { provideWatchlist } from '../../composables/watchlist/useWatchlist.js'
   import ObjectTreePanel from '../../features/object-tree/ObjectTreePanel.vue'
@@ -126,10 +134,41 @@
   const widthStorage = createSidePanelWidthStorage()
   const sideStorage = createSidePanelSideStorage()
   const toast = useToast()
-  const { initialize } = useWorkbenchServices(props.scripts)
-  const market = useWorkbenchMarket(props, (error) => emit('error', error))
+  const market = useWorkbenchMarket(
+    props,
+    props.marketDataContext ?? useMarketDataContext(),
+    (error) => emit('error', error),
+  )
   // 图表与侧栏面板共享同一个行情实例：面板不是图表的子节点，不能依赖图表内部注入。
   provideMarketDataContext(market.context)
+  const definitions = createDefinitionRegistry()
+  const marketRuntime = createMarketRuntime({ market: market.context, definitions })
+  const alerts = shallowRef<import('@363045841yyt/klinechart-core').AlertService | null>(null)
+  provideAppRuntime({ market: marketRuntime, definitions, alerts })
+  const { initialize } = useWorkbenchServices(
+    props.scripts,
+    definitions,
+    (definitionId) =>
+      alerts.value?.alerts.peek().some((rule) => rule.script.definitionId === definitionId) ?? false,
+  )
+  const alertStores = createAlertStores(props.layoutStorageId ?? 'kline-workbench')
+  let alertRuntime: import('@363045841yyt/klinechart-core').AlertRuntime | undefined
+  void createAlertRuntime({
+    runtime: marketRuntime,
+    ...alertStores,
+    onError: (error) => emit('error', error instanceof Error ? error : new Error(String(error))),
+  })
+    .then((runtime) => {
+      alertRuntime = runtime
+      alerts.value = runtime.service
+    })
+    .catch((cause: unknown) => {
+      emit('error', cause instanceof Error ? cause : new Error(String(cause)))
+    })
+  onScopeDispose(() => {
+    void alertRuntime?.dispose()
+    marketRuntime.dispose()
+  })
   const aggregationSources = useMarketDataSourceCatalog(market.context)
   const { enabledNames: enabledSourceNames, enabledNameSet: enabledSourceNameSet } =
     useAggregationSources(aggregationSources, market.context)

@@ -13,10 +13,7 @@ import {
 } from '@/data/buffer/impl/seriesRepository.js'
 import type { KLineBuffer } from '@/data/buffer/types.js'
 import type { StreamHub, StreamSubscription } from '@/data/stream/types.js'
-import {
-  type MarketDataProviderRegistry,
-  marketDataProviderRegistry,
-} from '@/data/provider/impl/registry.js'
+import type { MarketDataProviderRegistry } from '@/data/provider/impl/registry.js'
 import {
   EMPTY_TRADE_SNAPSHOT,
   TRADE_STREAM_CODES,
@@ -315,7 +312,7 @@ export class MarketRuntime {
 
   constructor(private readonly deps: MarketRuntimeDependencies) {
     this.marketSessions = deps.marketSessions ?? new MarketSessionRegistry()
-    this.registry = deps.registry ?? marketDataProviderRegistry
+    this.registry = deps.registry
     this.stream = deps.stream
     this.requests = new IndicatorBarsRepository({
       cache: deps.cache,

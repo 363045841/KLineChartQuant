@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MarketDataContext } from '@/data/management/impl/context.js'
 import { createDataSourceFixture } from '@/data/provider/__tests__/helpers/providerTestKit.js'
 import {
@@ -7,8 +7,7 @@ import {
   ResizeObserverMock,
   stubAnimationFrame,
 } from '@/engine/__tests__/helpers/chartDomTestKit'
-import { loadBuiltinIndicators } from '../../engine/indicators/registerBuiltins'
-import { createChartController } from '../chart/index'
+import { createTestChartController as createChartController } from './helpers/controllerTestKit'
 
 import type { KLineData } from '../types'
 
@@ -24,10 +23,6 @@ function createBars(length = 30): KLineData[] {
 }
 
 describe('createChartController mount theme', () => {
-  beforeAll(async () => {
-    await loadBuiltinIndicators()
-  })
-
   beforeEach(() => {
     vi.stubGlobal('ResizeObserver', ResizeObserverMock)
     stubAnimationFrame()
@@ -144,12 +139,12 @@ describe('createChartController mount theme', () => {
     const secondInstrument = await host.resolveInstrument('test', 'B')
     const first = await createChartController({
       container: firstContainer,
-      marketDataContext: host,
+      market: host,
       symbols: [{ instrument: firstInstrument, period: 'daily' }],
     })
     const second = await createChartController({
       container: secondContainer,
-      marketDataContext: host,
+      market: host,
       symbols: [{ instrument: secondInstrument, period: 'daily' }],
     })
     await vi.waitFor(() => expect(first.getData()).toHaveLength(30))

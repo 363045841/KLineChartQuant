@@ -6,11 +6,8 @@
  */
 import {
   generateUUID,
-  indicatorFailures,
   logIndicatorFailure,
   runIndicatorPipeline,
-  setIndicatorFailures,
-  unregisterIndicator,
 } from '@363045841yyt/klinechart-core'
 import { isWithinFolder, type ScriptRunOptions } from '@363045841yyt/klinechart-plot-contracts'
 import {
@@ -54,15 +51,15 @@ import { createScriptPersistence } from './scriptPersistence.js'
  */
 export async function createScriptService(
   libraries: readonly QuickJSLibrary[] = [],
-  options: ScriptServiceOptions = {},
+  options: ScriptServiceOptions,
 ): Promise<ScriptService> {
   const persistence = options.persistence ?? createScriptPersistence()
   const log = createScriptLog()
-  const store = createScriptDocumentStore(libraries)
-  const executor = createScriptExecutor(store, log)
+  const store = createScriptDocumentStore(libraries, options.definitions)
+  const executor = createScriptExecutor(store, log, options.createWorkerPool)
   const restored = await restoreScriptWorkspace({ persistence, store, executor, options })
   const folders = restored.folders
-  const report = await runIndicatorPipeline([
+  const report = await runIndicatorPipeline(options.definitions, [
     createScriptIndicatorStage({
       builtinSources: options.builtinSources ?? [],
       documents: restored.scripts,
@@ -71,7 +68,7 @@ export async function createScriptService(
   ])
   if (restored.failures.length > 0) {
     for (const failure of restored.failures) logIndicatorFailure(failure)
-    setIndicatorFailures([...restored.failures, ...report.failures])
+    options.definitions.setFailures([...restored.failures, ...report.failures])
   }
 
   // 异步写入串行执行，版本检查与快照生成均在队列内完成。
@@ -115,7 +112,9 @@ export async function createScriptService(
     compiled: CompiledScript,
   ): Promise<ScriptDocument> {
     const definition = await executor.createDefinition(compiled, documentIdentity(document))
-    commitIndicators([{ kind: 'definition', candidate: scriptCandidate(document.id), definition }])
+    commitIndicators(options.definitions, [
+      { kind: 'definition', candidate: scriptCandidate(document.id), definition },
+    ])
     return document
   }
 
@@ -142,7 +141,7 @@ export async function createScriptService(
   /** 文档被撤销后的运行时清理：注销定义、清空输出、释放执行句柄。 */
   async function dropDocument(document: ScriptDocument): Promise<void> {
     if (document.kind === 'library') store.deleteLibrary(document.id)
-    else unregisterIndicator(document.id)
+    else options.definitions.unregister(document.id)
     log.remove(document.id)
     await executor.releaseDefinition(document.id)
   }
@@ -180,6 +179,7 @@ export async function createScriptService(
           store,
           executor,
           persist,
+          definitions: options.definitions,
         })
       }
       const compiled = await executor.compile(source, trusted)
@@ -205,7 +205,7 @@ export async function createScriptService(
 
   return Object.freeze({
     log: log.source,
-    failures: indicatorFailures,
+    failures: options.definitions.failures,
     run(options: ScriptRunOptions) {
       return executor.run(options)
     },
@@ -290,6 +290,7 @@ export async function createScriptService(
             store,
             executor,
             persist,
+            definitions: options.definitions,
           })
         }
         if (declaration.kind !== current.kind) throw new Error('不能更改脚本文档类型')

@@ -7,7 +7,7 @@ import {
   instrumentKeyFromSpec,
   SERIES_SELECTION_KIND,
 } from '@/data/buffer/impl/seriesRepository.js'
-import { marketDataProviderRegistry } from '@/data/provider/impl/registry.js'
+import { MarketDataProviderRegistry } from '@/data/provider/impl/registry.js'
 import { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import {
@@ -39,7 +39,7 @@ function createHarness() {
     adjustment: 'none',
     barAggregation: 'original',
   }
-  const cache = new MarketDataCache(marketDataProviderRegistry)
+  const cache = new MarketDataCache(new MarketDataProviderRegistry())
   const queries: BarsCacheQuery[] = []
   const queryBars = cache.queryBars.bind(cache)
   vi.spyOn(cache, 'queryBars').mockImplementation((query) => {
@@ -48,7 +48,7 @@ function createHarness() {
   })
   const repository = new IndicatorBarsRepository({
     cache,
-    registry: marketDataProviderRegistry,
+    registry: new MarketDataProviderRegistry(),
     sessions: new MarketSessionRegistry(),
     resolveSelection: (_instrument, period, adjustment, barAggregation) => ({
       ...selection,

@@ -1,13 +1,10 @@
 /** 可信脚本的原生执行后端：编译产物交给常驻会话，不加载 TypeScript，不提供沙箱保护。 */
-import type { ComputeRange } from '@363045841yyt/klinechart-plot-contracts'
-import type { Bar } from '../../contracts/input.js'
 import type { LogEvent } from '../../contracts/log.js'
-import type { PreparedScript, ScriptParamValue } from '../../quickjs/types.js'
-import { CURRENT_SYMBOL } from '../../request/impl/symbols.js'
-import type { ScriptRequestContext } from '../../request/types.js'
+import type { PreparedScript } from '../../quickjs/types.js'
 import { createScriptExecutionSession } from '../session/impl/createScriptExecutionSession.js'
 import { createNativeScriptRuntime } from '../session/impl/nativeRuntime.js'
 import type { CompiledScriptSources } from '../types.js'
+import { createPreparedScript } from './createPreparedScript.js'
 
 /** 编译一次原生工厂；运行态由会话持有，跨 tick 增量执行。 */
 export function prepareNativeModule(
@@ -21,22 +18,5 @@ export function prepareNativeModule(
     replayOnUpdate: compiled.replayOnUpdate,
     onLog,
   })
-  return Object.freeze({
-    definition: Object.freeze({ ...session.definition, dependency: compiled.dependency }),
-    requests(params: Readonly<Record<string, ScriptParamValue>> = {}, symbol = CURRENT_SYMBOL) {
-      return session.requests(params, symbol)
-    },
-    run(
-      bars: readonly Bar[],
-      params: Readonly<Record<string, ScriptParamValue>> = {},
-      context?: ScriptRequestContext,
-      range?: ComputeRange,
-      live?: boolean,
-    ) {
-      return session.run({ bars, params, context, range, ...(live === undefined ? {} : { live }) })
-    },
-    dispose() {
-      session.dispose()
-    },
-  })
+  return createPreparedScript(session, compiled.dependency)
 }

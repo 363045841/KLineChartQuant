@@ -43,7 +43,7 @@ export interface MarketRuntimeDependencies {
     aggregation: BarsSelection['barAggregation'],
   ): BarsSelection
   invalidateRequests?(): void
-  readonly registry?: import('@/data/provider/impl/registry.js').MarketDataProviderRegistry
+  readonly registry: import('@/data/provider/impl/registry.js').MarketDataProviderRegistry
   /** 宿主持有的唯一实时连接注册表，运行模块不能自行创建。 */
   readonly stream: StreamHub
   readonly cache: MarketDataCache

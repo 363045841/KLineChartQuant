@@ -6,29 +6,29 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MarketDataContext } from '@/data/management/impl/context.js'
 import { createDataSourceFixture } from '@/data/provider/__tests__/helpers/providerTestKit.js'
 import { installChartDomStubs, stubAnimationFrame } from '@/engine/__tests__/helpers/chartDomTestKit.js'
+import { createTestDefinitions } from '@/engine/indicators/__tests__/helpers/definitionsTestKit.js'
 import { createTestData } from '@/engine/indicators/__tests__/helpers/instanceTestKit.js'
 import type { IndicatorMetadata } from '@/engine/indicators/indicatorMetadata.js'
 import { createPlotIndicatorDefinition } from '@/engine/indicators/pipeline/impl/createPlotDefinition.js'
-import {
-  clearIndicatorStoreForTest,
-  getRegisteredIndicatorDefinition,
-  registerIndicators,
-  unregisterIndicator,
-} from '@/engine/indicators/pipeline/index.js'
+import type { DefinitionRegistry } from '@/engine/indicators/registry/index.js'
 import type { IndicatorSeries } from '@/engine/plots/types.js'
 import { batch } from '@/foundation/reactivity/signal.js'
-import { createChartController } from '../chart/index.js'
-import { indicatorCatalog } from '../indicatorCatalog/index.js'
+import { createTestChartController as createChartController } from './helpers/controllerTestKit.js'
+import { createIndicatorCatalog } from '../indicatorCatalog/index.js'
 import type { ChartController, ChartMountOptions } from '../types.js'
 
 const bars = createTestData(20)
 const controllers = new Set<ChartController>()
+let definitions: DefinitionRegistry
 let market: MarketDataContext
-let mountOptions: Pick<ChartMountOptions, 'layoutStorageId' | 'marketDataContext' | 'symbols'>
+let mountOptions: Pick<ChartMountOptions, 'layoutStorageId' | 'symbols'> & {
+  market: MarketDataContext
+  definitions: DefinitionRegistry
+}
 let restoreDom: () => void
 
 beforeEach(async () => {
-  clearIndicatorStoreForTest()
+  definitions = createTestDefinitions()
   restoreDom = installChartDomStubs()
   stubAnimationFrame()
   market = new MarketDataContext()
@@ -36,7 +36,8 @@ beforeEach(async () => {
   const instrument = await market.resolveInstrument('test', 'A')
   mountOptions = {
     layoutStorageId: crypto.randomUUID(),
-    marketDataContext: market,
+    market,
+    definitions,
     symbols: [{ instrument, period: 'daily' }],
   }
 })
@@ -111,7 +112,7 @@ function register(definition: IndicatorMetadata, load?: () => Promise<IndicatorM
         load,
       }
     : { kind: 'definition' as const, candidate, definition }
-  expect(registerIndicators([item]).failures).toEqual([])
+  expect(definitions.register([item]).failures).toEqual([])
 }
 
 /** 经数值查询公开入口读取图表计算结果。 */
@@ -145,7 +146,7 @@ describe('indicator runtime projection', () => {
       } else {
         original.clearAllIndicators()
       }
-      clearIndicatorStoreForTest()
+      definitions.clear()
       main.compute.mockClear()
       sub.compute.mockClear()
 
@@ -155,11 +156,11 @@ describe('indicator runtime projection', () => {
       })
       register(main.definition, async () => main.definition)
       register(sub.definition, () => pendingSub)
-      expect(indicatorCatalog().map(({ id }) => id)).toEqual([
+      expect(createIndicatorCatalog(definitions)().map(({ id }) => id)).toEqual([
         main.definition.name,
         sub.definition.name,
       ])
-      expect(getRegisteredIndicatorDefinition(main.definition.name)).toBeUndefined()
+      expect(definitions.getDefinition(main.definition.name)).toBeUndefined()
       const restoring =
         entry === 'cold mount' ? mount('layout') : original.applyLayout(layout).then(() => original)
       try {
@@ -235,11 +236,10 @@ describe('indicator runtime projection', () => {
     expect(before.compute).toHaveBeenCalledOnce()
     expect(after.compute).toHaveBeenCalledOnce()
 
-    unregisterIndicator(after.definition.name)
+    definitions.unregister(after.definition.name)
 
     expect(chart.indicators.peek()).toEqual([])
     expect(chart.paneLayout.peek()).toHaveLength(1)
     expect(error).not.toHaveBeenCalled()
   })
 })
-

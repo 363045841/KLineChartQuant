@@ -1,3 +1,8 @@
+/**
+ * 警报行情源：按启用规则订阅任意品种，把历史与实时尾部合并成计算中枢的 feed。
+ *
+ * 收盘以行情流的 `closed` 帧为准；订阅释放时同时归还计算中枢的行情。
+ */
 import type { SymbolSpec } from '../../../controllers/types.js'
 import { MarketDataCache } from '../../../data/buffer/impl/marketDataCache.js'
 import { instrumentKeyFromSpec, SERIES_SELECTION_KIND } from '../../../data/buffer/impl/seriesRepository.js'
@@ -50,10 +55,16 @@ export function createAlertFeedSource(deps: AlertFeedSourceDependencies): AlertF
     }
     const subscription = deps.stream.subscribe({ ...request, channel: 'bars', instrumentId: instrument.id })
     let bars: KLineData[] = []
-    const liveBars = new Set<number>()
+    /** 第一根实时 bar 的时间；其后的历史回放不能覆盖实时值。 */
+    let liveSince: number | undefined
     let lastClosedTime: number | undefined
     let loading = false
     let stopped = false
+
+    /** 有界窗口：历史合并与实时尾部共用同一上限。 */
+    function trim(): void {
+      if (bars.length > HISTORY_LIMIT) bars = bars.slice(-HISTORY_LIMIT)
+    }
 
     function publish(start: number, live = false, closedBarTime?: number): void {
       if (stopped || bars.length === 0) return
@@ -74,10 +85,11 @@ export function createAlertFeedSource(deps: AlertFeedSourceDependencies): AlertF
     function mergeHistory(history: readonly KLineData[]): void {
       const merged = new Map(bars.map((bar) => [bar.timestamp, bar]))
       for (const bar of history) {
-        if (!liveBars.has(bar.timestamp)) merged.set(bar.timestamp, bar)
+        if (liveSince !== undefined && bar.timestamp >= liveSince) continue
+        merged.set(bar.timestamp, bar)
       }
       bars = [...merged.values()].sort((a, b) => a.timestamp - b.timestamp)
-      if (liveBars.size === 0) bars = bars.slice(-HISTORY_LIMIT)
+      trim()
       publish(0)
     }
 
@@ -116,10 +128,12 @@ export function createAlertFeedSource(deps: AlertFeedSourceDependencies): AlertF
         : bars.findIndex((item) => item.timestamp === bar.timestamp)
       if (index < 0) return
       bars = [...bars.slice(0, index), bar, ...bars.slice(index + 1)]
-      liveBars.add(bar.timestamp)
+      liveSince = liveSince === undefined ? bar.timestamp : Math.min(liveSince, bar.timestamp)
+      const dropped = Math.max(0, bars.length - HISTORY_LIMIT)
+      trim()
       const closesBar = frame.state === 'closed' && (lastClosedTime === undefined || bar.timestamp > lastClosedTime)
       if (closesBar) lastClosedTime = bar.timestamp
-      publish(index, isTail, closesBar ? bar.timestamp : undefined)
+      publish(Math.max(0, index - dropped), isTail, closesBar ? bar.timestamp : undefined)
     })
     const unsubscribeEvent = subscription.onEvent((event) => {
       if (event.kind === 'opened' && event.reconnected) void loadHistory()

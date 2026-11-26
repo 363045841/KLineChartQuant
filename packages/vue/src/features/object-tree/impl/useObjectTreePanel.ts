@@ -153,13 +153,18 @@ export function useObjectTreePanel(controller: Readonly<Ref<ChartController | nu
     dragSession.value = null
   }
 
+  /** 记录预览落点：只更新拖拽会话，不提交业务命令。 */
+  function previewDrop(event: DragEvent, session: DragSession, target: DragTarget): void {
+    event.preventDefault()
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+    dragSession.value = { ...session, target }
+  }
+
   /** 拖到顶部或底部“新窗口”分割线：只接受可迁移的对象，并高亮该分割线。 */
   function onNewPaneDragOver(event: DragEvent, side: PaneDropSide): void {
     const session = dragSession.value
     if (!session?.source.row.capabilities.movable) return
-    event.preventDefault()
-    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
-    dragSession.value = { ...session, target: { kind: 'new-pane', side } }
+    previewDrop(event, session, { kind: 'new-pane', side })
   }
 
   /** 松手创建新 Pane：走对象自己的 move 命令，最终落到 Pane 领域命令。 */
@@ -176,28 +181,18 @@ export function useObjectTreePanel(controller: Readonly<Ref<ChartController | nu
   function onRowDragOver(event: DragEvent, group: PaneObjectGroup, index: number): void {
     const session = dragSession.value
     if (!session || !canDropInto(group, session.source)) return
-    event.preventDefault()
-    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
-    dragSession.value = {
-      ...session,
-      target: {
-        kind: 'pane',
-        paneId: group.paneId,
-        displayIndex: pointerDisplayIndex(event, index),
-      },
-    }
+    previewDrop(event, session, {
+      kind: 'pane',
+      paneId: group.paneId,
+      displayIndex: pointerDisplayIndex(event, index),
+    })
   }
 
   /** 分组空白处表示放到该层带顶部。 */
   function onGroupDragOver(event: DragEvent, group: PaneObjectGroup, displayIndex: number): void {
     const session = dragSession.value
     if (!session || !canDropInto(group, session.source)) return
-    event.preventDefault()
-    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
-    dragSession.value = {
-      ...session,
-      target: { kind: 'pane', paneId: group.paneId, displayIndex },
-    }
+    previewDrop(event, session, { kind: 'pane', paneId: group.paneId, displayIndex })
   }
 
   /** 提交落点：跨 pane 走迁移，同 pane 走换序，最终都落到对象自己的命令。 */

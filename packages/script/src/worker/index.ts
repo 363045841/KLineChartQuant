@@ -5,5 +5,6 @@ export type {
   ScriptRunResult,
   ScriptWorker,
   ScriptWorkerPool,
+  ScriptWorkerPoolFactory,
   ScriptWorkerPoolOptions,
 } from './types.js'

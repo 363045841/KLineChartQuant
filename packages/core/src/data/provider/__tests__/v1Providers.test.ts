@@ -7,12 +7,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { BarSeries, MarketDataProvider } from '../types'
-import { marketDataProviderRegistry } from '../impl/registry'
-import {
-  gotdxMarketDataProvider,
-  mt5MarketDataProvider,
-  thsMarketDataProvider,
-} from '../impl/sources/index'
+import { MarketDataProviderRegistry } from '../impl/registry'
+import { installBuiltinProviders } from '../impl/sources/index'
+import { DataSource } from '@363045841yyt/klinechart-plot-contracts'
+
+const registry = new MarketDataProviderRegistry()
+installBuiltinProviders(registry)
+const gotdxMarketDataProvider = registry.getRequired(DataSource.gotdx)
+const mt5MarketDataProvider = registry.getRequired(DataSource.mt5)
+const thsMarketDataProvider = registry.getRequired(DataSource.ths)
 
 const fetchMock = vi.fn<typeof fetch>()
 
@@ -144,20 +147,20 @@ beforeEach(() => {
   fetchMock.mockReset()
   vi.stubGlobal('fetch', fetchMock)
   for (const source of sources) {
-    marketDataProviderRegistry.setConfig(source.id, { baseUrl: undefined })
+    registry.setConfig(source.id, { baseUrl: undefined })
   }
 })
 
 afterEach(() => {
   for (const source of sources) {
-    marketDataProviderRegistry.setConfig(source.id, { baseUrl: undefined })
+    registry.setConfig(source.id, { baseUrl: undefined })
   }
   vi.unstubAllGlobals()
 })
 
 describe('V1 provider 契约', () => {
   it.each(sources)('$id 注册到共享 registry', ({ id, provider }) => {
-    expect(marketDataProviderRegistry.get(id)).toBe(provider)
+    expect(registry.get(id)).toBe(provider)
   })
 
   it.each(sources)('$id 通过 V1 probe 端点探测', async ({ id, provider, baseUrl }) => {
@@ -259,7 +262,7 @@ describe('THS 单源行为', () => {
   })
 
   it('运行时 baseUrl 覆盖默认源地址', async () => {
-    marketDataProviderRegistry.setConfig('ths', { baseUrl: 'http://127.0.0.1:9999' })
+    registry.setConfig('ths', { baseUrl: 'http://127.0.0.1:9999' })
     fetchMock.mockResolvedValue(
       jsonResponse({ data: { status: 'online', checkedAt: 1 }, requestId: 'r6' }),
     )

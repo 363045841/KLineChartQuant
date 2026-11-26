@@ -3,7 +3,7 @@
 import { symbolSpecIdentityKey } from '@/engine/data/symbolIdentity.js'
 import type { TitleInfo } from '@/engine/indicators/indicatorMetadata.js'
 import type { IndicatorInstanceDescriptor } from '@/engine/indicators/instances/api/indicatorRenderBinding.js'
-import { getRegisteredIndicatorDefinition } from '@/engine/indicators/pipeline/index.js'
+import type { DefinitionRegistry } from '@/engine/indicators/registry/index.js'
 import { PANE_HEADER_INSET_PX } from '@/engine/pane/types.js'
 import type { PluginHost, RenderContext } from '@/foundation/plugin/index.js'
 import type { ColorTokens } from '@/foundation/tokens/index.js'
@@ -130,8 +130,9 @@ export function projectIndicator(
   data: KLineData[],
   index: number,
   colors: ColorTokens,
+  definitions: DefinitionRegistry,
 ): LegendIndicatorRow | null {
-  const meta = getRegisteredIndicatorDefinition(instance.definitionId)
+  const meta = definitions.getDefinition(instance.definitionId)
   if (!meta) return null
   const error = stateReader?.get<{ error?: { message: string } }>(instance.instanceId)?.error
     ?.message

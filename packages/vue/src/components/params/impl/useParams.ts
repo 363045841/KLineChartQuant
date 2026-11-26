@@ -35,11 +35,12 @@ export function useParams(props: ParamsDraftInput) {
     localValues.value[key] = value
   }
 
-  /** 将全部参数恢复为定义默认值。 */
+  /** 将全部参数恢复为定义默认值；没有默认值也没有当前值的参数保持缺省。 */
   function onReset(): void {
     const defaults: ParamValues = {}
     for (const param of props.params) {
-      defaults[param.key] = param.default ?? props.values[param.key] ?? 0
+      const value = param.default ?? props.values[param.key]
+      if (value !== undefined) defaults[param.key] = value
     }
     localValues.value = defaults
   }

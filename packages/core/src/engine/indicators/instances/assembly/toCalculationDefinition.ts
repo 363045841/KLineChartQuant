@@ -22,6 +22,8 @@ export function toCalculationDefinition(
   if (!runtime) return undefined
   return Object.freeze({
     definitionId: item.name,
+    // 版本身份直接取自注册表元数据；替换定义时注册表会换新对象。
+    identity: item,
     dependency: runtime.dependency ?? STATEFUL,
     compute: runtime.compute,
     ...(runtime.createCompute ? { createCompute: runtime.createCompute } : {}),

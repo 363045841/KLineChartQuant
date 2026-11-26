@@ -36,8 +36,3 @@ export interface IndicatorResult {
   readonly series: unknown
   readonly error?: IndicatorError
 }
-
-/** 图表侧的结果快照：按当前计划的实例关系展开。 */
-export interface IndicatorSeriesPool {
-  readonly results: ReadonlyMap<string, IndicatorResult>
-}

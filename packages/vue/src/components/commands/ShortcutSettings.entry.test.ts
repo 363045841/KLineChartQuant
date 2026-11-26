@@ -1,10 +1,14 @@
 import { flushPromises, mount } from '@vue/test-utils'
+import { createMarketDataHost } from '@363045841yyt/klinechart-core/market-data'
 import ChartSettingsDialog from '@vue-src/components/chart/settings/ChartSettingsDialog.vue'
-import { expect, it } from 'vitest'
+import { MARKET_DATA_CONTEXT_KEY } from '@vue-src/composables/market/useMarketDataContext.js'
+import { expect, it, onTestFinished } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import CommandPalette from './CommandPalette.vue'
 
 it('opens chart settings from the command palette', async () => {
+  const market = createMarketDataHost()
+  onTestFinished(() => market.dispose())
   const settingsOpen = ref(false)
   const paletteOpen = ref(true)
   const wrapper = mount(
@@ -29,7 +33,10 @@ it('opens chart settings from the command palette', async () => {
         }),
       ],
     }),
-    { attachTo: document.body },
+    {
+      attachTo: document.body,
+      global: { provide: { [MARKET_DATA_CONTEXT_KEY]: market } },
+    },
   )
   try {
     await flushPromises()

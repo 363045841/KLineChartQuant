@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
 import { makeSymbolSpec } from '../../data/__tests__/helpers/symbolSpecFixture'
-import { loadBuiltinIndicators } from '../../indicators/registerBuiltins'
 import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel'
 import { createChartModel } from '../index'
 
@@ -90,7 +89,6 @@ describe('chartModel', () => {
   })
 
   it('比较叠加不替换行情对象，分时视图停用比较层', async () => {
-    await loadBuiltinIndicators()
     const kernel = createTestChartStateKernel()
 
     const before = kernel.activeRenderers$.peek()

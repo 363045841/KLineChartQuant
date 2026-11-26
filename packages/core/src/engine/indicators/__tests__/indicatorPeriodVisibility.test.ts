@@ -1,18 +1,11 @@
 // 指标周期可见性契约的单测：解析、区间判定与渲染层拦截。
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit.js'
-import {
-  clearIndicatorLayerNamingForTest,
-  registerIndicatorLayerNaming,
-} from '@/engine/indicators/indicatorLayerNaming.js'
 import { createIndicatorLayer } from '@/engine/renderers/Indicator/factory.js'
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import type { IndicatorMetadata } from '../indicatorMetadata.js'
 import { isIndicatorVisibleOnPeriod, parseIndicatorPeriod } from '../indicatorPeriodVisibility.js'
-
-beforeAll(() => registerIndicatorLayerNaming(['fake'], ({ paneId }) => `fake_${paneId}`))
-afterAll(() => clearIndicatorLayerNamingForTest())
 
 describe('parseIndicatorPeriod', () => {
   it.each([

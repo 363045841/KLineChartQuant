@@ -4,10 +4,7 @@ import {
   createTestIndicatorMetadata,
   createTestRendererLayer,
 } from '@/engine/indicators/__tests__/helpers/metadataTestKit'
-import { registerIndicatorLayerNaming } from '@/engine/indicators/indicatorLayerNaming'
 import { createIndicatorLayer } from '../factory'
-
-registerIndicatorLayerNaming(['customIndicator'], ({ paneId }) => `customIndicator_${paneId}`)
 
 it('透传实例身份和参数，并应用显式 role', () => {
   const rendererFactory = vi.fn(() => createTestRendererLayer('custom_renderer'))
@@ -29,7 +26,7 @@ it('透传实例身份和参数，并应用显式 role', () => {
 
   const layer = createIndicatorLayer({ ...input, definition, role: 'content' })
 
-  expect(rendererFactory).toHaveBeenCalledWith(input)
+  expect(rendererFactory).toHaveBeenCalledWith(expect.objectContaining(input))
   expect(layer.role).toBe('content')
   expect(layer.id).toContain('instance-1')
 })

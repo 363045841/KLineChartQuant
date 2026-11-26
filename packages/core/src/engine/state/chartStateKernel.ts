@@ -32,12 +32,9 @@ import { symbolSpecIdentityKey } from '../data/symbolIdentity.js'
 import { isSymbolSpec } from '../data/symbolSpecGuard.js'
 import type { DrawingToolId } from '../drawing/index.js'
 import { belongsToDrawingSymbol, bindDrawingSymbol } from '../drawing/model/impl/drawingScope.js'
-import { resolveIndicatorLayerId } from '../indicators/indicatorLayerNaming.js'
+import { createIndicatorLayerId } from '../indicators/indicatorLayerNaming.js'
 import type { IndicatorMetadata } from '../indicators/indicatorMetadata.js'
-import {
-  getRegisteredIndicatorDefinition,
-  resolveCanonicalIndicatorId,
-} from '../indicators/pipeline/index.js'
+import type { DefinitionRegistry } from '../indicators/registry/index.js'
 import type { TemplateWorkspace, TemplateWorkspaces } from '../indicatorTemplate/index.js'
 import { selectLayoutSettings } from '../layout/impl/layoutSettings.js'
 import {
@@ -125,8 +122,9 @@ function appendInstanceRenderers(
   dataView: ChartDataView,
   target: ActiveRendererDescriptor[],
   add: RendererAdder,
+  definitions: DefinitionRegistry,
 ): void {
-  const definition = getRegisteredIndicatorDefinition(instance.indicatorId)
+  const definition = definitions.getDefinition(instance.indicatorId)
   const resolved = tryResolveIndicatorMetadata(
     definition,
     dataView,
@@ -139,10 +137,10 @@ function appendInstanceRenderers(
     indicatorId: instance.indicatorId,
     instanceId: instance.instanceId,
   }
-  const layerId = resolveIndicatorLayerId(
+  const layerId = createIndicatorLayerId(
+    resolved.getRendererName,
     instance.indicatorId,
     instance.paneId,
-    'renderer',
     instance.instanceId,
   )
   add(target, resolved.getRendererName(options), layerId)
@@ -152,6 +150,7 @@ function appendInstanceRenderers(
 function resolveIndicatorRenderers(
   dataView: ChartDataView,
   instances: ReadonlyArray<IndicatorInstanceSpec>,
+  definitions: DefinitionRegistry,
 ): ReadonlyArray<ActiveRendererDescriptor> {
   const renderers: ActiveRendererDescriptor[] = []
   const seen = new Set<string>()
@@ -167,7 +166,7 @@ function resolveIndicatorRenderers(
   for (const instance of instances) {
     // 隐藏实例仍保留渲染对象（对象树据此重新打开），但不进入活跃层集合，可见性以实例状态为准。
     if (instance.hidden === true) continue
-    appendInstanceRenderers(instance, dataView, renderers, add)
+    appendInstanceRenderers(instance, dataView, renderers, add, definitions)
   }
   return renderers
 }
@@ -193,6 +192,8 @@ export interface ChartStateKernelDeps {
   initialRendererRuntime?: RendererBackendRuntime
   /** 各市场分时交易时段注册表（分时几何 / 槽位共用）；未注入时分时槽位退化为 0 */
   marketSessions?: MarketSessionRegistry
+  /** 指标与警报定义注册表；实例投影与面板命令共用。 */
+  definitions: DefinitionRegistry
   scheduleDraw: (level?: unknown) => void
 }
 
@@ -236,8 +237,11 @@ export class ChartStateKernel extends StateKernel {
   readonly signals: Record<string, ReadonlySignal<unknown>>
   readonly actions: Record<string, (...args: any[]) => void>
 
+  private readonly definitions: DefinitionRegistry
+
   constructor(deps: ChartStateKernelDeps) {
     super()
+    this.definitions = deps.definitions
 
     // ── Options state (before zoom, since zoom reads from options) ──
     this.options = createOptionsState(deps.initialOptions)
@@ -286,7 +290,7 @@ export class ChartStateKernel extends StateKernel {
     })
 
     // ── Indicator state ──
-    this.indicator = createIndicatorState()
+    this.indicator = createIndicatorState(this.definitions)
 
     // ── Viewport state (now owned by kernel) ──
     this.viewport = createViewportState({
@@ -311,7 +315,7 @@ export class ChartStateKernel extends StateKernel {
     this.paneManager = new PaneManager({
       pane: this.pane,
       indicator: this.indicator,
-      getDefinition: getRegisteredIndicatorDefinition,
+      getDefinition: (definitionId) => this.definitions.getDefinition(definitionId),
       // 空副图回收前检查指标以外的内容；系统对象与当前标的的绘图都算占用。
       hasPaneContent: (paneId) => this.hasPaneContent(paneId),
     })
@@ -347,7 +351,7 @@ export class ChartStateKernel extends StateKernel {
           name,
           layerId: makePluginLayerId(name),
         })),
-        ...resolveIndicatorRenderers(dataView, this.indicator.readonly.instances()),
+        ...resolveIndicatorRenderers(dataView, this.indicator.readonly.instances(), this.definitions),
       ]
       // 原生比较 Layer 由功能集合派生，不注册成图表模式或指标实例。
       if (dataView === ChartDataViewId.KLine && this.comparison.readonly.active()) {

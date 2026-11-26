@@ -6,14 +6,12 @@ import {
   ShapeSize,
   ShapeStyle,
 } from '@363045841yyt/klinechart-plot-contracts'
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   createContextWithInstanceState,
   createMockCanvasContext,
   type MockRenderContextOverrides,
 } from '@/engine/__tests__/helpers/renderTestKit.js'
-import { registerIndicatorLayerNaming } from '@/engine/indicators/indicatorLayerNaming.js'
-import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins.js'
 import { resolveThemeColors } from '@/foundation/tokens/index.js'
 import { ScaleType } from '@/foundation/types/scaleType.js'
 import {
@@ -26,11 +24,6 @@ import { createPlotLayer, paintPlots } from '../impl/plotRenderer.js'
 import { createPlotTitleInfo } from '../impl/plotTitleInfo.js'
 import { projectPlots } from '../impl/projectPlots.js'
 import type { IndicatorPlotDefinition, PlotFillSpec } from '../types.js'
-
-beforeAll(async () => {
-  await loadBuiltinIndicators()
-  registerIndicatorLayerNaming(['plot-test'], () => 'plot-test')
-})
 
 /** 公共原语已经投影到屏幕坐标，不再通过 Canvas translate 扣除滚动。 */
 function screenPoints(points: number[][]): number[][] {
@@ -127,9 +120,10 @@ describe('Plot renderer', () => {
           },
         },
       )
-      const layer = createPlotLayer('plot-test', 'main', {
+      const layer = createPlotLayer('plugin:plot-test_main', 'main', {
         instanceId: 'plot-test',
         axisId: 'main',
+        layerId: 'plugin:plot-test_main',
       })
       if (layer.kind !== 'draw-list') throw new Error('Expected draw-list')
       const prepare = createPrimitivePreparer(() => [1, 0, 0, 1], { segments: true })
@@ -1097,9 +1091,10 @@ describe('Plot renderer', () => {
           scrollLeft: 0,
         },
       )
-      const layer = createPlotLayer('plot-test', 'main', {
+      const layer = createPlotLayer('plugin:plot-test_main', 'main', {
         instanceId: 'plot-test',
         axisId: 'main',
+        layerId: 'plugin:plot-test_main',
       })
       if (layer.kind !== 'draw-list') throw new Error('Expected Plot draw-list layer')
       for (const stepPx of [9.660759, 12.8, 31.27]) {

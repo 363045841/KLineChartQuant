@@ -135,6 +135,13 @@ export type CalculationCompute = (
 /** 已注册的可计算定义；由宿主定义仓库提供。 */
 export interface CalculationDefinition {
   readonly definitionId: string
+  /**
+   * 定义版本身份；直接来自定义注册表的元数据对象。
+   *
+   * 注册表在定义被替换时换新对象，因此同一身份即可判定“实现未变”，
+   * 计算器可以复用；包装对象本身可以每次新建，不参与身份判断。
+   */
+  readonly identity: object
   /** 计算对历史的依赖；缺省按有状态处理。 */
   readonly dependency: ComputeDependency
   /** 有状态的独立计算会话；缺省使用无状态的 compute。 */

@@ -3,7 +3,7 @@ import type { IndicatorRendererOptions } from '@/engine/indicators/indicatorMeta
 import { createPlotLayer } from './plotRenderer.js'
 
 /** 构造绑定指标身份的通用 Plot Layer 工厂。 */
-export function plotRenderer(definitionId: string) {
+export function plotRenderer() {
   return (options: IndicatorRendererOptions) =>
-    createPlotLayer(definitionId, options.paneId, options)
+    createPlotLayer(options.layerId, options.paneId, options)
 }

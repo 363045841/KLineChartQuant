@@ -108,11 +108,15 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
         Readonly<Record<ChartWorkspaceId, ReadonlyArray<IndicatorInstanceConfig>>>
       >
       loadIndicators?(indicatorIds: ReadonlyArray<string>): Promise<void>
+      definitions: import('../../indicators/registry/index.js').DefinitionRegistry
     },
   ) {
     // 摘要与模板列表共用同一套名称汇总规则；这里只做派生，不复制指标状态。
     this.currentIndicators = computed(() =>
-      summarizeIndicators(Object.values(dependencies.userIndicatorConfigurations()).flat()),
+      summarizeIndicators(
+        dependencies.definitions,
+        Object.values(dependencies.userIndicatorConfigurations()).flat(),
+      ),
     )
   }
 
@@ -137,7 +141,7 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
       Object.freeze({
         id,
         name: document.name,
-        labels: Object.freeze(summarizeTemplateIndicators(document.workspaces)),
+        labels: Object.freeze(summarizeTemplateIndicators(this.dependencies.definitions, document.workspaces)),
         instanceCount: countWorkspaceInstances(document.workspaces),
       }),
     ))
@@ -262,7 +266,7 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
       const indicatorIds = collectTemplateIndicatorIds(template.workspaces)
       // 先加载实现再判定缺失：脚本指标注册完成后即可恢复，不必等下一次应用。
       await this.dependencies.loadIndicators?.(indicatorIds)
-      const skipped = findMissingIndicators(template.workspaces)
+      const skipped = findMissingIndicators(this.dependencies.definitions, template.workspaces)
       this.dependencies.applyIndicators(template.workspaces)
       await this.updateArchive((current) => {
         const recentIds = [template.id, ...current.recentIds.filter((id) => id !== template.id)]

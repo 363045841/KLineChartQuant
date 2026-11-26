@@ -1,23 +1,20 @@
 /** 验证指标注册管线：收集 → 编译 → 注册三段、单次通知与逐条失败隔离。 */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createTestRendererLayer } from '../../__tests__/helpers/metadataTestKit'
-import { resolveIndicatorLayerId } from '../../indicatorLayerNaming'
+import { createIndicatorLayerId } from '../../indicatorLayerNaming'
 import type { IndicatorMetadata } from '../../indicatorMetadata'
+import type { DefinitionRegistry } from '../../registry/index'
+import { createTestDefinitions } from '../../__tests__/helpers/definitionsTestKit'
 import { runIndicatorPipeline } from '../impl/runIndicatorPipeline'
-import {
-  clearIndicatorStoreForTest,
-  getIndicatorDescriptor,
-  getRegisteredIndicatorDefinition,
-  type IndicatorCandidate,
-  type IndicatorFailure,
-  type IndicatorStage,
-  indicatorCatalogRevision,
-  indicatorCommits,
-  loadIndicatorDefinitions,
-  type RegistrableIndicator,
-  readRegisteredDefinitions,
-  registerIndicators,
-} from '../index'
+import type {
+  IndicatorCandidate,
+  IndicatorFailure,
+  IndicatorStage,
+  RegistrableIndicator,
+} from '../types'
+
+/** 本用例独立的定义注册表。 */
+let definitions: DefinitionRegistry
 
 /** 声明真实 Layer 定义；displayName 是除内部名外的另一个查询键。 */
 function declareDefinition(
@@ -84,44 +81,46 @@ function descriptorItem(
 }
 
 describe('Indicator pipeline', () => {
-  beforeEach(clearIndicatorStoreForTest)
+  beforeEach(() => {
+    definitions = createTestDefinitions()
+  })
 
   it('注册一次写入并只通知一次，重复注册保持幂等', () => {
     const first = declareDefinition('customRsi', 'CUSTOM_RSI')
     const second = declareDefinition('customMacd', 'CUSTOM_MACD')
-    const before = indicatorCatalogRevision.peek()
+    const before = definitions.revision.peek()
 
-    const report = registerIndicators([
+    const report = definitions.register([
       registrable('customRsi', first),
       registrable('customMacd', second),
     ])
 
     expect(report.failures).toEqual([])
-    expect(indicatorCatalogRevision.peek()).toBe(before + 1)
-    expect(indicatorCommits.peek()?.added).toHaveLength(2)
-    expect(getRegisteredIndicatorDefinition('CUSTOM_RSI')?.name).toBe('customRsi')
-    expect(getRegisteredIndicatorDefinition('custom rsi')?.name).toBe('customRsi')
-    expect(resolveIndicatorLayerId('CUSTOM_RSI', 'pane')).toBe('plugin:customRsi_pane')
+    expect(definitions.revision.peek()).toBe(before + 1)
+    expect(definitions.commits.peek()?.added).toHaveLength(2)
+    expect(definitions.getDefinition('CUSTOM_RSI')?.name).toBe('customRsi')
+    expect(definitions.getDefinition('custom rsi')?.name).toBe('customRsi')
+    expect(createIndicatorLayerId(first.getRendererName, 'customRsi', 'pane')).toBe('plugin:customRsi_pane')
 
-    const idempotentRevision = indicatorCatalogRevision.peek()
-    registerIndicators([registrable('customRsi', first)])
-    expect(readRegisteredDefinitions()).toHaveLength(2)
-    expect(indicatorCatalogRevision.peek()).toBe(idempotentRevision)
+    const idempotentRevision = definitions.revision.peek()
+    definitions.register([registrable('customRsi', first)])
+    expect(definitions.readDefinitions()).toHaveLength(2)
+    expect(definitions.revision.peek()).toBe(idempotentRevision)
   })
 
   it('冲突条目失败但不影响同批次其它条目', () => {
-    registerIndicators([registrable('customRsi', declareDefinition('customRsi', 'OLD_RSI'))])
-    const report = registerIndicators([
+    definitions.register([registrable('customRsi', declareDefinition('customRsi', 'OLD_RSI'))])
+    const report = definitions.register([
       registrable('customRsi', declareDefinition('customRsi', 'NEW_RSI')),
       registrable('other', declareDefinition('other', 'OTHER_RSI')),
     ])
     expect(report.failures).toHaveLength(1)
     expect(report.failures[0]).toMatchObject({ stage: 'register', origin: 'third-party' })
-    expect(readRegisteredDefinitions()).toHaveLength(2)
+    expect(definitions.readDefinitions()).toHaveLength(2)
   })
 
   it('拒绝没有身份的定义对象', () => {
-    const report = registerIndicators([
+    const report = definitions.register([
       {
         kind: 'definition',
         candidate: { key: 'undeclared', origin: 'third-party', identity: 'native' },
@@ -132,7 +131,7 @@ describe('Indicator pipeline', () => {
   })
 
   it('脚本展示名冲突时拒绝替换并保留原定义', () => {
-    registerIndicators([
+    definitions.register([
       registrable(
         'script_alpha',
         declareDefinition('script_alpha', 'Alpha', 'Alpha'),
@@ -144,7 +143,7 @@ describe('Indicator pipeline', () => {
         'user-script',
       ),
     ])
-    const report = registerIndicators([
+    const report = definitions.register([
       registrable(
         'script_alpha',
         declareDefinition('script_alpha', 'Beta', 'Beta'),
@@ -152,8 +151,8 @@ describe('Indicator pipeline', () => {
       ),
     ])
     expect(report.failures[0]?.error).toBeInstanceOf(Error)
-    expect(getRegisteredIndicatorDefinition('Alpha')?.displayName).toBe('Alpha')
-    expect(getRegisteredIndicatorDefinition('Beta')?.displayName).toBe('Beta')
+    expect(definitions.getDefinition('Alpha')?.displayName).toBe('Alpha')
+    expect(definitions.getDefinition('Beta')?.displayName).toBe('Beta')
   })
 
   it('管线逐条隔离失败，并把失败与成功一起返回', async () => {
@@ -196,35 +195,35 @@ describe('Indicator pipeline', () => {
       },
     }
     const log = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    const report = await runIndicatorPipeline([stage])
+    const report = await runIndicatorPipeline(definitions, [stage])
     expect(report.failures).toEqual([compileFailure])
     expect(log).toHaveBeenCalled()
     log.mockRestore()
 
-    expect(getRegisteredIndicatorDefinition('PIPELINE_GOOD')).toBeDefined()
-    expect(getRegisteredIndicatorDefinition('PIPELINE_BAD')).toBeUndefined()
+    expect(definitions.getDefinition('PIPELINE_GOOD')).toBeDefined()
+    expect(definitions.getDefinition('PIPELINE_BAD')).toBeUndefined()
   })
 
   it('懒加载失败留下日志、保持目录项，并把异常交给调用方', async () => {
     const name = 'lazyBroken'
-    registerIndicators([
+    definitions.register([
       descriptorItem(name, async () => {
         throw new Error('模块加载失败')
       }),
     ])
     const log = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    await expect(loadIndicatorDefinitions([name])).rejects.toThrow('模块加载失败')
+    await expect(definitions.load([name])).rejects.toThrow('模块加载失败')
     expect(String(log.mock.calls[0]?.[0])).toContain('懒加载实现失败')
-    expect(getIndicatorDescriptor(name)).toBeDefined()
+    expect(definitions.getDescriptor(name)).toBeDefined()
     log.mockRestore()
   })
 
   it('同一份内置脚本重复注册保持幂等，源码不同才拒绝', () => {
     const first = declareDefinition('builtinAlpha', '内置甲', '内置甲', 'builtin')
-    registerIndicators([registrable('builtinAlpha', first, 'builtin-script')])
-    const revision = indicatorCatalogRevision.peek()
+    definitions.register([registrable('builtinAlpha', first, 'builtin-script')])
+    const revision = definitions.revision.peek()
 
-    const repeated = registerIndicators([
+    const repeated = definitions.register([
       registrable(
         'builtinAlpha',
         declareDefinition('builtinAlpha', '内置甲', '内置甲', 'builtin'),
@@ -232,10 +231,10 @@ describe('Indicator pipeline', () => {
       ),
     ])
     expect(repeated.failures).toEqual([])
-    expect(indicatorCatalogRevision.peek()).toBe(revision)
-    expect(getRegisteredIndicatorDefinition('内置甲')).toBeDefined()
+    expect(definitions.revision.peek()).toBe(revision)
+    expect(definitions.getDefinition('内置甲')).toBeDefined()
 
-    const overwritten = registerIndicators([
+    const overwritten = definitions.register([
       registrable(
         'builtinAlpha',
         declareDefinition('builtinAlpha', '内置乙', '内置乙', 'builtin'),
@@ -243,19 +242,19 @@ describe('Indicator pipeline', () => {
       ),
     ])
     expect(overwritten.failures).toHaveLength(1)
-    expect(getRegisteredIndicatorDefinition('内置甲')?.displayName).toBe('内置甲')
+    expect(definitions.getDefinition('内置甲')?.displayName).toBe('内置甲')
   })
 
   it('目录项注册与定义注册共用同一次提交', () => {
-    const before = indicatorCatalogRevision.peek()
-    const report = registerIndicators([
+    const before = definitions.revision.peek()
+    const report = definitions.register([
       descriptorItem('systemFixture'),
       registrable('withDescriptor', declareDefinition('withDescriptor', 'WITH_DESCRIPTOR')),
     ])
     expect(report.failures).toEqual([])
-    expect(indicatorCatalogRevision.peek()).toBe(before + 1)
-    expect(indicatorCommits.peek()?.described.map((item) => item.name)).toEqual(['systemFixture'])
-    expect(indicatorCommits.peek()?.added.map((item) => item.name)).toEqual(['withDescriptor'])
+    expect(definitions.revision.peek()).toBe(before + 1)
+    expect(definitions.commits.peek()?.described.map((item) => item.name)).toEqual(['systemFixture'])
+    expect(definitions.commits.peek()?.added.map((item) => item.name)).toEqual(['withDescriptor'])
   })
 })
 

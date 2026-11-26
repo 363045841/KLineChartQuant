@@ -57,6 +57,7 @@
     <AlertScriptSelector
       v-model:open="scriptPickerOpen"
       :definition-id="selectedScript?.id ?? null"
+      :definitions="definitions"
       @select="selectScript"
     />
 
@@ -70,6 +71,7 @@
 <script setup lang="ts">
   import type {
     AlertService,
+    DefinitionRegistry,
     SymbolSpec,
   } from '@363045841yyt/klinechart-core/controllers'
   import AlertScriptSelector from '@vue-src/components/alert/AlertScriptSelector.vue'
@@ -88,6 +90,8 @@
   const props = defineProps<{
     open: boolean
     alerts: AlertService | null
+    /** 当前运行时定义注册表；脚本选择器只读它。 */
+    definitions: DefinitionRegistry
     /** 当前图表品种快照；新建默认使用它的品种、周期与复权。 */
     currentSpec: SymbolSpec | null
     /** 品种选择器的本地候选列表；搜索仍走 searchSymbols。 */

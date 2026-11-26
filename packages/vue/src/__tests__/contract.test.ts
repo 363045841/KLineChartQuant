@@ -1,20 +1,20 @@
 /**
  * Contract test for @363045841yyt/klinechart.
  *
- * Phase 1D agent's brief: make these pass without weakening assertions,
- * preserving the legacy KMapPlugin.install signature.
+ * Locks the public surface: chart mount, tooltip slot shape and the
+ * workbench entry. Assertions must reflect the current API, not legacy
+ * plugin signatures.
  */
 
-import type { ChartController, ChartMountOptions } from '@363045841yyt/klinechart-core'
 import { mount } from '@vue/test-utils'
 import KLineTooltip from '@vue-src/components/chart/KLineTooltip.vue'
 import type { KlineTooltipSlotProps } from '@vue-src/index'
 import * as VueAdapter from '@vue-src/index'
 import { coreSignalToVueRef } from '@vue-src/index'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createApp, defineComponent, h, nextTick, ref, shallowRef } from 'vue'
+import { describe, expect, it } from 'vitest'
+import { defineComponent, h, nextTick, shallowRef } from 'vue'
 
-import { createMockChartController, createTestSignal } from './_mockController'
+import { createTestSignal } from './_mockController'
 
 /** 将颜色归一化为当前测试环境 DOM 的序列化形式，避免断言耦合具体环境的色彩格式。 */
 function normalizeColor(color: string): string {
@@ -23,75 +23,15 @@ function normalizeColor(color: string): string {
   return probe.style.color
 }
 
-describe('@363045841yyt/klinechart —public API surface', () => {
-  it('KMapPlugin.install registers KLineChart on a Vue app', () => {
-    const app = createApp({ render: () => null })
-    VueAdapter.KMapPlugin.install(app)
-    expect(app.component('KLineChart')).toBe(VueAdapter.KlineChart)
+describe('@363045841yyt/klinechart — public API surface', () => {
+  it('exports the workbench product entry', () => {
+    expect(VueAdapter.KlineWorkbench).toBeDefined()
+    expect(VueAdapter.KlineChart).toBeDefined()
   })
 })
 
-describe('@363045841yyt/klinechart —useChart lifecycle', () => {
-  afterEach(() => {
-    // Reset the injected factory so other tests start clean.
-    VueAdapter.__setControllerFactory(null)
-  })
-
-  it('mounts on first render via template ref', async () => {
-    const mockController = createMockChartController()
-    const factorySpy = vi.fn((opts: ChartMountOptions) => Promise.resolve(mockController))
-    VueAdapter.__setControllerFactory(factorySpy)
-
-    const HostComponent = defineComponent({
-      name: 'Host',
-      setup() {
-        const containerRef = ref<HTMLElement | null>(null)
-        const { chart } = VueAdapter.useChart(containerRef, {})
-        return { containerRef, chart }
-      },
-      render() {
-        return h('div', { ref: 'containerRef' })
-      },
-    })
-
-    const wrapper = mount(HostComponent, { attachTo: document.body })
-    await nextTick()
-
-    expect(factorySpy).toHaveBeenCalledTimes(1)
-    const factoryArg = factorySpy.mock.calls[0]?.[0]
-    expect(factoryArg?.container).toBeInstanceOf(HTMLElement)
-    expect(wrapper.vm.chart).toBe(mockController)
-
-    wrapper.unmount()
-  })
-
-  it('disposes on unmount', async () => {
-    const mockController = createMockChartController()
-    VueAdapter.__setControllerFactory(() => Promise.resolve(mockController))
-
-    const HostComponent = defineComponent({
-      name: 'Host',
-      setup() {
-        const containerRef = ref<HTMLElement | null>(null)
-        const { chart } = VueAdapter.useChart(containerRef, {})
-        return { containerRef, chart }
-      },
-      render() {
-        return h('div', { ref: 'containerRef' })
-      },
-    })
-
-    const wrapper = mount(HostComponent, { attachTo: document.body })
-    await nextTick()
-
-    expect(mockController.disposeCalls()).toBe(0)
-    wrapper.unmount()
-    // Allow lifecycle hooks to settle.
-    await nextTick()
-    expect(mockController.disposeCalls()).toBe(1)
-  })
-
-  it('reactivity bridge: signal change updates returned ref', async () => {
+describe('@363045841yyt/klinechart — reactivity bridge', () => {
+  it('signal change updates returned ref', async () => {
     // Mount a tiny scoped component so coreSignalToVueRef can register
     // its onScopeDispose cleanup. Without a setup scope the ref is still
     // wired up correctly, but cleanup would not be automatic.

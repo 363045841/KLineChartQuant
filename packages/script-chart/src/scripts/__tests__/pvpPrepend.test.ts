@@ -1,8 +1,8 @@
 /** 回归：PVP 通过脚本服务的公开计算入口，在前置插入历史后仍能正常输出。 */
 
 import { readFileSync } from 'node:fs'
-import { getRegisteredIndicatorDefinition } from '@363045841yyt/klinechart-core'
 import { describe, expect, it, vi } from 'vitest'
+import { createDefinitionRegistry } from '@363045841yyt/klinechart-core'
 import { NodeScriptWorker } from '../../../../script/src/worker/__tests__/nodeWorker.js'
 import { createScriptService } from '../impl/createScriptService.js'
 
@@ -13,11 +13,12 @@ describe('PVP service prepend', () => {
       new URL('../../../../script/scripts/pvp.ts', import.meta.url),
       'utf8',
     )
-    const service = await createScriptService([], {
+    const definitions = createDefinitionRegistry()
+    const service = await createScriptService([], { definitions,
       persistence: { load: async () => null, save: async () => true },
       builtinSources: [source],
     })
-    const runtime = getRegisteredIndicatorDefinition('PVP')?.runtime
+    const runtime = definitions.getDefinition('PVP')?.runtime
     if (!runtime) throw new Error('PVP not registered')
     const day = Date.UTC(2026, 0, 5)
     const bar = (time: number, close = 10) => ({

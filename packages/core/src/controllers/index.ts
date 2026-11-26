@@ -47,7 +47,6 @@ export type {
   RendererBackendStatus,
 } from '../rendering/render/rendererHost.js'
 export { createChartController } from './chart/index.js'
-export { hasAlertScriptReference } from '../features/alerts/impl/alertPersistence.js'
 export type {
   Alert,
   AlertChannel,
@@ -120,10 +119,11 @@ export { createHeatmapController } from '../components/orderBookHeatmap/index.js
 // 选择器与公共 API 共用同一个目录信号，注册表变更即重建。
 export {
   type AlertScriptDefinition,
-  alertCatalog,
+  createAlertCatalog,
+  createIndicatorCatalog,
   findIndicatorDefinition,
-  indicatorCatalog,
 } from '../controllers/indicatorCatalog/index.js'
+export type { DefinitionRegistry } from '../engine/indicators/registry/index.js'
 export type {
   BarAggregation,
   BarCapability,
@@ -186,21 +186,17 @@ export type {
 export {
   ALIGNED_BAR_AGGREGATION,
   BAR_AGGREGATIONS,
-  baostockMarketDataProvider,
-  binanceMarketDataProvider,
+  createBuiltinMarketDataContext,
   createMockDataSource,
   DataBuffer,
   DepthConnector,
   dataSourceRegistry,
   EUROPE_TRADITIONAL_BAR_AGGREGATION,
-  gotdxMarketDataProvider,
+  installBuiltinProviders,
   MarketDataProviderRegistry,
-  marketDataProviderRegistry,
-  mt5MarketDataProvider,
   ORIGINAL_BAR_AGGREGATION,
   STREAM_ERROR_CODES,
   searchInstruments,
-  tradingviewMarketDataProvider,
 } from '../data/index.js'
 export type {
   ActiveMagnetMode,

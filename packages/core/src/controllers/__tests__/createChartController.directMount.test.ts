@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** 非 Vue 宿主的直接挂载：自建 DOM 骨架、首帧 pane 布局、挂载数据与布局恢复的先后。 */
 import 'fake-indexeddb/auto'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MarketDataContext } from '@/data/management/impl/context.js'
 import { createDataSourceFixture } from '@/data/provider/__tests__/helpers/providerTestKit.js'
 import {
@@ -10,8 +10,7 @@ import {
   stubAnimationFrame,
 } from '@/engine/__tests__/helpers/chartDomTestKit'
 import { makeSymbolSpec } from '@/engine/data/__tests__/helpers/symbolSpecFixture'
-import { loadBuiltinIndicators } from '../../engine/indicators/registerBuiltins'
-import { createChartController } from '../chart/index'
+import { createTestChartController as createChartController } from './helpers/controllerTestKit'
 
 import type { KLineData } from '../types'
 
@@ -54,10 +53,6 @@ function stubPlotSize(width: number, height: number): () => void {
 
 describe('createChartController direct mount', () => {
   let restoreSize: () => void
-
-  beforeAll(async () => {
-    await loadBuiltinIndicators()
-  })
 
   beforeEach(async () => {
     // 布局归档存于 IndexedDB；每个用例从空库开始。
@@ -125,7 +120,7 @@ describe('createChartController direct mount', () => {
     const symbols = [{ instrument, period: 'daily' }]
     const first = document.createElement('div')
     document.body.appendChild(first)
-    const ctrlA = await createChartController({ container: first, marketDataContext: host })
+    const ctrlA = await createChartController({ container: first, market: host })
     ctrlA.dispose()
 
     // 第二次挂载会恢复第一次保存的布局；其 currentSymbol 为空。
@@ -133,7 +128,7 @@ describe('createChartController direct mount', () => {
     document.body.appendChild(second)
     const ctrlB = await createChartController({
       container: second,
-      marketDataContext: host,
+      market: host,
       symbols,
     })
     await vi.waitFor(() => expect(ctrlB.getData()).toHaveLength(300))

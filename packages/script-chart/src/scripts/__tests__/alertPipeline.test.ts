@@ -1,11 +1,12 @@
 /** 端到端：脚本 alert → Worker → CalculationHub → AlertService → 通知。 */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  createCalculationSession,
   createDataIdentity,
+  createDefinitionRegistry,
   createFeedKey,
+  createMarketRuntime,
 } from '@363045841yyt/klinechart-core'
-import { marketDataProviderRegistry } from '@363045841yyt/klinechart-core/market-data'
+import { createBuiltinMarketDataContext } from '@363045841yyt/klinechart-core/market-data/sources'
 import {
   type AlertFiresDocument,
   type AlertRulesDocument,
@@ -54,15 +55,18 @@ afterEach(() => vi.unstubAllGlobals())
 describe('alert pipeline', () => {
   it('delivers an intrabar crossing with no chart instance, only a calculation session', async () => {
     vi.stubGlobal('Worker', NodeScriptWorker)
-    const service = await createScriptService([], {
+    const definitions = createDefinitionRegistry()
+    const market = createBuiltinMarketDataContext()
+    const runtime = createMarketRuntime({ market, definitions })
+    const service = await createScriptService([], { definitions,
       persistence: { load: async () => null, save: async () => true },
       builtinSources: [SOURCE],
     })
-    // 会话是唯一所有者：警报与图表都只是它的消费者。
-    const session = createCalculationSession({ registry: marketDataProviderRegistry })
-    const hub = session.hub
+    // 运行时是唯一所有者：警报与图表都只是它的消费者。
+    const hub = runtime.calculation
     const alerts = await createAlertService({
       hub,
+      definitions,
       rules: createMemoryDocumentStore<AlertRulesDocument>(null),
       fires: createMemoryDocumentStore<AlertFiresDocument>(null),
       feeds: { retain: () => {} },
@@ -123,7 +127,8 @@ describe('alert pipeline', () => {
       source: { ticker: 'BTCUSDT', interval: '1' },
     })
     await alerts.dispose()
-    session.dispose()
+    runtime.dispose()
+    market.dispose()
     service.dispose()
   })
 })

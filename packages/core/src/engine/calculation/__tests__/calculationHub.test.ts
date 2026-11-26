@@ -1,5 +1,5 @@
 /**
- * 计算中枢：去重、latest-wins、修订校验、零任务提交与预览缓存。
+ * 计算中枢：去重、latest-wins、修订校验、版本身份复用与预览缓存。
  */
 import { describe, expect, it, vi } from 'vitest'
 
@@ -50,12 +50,18 @@ function plan(key = 'ma'): { feed: FeedKey; requests: readonly CalculationReques
   }
 }
 
-/** 构造可计算定义；返回值即序列内容。 */
+/** 构造一份计算定义；identity 显式表达“同一版本”，包装对象可以每次新建。 */
 function definition(
   compute: CalculationDefinition['compute'],
-  definitionId = 'ma',
+  options: Pick<CalculationDefinition, 'identity' | 'createCompute'> & { definitionId?: string },
 ): CalculationDefinition {
-  return { definitionId, dependency: { kind: 'stateful' }, compute }
+  return {
+    definitionId: options.definitionId ?? 'ma',
+    identity: options.identity,
+    dependency: { kind: 'stateful' },
+    compute,
+    ...(options.createCompute === undefined ? {} : { createCompute: options.createCompute }),
+  }
 }
 
 /** 创建可手动完成的 Promise，用于观察并发与排队。 */
@@ -83,12 +89,16 @@ function collect() {
 describe('calculation hub', () => {
   it('shares one calculation between consumers with the same identity', async () => {
     let calls = 0
+    const identity = {}
     const hub: CalculationHub = createCalculationHub({
       resolveDefinition: () =>
-        definition(async () => {
-          calls++
-          return { series: calls }
-        }),
+        definition(
+          async () => {
+            calls++
+            return { series: calls }
+          },
+          { identity },
+        ),
     })
     const first = collect()
     const second = collect()
@@ -108,15 +118,41 @@ describe('calculation hub', () => {
     hub.dispose()
   })
 
-  it('rebuilds the calculator when a definition id resolves to a new object', async () => {
+  it('reuses the calculator while identity is unchanged, even when the wrapper is recreated', async () => {
+    let sequence = 0
+    const createDispose = vi.fn()
+    const identity = {}
+    const hub = createCalculationHub({
+      resolveDefinition: () =>
+        definition(async () => ({ series: 0 }), {
+          identity,
+          createCompute: () => Object.assign(async () => ({ series: ++sequence }), {
+            dispose: createDispose,
+          }),
+        }),
+    })
+    const sink = collect()
+    const client = hub.createClient('sink', sink.handlers)
+    client.setPlan([plan()])
+
+    hub.updateFeed(feed(1))
+    await vi.waitFor(() => expect(sink.commits.at(-1)?.results.get('ma')?.series).toBe(1))
+    hub.updateFeed(feed(2))
+    await vi.waitFor(() => expect(sink.commits.at(-1)?.results.get('ma')?.series).toBe(2))
+
+    expect(createDispose).not.toHaveBeenCalled()
+    hub.dispose()
+    expect(createDispose).toHaveBeenCalledOnce()
+  })
+
+  it('rebuilds and disposes the calculator when identity changes', async () => {
     const firstDispose = vi.fn()
-    let current: CalculationDefinition = {
-      definitionId: 'ma',
-      dependency: { kind: 'stateful' },
-      compute: async () => ({ series: 'first' }),
+    let identity: object = {}
+    let current = definition(async () => ({ series: 'first' }), {
+      identity,
       createCompute: () =>
         Object.assign(async () => ({ series: 'first' }), { dispose: firstDispose }),
-    }
+    })
     const hub = createCalculationHub({ resolveDefinition: () => current })
     const sink = collect()
     const client = hub.createClient('sink', sink.handlers)
@@ -126,11 +162,8 @@ describe('calculation hub', () => {
       expect(sink.commits.at(-1)?.results.get('ma')?.series).toBe('first')
     })
 
-    current = {
-      definitionId: 'ma',
-      dependency: { kind: 'stateful' },
-      compute: async () => ({ series: 'second' }),
-    }
+    identity = {}
+    current = definition(async () => ({ series: 'second' }), { identity })
     hub.updateFeed(feed(2))
     await vi.waitFor(() => {
       expect(sink.commits.at(-1)?.results.get('ma')?.series).toBe('second')
@@ -158,12 +191,16 @@ describe('calculation hub', () => {
   it('keeps only the newest revision waiting and commits the newest result', async () => {
     const gate = deferred<{ series: number }>()
     let startRevision = 0
+    const identity = {}
     const hub = createCalculationHub({
       resolveDefinition: () =>
-        definition(async (_data, _inputs, _market, _range) => {
-          startRevision = 1
-          return gate.promise
-        }),
+        definition(
+          async () => {
+            startRevision = 1
+            return gate.promise
+          },
+          { identity },
+        ),
     })
     const sink = collect()
     const client = hub.createClient('a', sink.handlers)
@@ -181,21 +218,26 @@ describe('calculation hub', () => {
 
   it('does not recompute an unchanged revision and recomputes after definition invalidation', async () => {
     let calls = 0
+    const identity = {}
     const hub = createCalculationHub({
       resolveDefinition: () =>
-        definition(async () => {
-          calls++
-          return { series: calls }
-        }),
+        definition(
+          async () => {
+            calls++
+            return { series: calls }
+          },
+          { identity },
+        ),
     })
     const sink = collect()
     const client = hub.createClient('a', sink.handlers)
     hub.updateFeed(feed(1))
     client.setPlan([plan()])
     await vi.waitFor(() => expect(sink.commits).toHaveLength(1))
-
+    const before = sink.commits.length
     hub.updateFeed(feed(1))
-    await vi.waitFor(() => expect(sink.commits.length).toBeGreaterThanOrEqual(1))
+    await Promise.resolve()
+    expect(sink.commits.length).toBe(before)
     expect(calls).toBe(1)
 
     hub.invalidateDefinitions(['ma'])
@@ -206,12 +248,16 @@ describe('calculation hub', () => {
 
   it('carries alert events in the result and reports pending owners', async () => {
     const pending: Array<readonly [readonly string[], boolean]> = []
+    const identity = {}
     const hub = createCalculationHub({
       resolveDefinition: () =>
-        definition(async () => ({
-          series: 0,
-          alerts: [{ message: 'cross', barTime: 1, price: 2 }],
-        })),
+        definition(
+          async () => ({
+            series: 0,
+            alerts: [{ message: 'cross', barTime: 1, price: 2 }],
+          }),
+          { identity },
+        ),
     })
     const sink = collect()
     const client = hub.createClient('a', {
@@ -242,12 +288,16 @@ describe('calculation hub', () => {
 
   it('drops results and recomputes after the feed is removed', async () => {
     let calls = 0
+    const identity = {}
     const hub = createCalculationHub({
       resolveDefinition: () =>
-        definition(async () => {
-          calls++
-          return { series: calls }
-        }),
+        definition(
+          async () => {
+            calls++
+            return { series: calls }
+          },
+          { identity },
+        ),
     })
     const sink = collect()
     const client = hub.createClient('a', sink.handlers)
@@ -267,12 +317,16 @@ describe('calculation hub', () => {
 
   it('returns cached preview results without joining a consumer plan', async () => {
     let calls = 0
+    const identity = {}
     const hub = createCalculationHub({
       resolveDefinition: () =>
-        definition(async () => {
-          calls++
-          return { series: calls }
-        }),
+        definition(
+          async () => {
+            calls++
+            return { series: calls }
+          },
+          { identity },
+        ),
     })
     hub.updateFeed(feed(1))
     const request: CalculationRequest = {

@@ -304,12 +304,20 @@
     syncOutlineSize()
   }
 
+  /** 读取当前可绘制的轮廓几何；没有活动标签或尺寸退化时返回 null。 */
+  function readOutline() {
+    const outline = outlineGeometry.value
+    if (!outline) return null
+    const { width, height, tabLeft: left, tabRight: right, tabTop: top } = outline
+    if (width <= 0 || height <= 0 || right <= left) return null
+    return { width, height, left, right, top }
+  }
+
   /** 标签填充：闭合路径延伸至栏底，与下方内容连通。 */
   const outlineFillPath = computed(() => {
-    const outline = outlineGeometry.value
+    const outline = readOutline()
     if (!outline) return ''
-    const { width, height, tabLeft: left, tabRight: right, tabTop: top } = outline
-    if (width <= 0 || height <= 0 || right <= left) return ''
+    const { height, left, right, top } = outline
     const flare = OUTLINE_FLARE
     const radius = OUTLINE_RADIUS
     return [
@@ -328,10 +336,9 @@
 
   /** 描边同时画整条底边线与标签轮廓，底边在标签两侧连续接入圆弧。 */
   const outlineStrokePath = computed(() => {
-    const outline = outlineGeometry.value
+    const outline = readOutline()
     if (!outline) return ''
-    const { width, height, tabLeft: left, tabRight: right, tabTop: top } = outline
-    if (width <= 0 || height <= 0 || right <= left) return ''
+    const { width, height, left, right, top } = outline
     const flare = OUTLINE_FLARE
     const radius = OUTLINE_RADIUS
     // 1px 描边落在最后一行像素的中线上。

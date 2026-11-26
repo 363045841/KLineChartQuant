@@ -32,6 +32,8 @@ export interface IndicatorRendererOptions {
   instanceId: string
   /** 框架派生的轴身份；渲染器据此把值映射到自己的轴。 */
   axisId: string
+  /** 框架分配的稳定 Layer ID；渲染器不得自行推导。 */
+  layerId: string
   params?: Record<string, unknown>
 }
 

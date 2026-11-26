@@ -34,10 +34,7 @@ import {
   type TimeShareBuffer,
 } from '../../data/buffer/types.js'
 import type { StreamHub } from '../../data/stream/types.js'
-import {
-  type MarketDataProviderRegistry,
-  marketDataProviderRegistry,
-} from '../../data/provider/impl/registry.js'
+import type { MarketDataProviderRegistry } from '../../data/provider/impl/registry.js'
 import type {
   BarAggregation,
   InstrumentDescriptor,
@@ -80,8 +77,7 @@ import { symbolInfoIdentityKey } from './symbolIdentity.js'
 export interface DataDependencies {
   marketSessions?: MarketSessionRegistry
   invalidateRequests?(): void
-  marketDataProviderRegistry?: MarketDataProviderRegistry
-  /** 宿主持有的唯一实时连接注册表。 */
+  marketDataProviderRegistry: MarketDataProviderRegistry
   streamHub: StreamHub
   updateTradeInput: (input: TradeSnapshot) => void
   needsTrades: () => boolean
@@ -187,7 +183,7 @@ export class ChartDataManager {
   private deps: DataDependencies
 
   constructor(deps: DataDependencies, dataState: DataStateModule, dmState: DataManagerStateModule) {
-    this.providerRegistry = deps.marketDataProviderRegistry ?? marketDataProviderRegistry
+    this.providerRegistry = deps.marketDataProviderRegistry
     this.marketDataCache = new MarketDataCache(this.providerRegistry)
     this.deps = deps
     this._dataState = dataState

@@ -11,7 +11,7 @@ import { vi } from 'vitest'
 
 import type { KLineData, SymbolSpec } from '@/controllers/types'
 import type { StreamHub } from '@/data/stream/types.js'
-import { marketDataProviderRegistry } from '@/data/provider/impl/registry'
+import { MarketDataProviderRegistry } from '@/data/provider/impl/registry'
 import type {
   BarAggregation,
   BarSeries,
@@ -104,6 +104,9 @@ export function createMockViewport(options: MockViewportOptions = {}): MockViewp
   return { viewport, getScrollLeft: () => scrollLeft }
 }
 
+/** 测试数据管理器共用的 Provider 注册表。 */
+export const testProviderRegistry = new MarketDataProviderRegistry()
+
 /** DataDependencies 工厂入参。 */
 export interface MockDataDependenciesOptions {
   /** 实时连接注册表；缺省用拒绝订阅的替身。 */
@@ -133,7 +136,7 @@ function createMockDataDependencies(
     resetInteraction = () => {},
   } = options
   return {
-    marketDataProviderRegistry: options.marketDataProviderRegistry,
+    marketDataProviderRegistry: options.marketDataProviderRegistry ?? testProviderRegistry,
     streamHub: options.streamHub === undefined ? inactiveStreamHub : options.streamHub,
     getOption: () => ({ kWidth: 8, kGap: 2 }),
     getDom: () => dom,
@@ -296,13 +299,13 @@ export function instrumentFor(symbol: string) {
 
 /** 注销测试 Provider；用例收尾统一调用。 */
 export function unregisterTestProvider(): void {
-  if (marketDataProviderRegistry.get('test')) marketDataProviderRegistry.unregister('test')
+  if (testProviderRegistry.get('test')) testProviderRegistry.unregister('test')
 }
 
 /** 注册（或替换）测试 Provider。 */
 export function registerTestProvider(provider: MarketDataProvider): void {
   unregisterTestProvider()
-  marketDataProviderRegistry.register(provider)
+  testProviderRegistry.register(provider)
 }
 
 export type TestBarSeries = Omit<BarSeries, 'barAggregation'> & { barAggregation?: BarAggregation }

@@ -160,7 +160,7 @@ export type IndicatorCatalogRevision = ReadonlySignal<number>
  * 最近一次提交的变更摘要；没有提交时为空。
  *
  * 消费者按 `revision` 递增消费，不得假设历史提交可回放；
- * 读取完整状态请使用 `readIndicatorDescriptors` / `readRegisteredDefinitions`。
+ * 读取完整状态请使用 `readIndicatorDescriptors` / `readDefinitions`。
  */
 export type IndicatorCatalogCommitSignal = ReadonlySignal<IndicatorCatalogCommit | null>
 

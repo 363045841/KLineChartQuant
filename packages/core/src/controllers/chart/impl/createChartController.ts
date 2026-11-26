@@ -1,26 +1,14 @@
-import { defaultMarketDataContext } from '@/data/management/impl/context.js'
-import {
-  lookupInstrumentsBySymbol,
-  searchInstruments,
-} from '@/data/provider/impl/instrumentSearch.js'
+import { lookupInstrumentsBySymbol, searchInstruments } from '@/data/provider/impl/instrumentSearch.js'
 import type { MarketDataProviderRegistry } from '@/data/provider/impl/registry.js'
 import type { ChartOptions, ViewportState as EngineViewportState } from '@/engine/chart/index.js'
 import { Chart } from '@/engine/chart/index.js'
-import {
-  getRegisteredIndicatorDefinition,
-  loadIndicatorDefinitions,
-  resolveCanonicalIndicatorId,
-} from '@/engine/indicators/pipeline/index.js'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins.js'
 import { extractTemplate } from '@/engine/indicatorTemplate/impl/templateExtract.js'
 import { IndicatorTemplateManager } from '@/engine/indicatorTemplate/impl/templateManager.js'
 import { collectLayoutIndicatorIds } from '@/engine/layout/impl/layoutIndicators.js'
 import { LayoutManager } from '@/engine/layout/impl/layoutManager.js'
 import { MAIN_PANE_ID } from '@/engine/pane/types.js'
-import { createCalculationSession } from '@/engine/session/index.js'
 import { CONTROLLER_ERROR_CODES, KLineChartError } from '@/errors.js'
-import { createAlertFeedSource, createAlertService } from '@/features/alerts/index.js'
-import { createAlertStores, trackAlertService } from '@/features/alerts/impl/alertPersistence.js'
 import { formatDrawingAnchorTime } from '@/features/agent/impl/drawingAnchorTime.js'
 import {
   type ChartAgentDrawingScope,
@@ -38,7 +26,7 @@ import {
 import { normalizeSettings } from '@/foundation/config/chartSettings.js'
 import { batch, computed, type ReadonlySignal } from '@/foundation/reactivity/index.js'
 import { createDefaultRendererHost, type RendererBackend } from '@/rendering/render/index.js'
-import { indicatorCatalog } from '../../indicatorCatalog/index.js'
+import { createIndicatorCatalog } from '../../indicatorCatalog/index.js'
 import type {
   ChartController,
   ChartMountOptions,
@@ -104,14 +92,12 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   }
 
   // 系统图层随图表创建；布局先恢复配置，再按需加载引用的指标实现。
-  if (opts.indicatorLoading === 'all') await loadBuiltinIndicators()
+  if (opts.indicatorLoading === 'all') await loadBuiltinIndicators(opts.runtime.definitions)
 
-  const marketContext = opts.marketDataContext ?? defaultMarketDataContext
-  // 计算会话先于图表创建：图表与警报都是它的消费者，谁也不拥有它。
-  const calculation = createCalculationSession({
-    registry: marketContext.registry,
-    ...(opts.marketSessions === undefined ? {} : { marketSessions: opts.marketSessions }),
-  })
+  // 共享运行时由宿主创建：图表只消费，不拥有计算与警报。
+  const runtime = opts.runtime
+  const marketContext = runtime.market
+  const indicatorCatalog = createIndicatorCatalog(runtime.definitions)
 
   const initialZoomLevel = opts.initialZoomLevel ?? DEFAULT_OPTS.initialZoomLevel
   const zoomLevelCount = opts.zoomLevels ?? DEFAULT_OPTS.zoomLevels
@@ -157,15 +143,15 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
         {
           rendererHost,
           initialSettings,
-          calculationHub: calculation.hub,
-          marketSessionRegistry: calculation.marketSessions,
-          marketDataContext: opts.marketDataContext,
+          calculationHub: runtime.calculation,
+          marketSessionRegistry: runtime.marketSessions,
+          definitions: runtime.definitions,
+          marketDataContext: runtime.market,
         },
       )
       return { mounted, chart }
     } catch (error) {
       mounted?.cleanup()
-      calculation.dispose()
       throw error
     }
   }
@@ -191,7 +177,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const isDisposed = () => disposed
   const dataMethods = createDataMethods(chart, isDisposed)
   const drawingMethods = createDrawingMethods(chart, isDisposed)
-  const chartMethods = createChartMethods(chart, isDisposed)
+  const chartMethods = createChartMethods(chart, runtime.definitions, isDisposed)
   const layoutManager = new LayoutManager(
     {
       // 导出前先捕获当前视口，使活动布局的滚动/缩放位置一并落盘。
@@ -200,7 +186,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
         return chart.kernel.exportLayout()
       },
       createLayout: () => chart.kernel.createLayout(),
-      loadContent: (document) => loadIndicatorDefinitions(collectLayoutIndicatorIds(document)),
+      loadContent: (document) => runtime.definitions.load(collectLayoutIndicatorIds(document)),
       applyLayout: (document) => {
         if (isDisposed()) throw new Error('图表已销毁')
         batch(() => {
@@ -227,7 +213,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       chart.scheduleDraw()
     },
     userIndicatorConfigurations: chart.kernel.indicator.readonly.configurations,
-    loadIndicators: (indicatorIds) => loadIndicatorDefinitions(indicatorIds),
+    loadIndicators: (indicatorIds) => runtime.definitions.load(indicatorIds),
+    definitions: runtime.definitions,
   })
   await templateManager.initialize().catch((error: unknown) => {
     console.error('[ChartController] Indicator template initialization failed', error)
@@ -277,13 +264,12 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     indicators: createChartAgentIndicatorCommands({
       facade: chart.indicators,
       panes: chart.panes,
-      loadIndicators: (indicatorIds) => loadIndicatorDefinitions(indicatorIds),
+      loadIndicators: (indicatorIds) => runtime.definitions.load(indicatorIds),
       resolveCanonicalId: (indicatorId) => {
-        const definition = getRegisteredIndicatorDefinition(indicatorId)
-        return definition ? resolveCanonicalIndicatorId(definition) : null
+        const definition = runtime.definitions.getDefinition(indicatorId)
+        return definition ? runtime.definitions.resolveCanonicalId(definition) : null
       },
-      isRendererAvailable: (indicatorId) =>
-        getRegisteredIndicatorDefinition(indicatorId) !== undefined,
+      isRendererAvailable: (indicatorId) => runtime.definitions.isLoaded(indicatorId),
       readInputDefs: (indicatorId) =>
         indicatorCatalog.peek().find((definition) => definition.id === indicatorId)?.inputs,
       scope: () => ({
@@ -335,39 +321,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   let disposal: Promise<void> | undefined
 
-  // 警报是会话的另一个消费者：计算中枢来自会话，行情自己订阅，不依赖图表品种。
-  const alertFeeds = createAlertFeedSource({
-    hub: calculation.hub,
-    registry: marketContext.registry,
-    stream: marketContext.stream,
-    onError: (symbol, error) => {
-      console.error('[AlertFeed]', symbol.instrument.symbol, error)
-    },
-  })
-  const alertStores = createAlertStores()
-  let alerts: Awaited<ReturnType<typeof createAlertService>>
-  try {
-    alerts = await createAlertService({
-      hub: calculation.hub,
-      ...alertStores,
-      feeds: alertFeeds,
-    })
-  } catch (error) {
-    for (const unsubscribe of layoutSubscriptions) unsubscribe()
-    alertFeeds.dispose()
-    await Promise.allSettled([
-      alertStores.rules.dispose(),
-      alertStores.fires.dispose(),
-      Promise.resolve().then(mounted.cleanup),
-      Promise.resolve().then(() => templateManager.dispose()),
-      Promise.resolve().then(() => layoutManager.dispose()),
-      Promise.resolve().then(() => chart.destroy()),
-    ])
-    calculation.dispose()
-    throw error
-  }
-  const untrackAlerts = trackAlertService(alerts)
-
   function dispose(): Promise<void> {
     if (disposal) return disposal
     disposed = true
@@ -376,15 +329,9 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       const failures: unknown[] = []
       for (const release of [
         mounted.cleanup,
-        () => alerts.dispose(),
-        untrackAlerts,
-        alertStores.rules.dispose,
-        alertStores.fires.dispose,
-        alertFeeds.dispose,
         () => templateManager.dispose(),
         () => layoutManager.dispose(),
         () => chart.destroy(),
-        () => calculation.dispose(),
       ]) {
         try {
           await release()
@@ -398,7 +345,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   }
 
   return {
-    alerts,
     layouts: layoutManager.layouts,
     activeLayoutId: layoutManager.activeLayoutId,
     layoutAutoSave: layoutManager.layoutAutoSave,
@@ -408,7 +354,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     setLayoutAutoSave: (input) => layoutManager.setLayoutAutoSave(input),
     exportLayout: () => layoutManager.exportLayout(),
     applyLayout: (document) => layoutManager.applyLayout(document),
-    loadIndicators: (definitionIds) => loadIndicatorDefinitions(definitionIds),
+    loadIndicators: (definitionIds) => runtime.definitions.load(definitionIds),
     listLayouts: () => layoutManager.listLayouts(),
     saveLayout: (input) => layoutManager.saveLayout(input),
     switchLayout: (input) => layoutManager.switchLayout(input),

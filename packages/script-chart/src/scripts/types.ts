@@ -89,7 +89,11 @@ export interface ScriptPersistence {
 
 /** 内置源码只参与启动注册，不进入用户持久化。 */
 export interface ScriptServiceOptions {
+  /** 共享定义注册表；脚本服务只向它写入，不创建第二份目录。 */
+  readonly definitions: import('@363045841yyt/klinechart-core').DefinitionRegistry
   readonly builtinSources?: readonly string[]
+  /** Worker 池工厂；浏览器默认使用 Web Worker，Node 可注入 worker_threads 实现。 */
+  readonly createWorkerPool?: import('@363045841yyt/klinechart-script/worker').ScriptWorkerPoolFactory
   readonly persistence?: ScriptPersistence
   /** 定义是否仍被宿主引用（例如警报规则）；为 true 时拒绝删除。 */
   readonly isDefinitionReferenced?: (definitionId: string) => boolean | Promise<boolean>

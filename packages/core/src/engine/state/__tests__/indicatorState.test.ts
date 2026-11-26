@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { INDICATOR_ROLE } from '../indicatorRole.js'
+import { createTestDefinitions } from '@/engine/indicators/__tests__/helpers/definitionsTestKit.js'
 import { createIndicatorState } from '../indicatorState.js'
 
 /** 建一个含两个 pane 的实例集合：main 三个、rsi 一个。 */
 function createStateWithInstances() {
-  const state = createIndicatorState()
+  const state = createIndicatorState(createTestDefinitions())
   const add = (instanceId: string, paneId: string) =>
     state.actions.addInstance({
       instanceId,

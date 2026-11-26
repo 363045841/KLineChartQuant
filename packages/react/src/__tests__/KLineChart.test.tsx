@@ -8,8 +8,10 @@ import type {
 } from '@363045841yyt/klinechart-core'
 import { act, render, waitFor } from '@testing-library/react'
 import { Component, createElement, createRef, type ReactNode, StrictMode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { createDefinitionRegistry, createMarketRuntime } from '@363045841yyt/klinechart-core'
+import { createMarketDataHost } from '@363045841yyt/klinechart-core/market-data'
 import { KLineChart, type KLineChartHandle, useCoreSignal } from '../index'
 
 type WritableSignal<T> = ReadonlySignal<T> & { set: (next: T) => void }
@@ -82,7 +84,17 @@ const selection = (symbol: string): SymbolSpec => ({
 })
 
 describe('KLineChart', () => {
+  let runtime: ReturnType<typeof createMarketRuntime>
+
+  beforeEach(() => {
+    runtime = createMarketRuntime({
+      market: createMarketDataHost(),
+      definitions: createDefinitionRegistry(),
+    })
+  })
+
   afterEach(() => {
+    runtime.dispose()
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
   })
@@ -93,7 +105,7 @@ describe('KLineChart', () => {
     const ref = createRef<KLineChartHandle>()
     const symbols = [selection('A')]
     const { container, unmount } = render(
-      createElement(KLineChart, { factory, symbols, zoomLevels: 8, onReady, ref }),
+      createElement(KLineChart, { runtime, factory, symbols, zoomLevels: 8, onReady, ref }),
     )
 
     await waitFor(() => expect(factory).toHaveBeenCalledOnce())
@@ -116,7 +128,7 @@ describe('KLineChart', () => {
   it('disposes a controller that resolves after unmount', async () => {
     const { factory, fakes, resolveAll } = deferredFactory()
     const onReady = vi.fn()
-    const { unmount } = render(createElement(KLineChart, { factory, onReady }))
+    const { unmount } = render(createElement(KLineChart, { runtime, factory, onReady }))
     await waitFor(() => expect(factory).toHaveBeenCalledOnce())
 
     unmount()
@@ -127,7 +139,7 @@ describe('KLineChart', () => {
 
   it('keeps exactly one live controller under StrictMode double mount', async () => {
     const { factory, fakes, resolveAll } = deferredFactory()
-    render(createElement(StrictMode, null, createElement(KLineChart, { factory })))
+    render(createElement(StrictMode, null, createElement(KLineChart, { runtime, factory })))
     await waitFor(() => expect(factory).toHaveBeenCalledTimes(2))
     await resolveAll()
 
@@ -138,24 +150,24 @@ describe('KLineChart', () => {
   it('syncs selection, theme and settings changes after mount', async () => {
     const { factory, fakes, resolveAll } = deferredFactory()
     const first = [selection('A')]
-    const { rerender } = render(createElement(KLineChart, { factory, symbols: first }))
+    const { rerender } = render(createElement(KLineChart, { runtime, factory, symbols: first }))
     await waitFor(() => expect(factory).toHaveBeenCalledOnce())
     await resolveAll()
     const fake = fakes[0]
 
-    rerender(createElement(KLineChart, { factory, symbols: first }))
+    rerender(createElement(KLineChart, { runtime, factory, symbols: first }))
     expect(fake?.controller.setPrimaryMarket).not.toHaveBeenCalled()
 
     const second = [selection('B')]
-    rerender(createElement(KLineChart, { factory, symbols: second }))
+    rerender(createElement(KLineChart, { runtime, factory, symbols: second }))
     expect(fake?.controller.setPrimaryMarket).toHaveBeenCalledWith(second[0])
 
-    rerender(createElement(KLineChart, { factory, symbols: second, settings: { theme: 'dark' } }))
+    rerender(createElement(KLineChart, { runtime, factory, symbols: second, settings: { theme: 'dark' } }))
     expect(fake?.controller.updateSettingsFacade).toHaveBeenCalledOnce()
     expect(fake?.controller.setTheme).toHaveBeenLastCalledWith('dark')
 
     rerender(
-      createElement(KLineChart, {
+      createElement(KLineChart, { runtime,
         factory,
         symbols: second,
         settings: { theme: 'dark' },
@@ -171,7 +183,7 @@ describe('KLineChart', () => {
       vi.fn(() => ({ matches: true })),
     )
     const { factory, fakes, resolveAll } = deferredFactory()
-    render(createElement(KLineChart, { factory, settings: { theme: 'auto' } }))
+    render(createElement(KLineChart, { runtime, factory, settings: { theme: 'auto' } }))
     await waitFor(() => expect(factory).toHaveBeenCalledOnce())
     await resolveAll()
 
@@ -181,7 +193,7 @@ describe('KLineChart', () => {
 
   it('binds pointer and wheel input to the container and releases it on unmount', async () => {
     const { factory, fakes, resolveAll } = deferredFactory()
-    const { container, unmount } = render(createElement(KLineChart, { factory }))
+    const { container, unmount } = render(createElement(KLineChart, { runtime, factory }))
     await waitFor(() => expect(factory).toHaveBeenCalledOnce())
     await resolveAll()
     const host = container.firstElementChild as HTMLElement
@@ -206,7 +218,7 @@ describe('KLineChart', () => {
     const intercept = { onPointerDown: () => true }
     const hooked = deferredFactory()
     const first = render(
-      createElement(KLineChart, { factory: hooked.factory, input: { intercept } }),
+      createElement(KLineChart, { runtime, factory: hooked.factory, input: { intercept } }),
     )
     await waitFor(() => expect(hooked.factory).toHaveBeenCalledOnce())
     await hooked.resolveAll()
@@ -216,7 +228,7 @@ describe('KLineChart', () => {
     expect(hooked.fakes[0]?.controller.handlePointerEvent.mock.calls[0]?.[1]).toBe(intercept)
 
     const manual = deferredFactory()
-    const second = render(createElement(KLineChart, { factory: manual.factory, input: false }))
+    const second = render(createElement(KLineChart, { runtime, factory: manual.factory, input: false }))
     await waitFor(() => expect(manual.factory).toHaveBeenCalledOnce())
     await manual.resolveAll()
     second.container.firstElementChild?.dispatchEvent(
@@ -244,7 +256,7 @@ describe('KLineChart', () => {
       }
     }
 
-    render(createElement(Boundary, null, createElement(KLineChart, { factory })))
+    render(createElement(Boundary, null, createElement(KLineChart, { runtime, factory })))
     await waitFor(() => expect(caught).toHaveBeenCalledWith(failure))
   })
 })

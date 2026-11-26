@@ -1,8 +1,10 @@
 /** 品种选择器：chip 与 field 共用同一选择会话，只是触发器外观不同。 */
 import type { InstrumentDescriptor } from '@363045841yyt/klinechart-core/market-data'
+import { createMarketDataHost } from '@363045841yyt/klinechart-core/market-data'
 import SymbolSelector from '@vue-src/components/symbol/SymbolSelector.vue'
+import { MARKET_DATA_CONTEXT_KEY } from '@vue-src/composables/market/useMarketDataContext.js'
 import { mount } from '@vue/test-utils'
-import { expect, it } from 'vitest'
+import { expect, it, onTestFinished } from 'vitest'
 
 const BTC: InstrumentDescriptor = {
   id: 'btc',
@@ -45,6 +47,8 @@ function mountSelector(
     loading?: boolean
   } = {},
 ) {
+  const market = createMarketDataHost()
+  onTestFinished(() => market.dispose())
   return mount(SymbolSelector, {
     props: {
       symbol: options.symbol ?? BTC.symbol,
@@ -54,6 +58,7 @@ function mountSelector(
       loading: options.loading ?? false,
     },
     global: {
+      provide: { [MARKET_DATA_CONTEXT_KEY]: market },
       stubs: { BaseTooltip: BaseTooltipStub, SymbolSearchDialog: SymbolSearchDialogStub },
     },
   })

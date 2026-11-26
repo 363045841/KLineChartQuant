@@ -2,6 +2,7 @@
  * 警报文档编解码。
  *
  * 只接受当前版本；结构不完整直接抛错，避免把损坏数据当成空文档。
+ * 旧版本从未发布，因此不存在任何迁移分支。
  */
 import type { Alert, AlertFire } from '../types.js'
 import type { CalculationInputs, CalculationInputValue } from '../../../engine/calculation/index.js'
@@ -64,7 +65,7 @@ export function decodeRules(value: unknown): AlertRulesDocument {
     throw new TypeError(`Unsupported alert rules version: ${String(root.version)}`)
   const alerts = asArray(root.alerts, 'Alert rules').map((item) => {
     const rule = asRecord(item, 'Alert')
-    const script = asRecord(rule.script ?? rule.condition, 'Alert script')
+    const script = asRecord(rule.script, 'Alert script')
     const channels = asArray(rule.channels, 'Alert channels')
     if (!isSymbolSpec(rule.symbol) || typeof rule.enabled !== 'boolean' || !isInputs(script.inputs) ||
         channels.length === 0 || !channels.every((channel) => channel === 'in-app' || channel === 'sound')) {

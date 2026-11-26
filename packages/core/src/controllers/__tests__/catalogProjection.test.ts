@@ -1,11 +1,11 @@
-import { afterEach, expect, it } from 'vitest'
-import { clearIndicatorStoreForTest, registerIndicators } from '../../engine/indicators/pipeline/index.js'
-import { alertCatalog, findIndicatorDefinition, indicatorCatalog } from '../index.js'
-
-afterEach(clearIndicatorStoreForTest)
+/** 目录投影：指标与警报各有一份独立的选择器目录。 */
+import { expect, it } from 'vitest'
+import { createTestDefinitions } from '@/engine/indicators/__tests__/helpers/definitionsTestKit.js'
+import { createAlertCatalog, createIndicatorCatalog, findIndicatorDefinition } from '../index.js'
 
 it('projects alerts and indicators into their own selection catalogs', () => {
-  registerIndicators([
+  const definitions = createTestDefinitions()
+  definitions.register([
     {
       kind: 'descriptor',
       candidate: { key: 'MA', origin: 'third-party', identity: 'native' },
@@ -20,9 +20,9 @@ it('projects alerts and indicators into their own selection catalogs', () => {
       },
     },
   ])
-  expect(indicatorCatalog().map((item) => item.label)).toEqual(['MA'])
-  expect(findIndicatorDefinition('PriceCross')).toBeUndefined()
-  expect(alertCatalog()).toEqual([{
+  expect(createIndicatorCatalog(definitions)().map((item) => item.label)).toEqual(['MA'])
+  expect(findIndicatorDefinition(definitions, 'PriceCross')).toBeUndefined()
+  expect(createAlertCatalog(definitions)()).toEqual([{
     id: 'PriceCross', label: 'PriceCross', name: 'PriceCross',
     inputs: [{ key: 'price', label: 'price', type: 'number', default: 100 }],
   }])

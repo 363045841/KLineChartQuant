@@ -167,11 +167,11 @@
             </div>
           </div>
 
-          <BaseEmptyState v-if="filteredIndicators.length === 0" class="modal-list-item" role="status">
-            <template v-if="isSearchEmpty" #icon><IconTablerSearch /></template>
-            {{ emptyTitle }}
-            <template v-if="isSearchEmpty" #hint>请尝试其他关键词</template>
-          </BaseEmptyState>
+          <ModalListEmptyState
+            v-if="filteredIndicators.length === 0"
+            :title="emptyTitle"
+            :search-empty="isSearchEmpty"
+          />
         </ModalScrollArea>
       </div>
     </BaseModal>
@@ -179,7 +179,6 @@
     <ParamsDialog
       v-if="currentIndicator"
       :visible="paramsVisible"
-      :definition-id="currentIndicator.id"
       :definition-name="currentIndicatorName"
       :description="currentIndicator.description"
       :params="currentIndicator.inputs || []"
@@ -220,10 +219,10 @@
   import {
     type ChartController,
     createIndicatorSelectorController,
-    findIndicatorDefinition,
+    createIndicatorCatalog,
+    findIndicatorDefinition as findFromRegistry,
     INDICATOR_ROLE,
     type IndicatorRole,
-    indicatorCatalog,
     type LegendEntry,
   } from '@363045841yyt/klinechart-core/controllers'
   import type { TimeframeVisibility } from '@363045841yyt/klinechart-plot-contracts'
@@ -231,9 +230,9 @@
   import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
   import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
+  import ModalListEmptyState from '@vue-src/components/common/dialog/ModalListEmptyState.vue'
   import ModalScrollArea from '@vue-src/components/common/dialog/ModalScrollArea.vue'
   import ModalSearchBar from '@vue-src/components/common/dialog/ModalSearchBar.vue'
-  import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
   import FormRow from '@vue-src/components/common/form/FormRow.vue'
   import DropMenu from '@vue-src/components/common/menu/DropMenu.vue'
   import BasePopover from '@vue-src/components/common/overlay/BasePopover.vue'
@@ -260,13 +259,14 @@
   import IconTablerCode from '~icons/tabler/code'
   import IconTablerInfoCircle from '~icons/tabler/info-circle'
   import IconTablerMathFunction from '~icons/tabler/math-function'
-  import IconTablerSearch from '~icons/tabler/search'
   import IconTablerSettings from '~icons/tabler/settings'
   import IconTablerStar from '~icons/tabler/star'
   import IconTablerStarFilled from '~icons/tabler/star-filled'
   import IconTablerTrash from '~icons/tabler/trash'
 
   const props = defineProps<{
+    /** 共享运行时定义注册表；目录由它投影。 */
+    definitions: import('@363045841yyt/klinechart-core').DefinitionRegistry
     chartController?: ChartController | null
     scriptsEnabled?: boolean
     activeIndicators?: string[]
@@ -287,7 +287,9 @@
   }>()
 
   // 目录是 Core 注册表投影，选择器打开即已是最新，不再复制列表。
-  const controller = createIndicatorSelectorController({ catalog: indicatorCatalog })
+  const catalog = createIndicatorCatalog(props.definitions)
+  const controller = createIndicatorSelectorController({ catalog })
+  const findIndicatorDefinition = (id: string) => findFromRegistry(props.definitions, id)
   const { removing, removalError, canRemove, removeScript } = useScriptRemoval(
     inject(SCRIPT_SOURCE_STORE_KEY, undefined),
   )

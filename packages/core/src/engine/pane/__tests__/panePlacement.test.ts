@@ -1,5 +1,6 @@
 /** 新窗口迁移的异常原子性：真实布局命令回收临时容器并保留原始错误。 */
 import { describe, expect, it } from 'vitest'
+import { createTestDefinitions } from '@/engine/indicators/__tests__/helpers/definitionsTestKit.js'
 import { createIndicatorState } from '@/engine/state/indicatorState.js'
 import { createPaneState } from '@/engine/state/paneState.js'
 import { PaneManager } from '../impl/paneManager.js'
@@ -11,7 +12,7 @@ describe('新窗口迁移事务', () => {
     pane.actions.commitLayout([{ id: 'pane-7', ratio: 1 }])
     const manager = new PaneManager({
       pane,
-      indicator: createIndicatorState(),
+      indicator: createIndicatorState(createTestDefinitions()),
       getDefinition: () => undefined,
       hasPaneContent: () => false,
     })

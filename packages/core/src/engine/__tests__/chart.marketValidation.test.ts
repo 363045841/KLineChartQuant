@@ -1,6 +1,6 @@
 /** 使用真实 Chart 验证主品种整体替换的市场会话与写入前校验。 */
 // @vitest-environment jsdom
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   FIVE_DAY_TIME_SHARE_PERIOD,
   type SymbolSpec,
@@ -9,7 +9,6 @@ import {
 import { HK_MARKET_SESSION } from '../../foundation/utils/sessionTimeLabels'
 import { Chart, type ChartOptions } from '../chart/index'
 import { ChartDataViewId } from '../chartModel/index'
-import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
 import { MAIN_PANE_ID } from '../pane/types'
 import { createChartDom, installChartDomStubs } from './helpers/chartDomTestKit'
 import { createTestChartRuntime } from './helpers/chartLifecycleTestKit'
@@ -51,7 +50,6 @@ describe('Chart market validation boundaries', () => {
   let chart: Chart
   let restoreDom: () => void
 
-  beforeAll(loadBuiltinIndicators)
   beforeEach(() => {
     restoreDom = installChartDomStubs()
     chart = new Chart(createChartDom(1000, 600), options, createTestChartRuntime())

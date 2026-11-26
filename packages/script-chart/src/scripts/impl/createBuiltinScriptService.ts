@@ -5,7 +5,7 @@ import { createScriptService } from './createScriptService.js'
 
 /** 内置源码默认信任并随包发布，宿主只负责挂载与释放服务。 */
 export function createBuiltinScriptService(
-  options: ScriptServiceOptions = {},
+  options: ScriptServiceOptions,
 ): Promise<ScriptService> {
   return createScriptService([], { ...options, builtinSources: builtinScriptSources })
 }

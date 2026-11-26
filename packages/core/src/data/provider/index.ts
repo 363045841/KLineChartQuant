@@ -7,7 +7,7 @@ export type {
   MarketProviderHealth,
   MarketRegistryState,
 } from '../management/index.js'
-export { defaultMarketDataContext, MarketDataContext } from '../management/index.js'
+export { MarketDataContext } from '../management/index.js'
 export type {
   StreamBar,
   StreamChannel,
@@ -33,7 +33,7 @@ export type {
   InstrumentSearchResult,
 } from './impl/instrumentSearch.js'
 export { lookupInstrumentsBySymbol, searchInstruments } from './impl/instrumentSearch.js'
-export { MarketDataProviderRegistry, marketDataProviderRegistry } from './impl/registry.js'
+export { MarketDataProviderRegistry } from './impl/registry.js'
 export { SourceRouter, SourceRoutingError } from './impl/router.js'
 export type { DataSourceRegistration } from './impl/sourceRegistry.js'
 export { dataSourceRegistry } from './impl/sourceRegistry.js'

@@ -5,6 +5,7 @@ import type {
   PaneSpec,
 } from '@363045841yyt/klinechart-core/controllers'
 import { createSignal } from '@363045841yyt/klinechart-core/reactivity'
+import { createDefinitionRegistry } from '@363045841yyt/klinechart-core'
 import { describe, expect, it, vi } from 'vitest'
 import { effectScope, shallowRef } from 'vue'
 import { createMockChartController } from '../../../__tests__/_mockController.js'
@@ -55,7 +56,7 @@ function createManager() {
     reorderPanes: vi.fn(() => true),
   }
   const scope = effectScope()
-  const manager = scope.run(() => useIndicatorManager(shallowRef(controller)))!
+  const manager = scope.run(() => useIndicatorManager(shallowRef(controller), createDefinitionRegistry()))!
   return { controller, manager, instances, stop: () => scope.stop() }
 }
 

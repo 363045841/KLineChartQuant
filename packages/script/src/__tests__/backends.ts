@@ -53,4 +53,3 @@ export const BACKENDS = [
   { name: 'native', prepare: prepareNative },
   { name: 'quickjs', prepare: prepareQuickJS },
 ]
-

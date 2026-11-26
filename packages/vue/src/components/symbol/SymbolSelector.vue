@@ -205,12 +205,9 @@
 
   const displayText = computed(() => {
     const cur = currentSymbol.value
-    if (cur) {
-      const legacy = cur as SymbolItem & { description?: string }
-      const name = cur.name ?? legacy.description ?? cur.symbol
-      return cur.symbol === name ? cur.symbol : `${cur.symbol} - ${name}`
-    }
-    return props.symbol
+    if (!cur) return props.symbol
+    const name = cur.name || cur.symbol
+    return cur.symbol === name ? cur.symbol : `${cur.symbol} - ${name}`
   })
 
   const errorTagText = computed(() => props.errorMessage?.trim() || '加载失败')
@@ -232,7 +229,6 @@
     },
   )
 </script>
-
 
 <style scoped>
   .symbol-selector {

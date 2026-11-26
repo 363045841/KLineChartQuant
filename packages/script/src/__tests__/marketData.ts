@@ -134,5 +134,3 @@ function scalarPlot(plot: Plot): ScalarPlot {
   return plot
 }
 
-
-

@@ -1,29 +1,14 @@
 /**
- * 内置行情源注册入口。
+ * 内置行情源入口。
  *
- * HTTP 源清单只维护在 builtinProviders.ts；本文件把它们装进默认宿主，再按公开注册 API
- * 注册 mock。安装顺序即注册顺序，也是同优先级源在 auto 路由中的尝试顺序。
+ * 只导出工厂与安装函数；不创建全局注册表，也不在 import 时注册任何源。
  */
-import { DataSource } from '@363045841yyt/klinechart-plot-contracts'
-import { defaultMarketDataContext } from '../../../management/impl/context.js'
-import { marketDataProviderRegistry } from '../registry.js'
-import { installBuiltinProviders } from './builtinProviders.js'
-import { createMockDataSource } from './mock.js'
-
-installBuiltinProviders(marketDataProviderRegistry)
-defaultMarketDataContext.registerDataSource(createMockDataSource())
-
-/** 默认宿主中的内置源实例；类型统一为 Provider 契约。 */
-export const gotdxMarketDataProvider = marketDataProviderRegistry.getRequired(DataSource.gotdx)
-export const baostockMarketDataProvider = marketDataProviderRegistry.getRequired(
-  DataSource.baoStock,
-)
-export const tradingviewMarketDataProvider = marketDataProviderRegistry.getRequired(
-  DataSource.tradingView,
-)
-export const mt5MarketDataProvider = marketDataProviderRegistry.getRequired(DataSource.mt5)
-export const thsMarketDataProvider = marketDataProviderRegistry.getRequired(DataSource.ths)
-export const binanceMarketDataProvider = marketDataProviderRegistry.getRequired(DataSource.binance)
-
+export { BUILTIN_PROVIDER_FACTORIES, installBuiltinProviders } from './builtinProviders.js'
 export { createBuiltinMarketDataContext } from './createBuiltinContext.js'
+export { createBaostockMarketDataProvider } from './baostock.js'
+export { createBinanceMarketDataProvider } from './binance.js'
+export { createGotdxMarketDataProvider } from './gotdx.js'
 export { createMockDataSource } from './mock.js'
+export { createMt5MarketDataProvider } from './mt5.js'
+export { createThsMarketDataProvider } from './ths.js'
+export { createTradingviewMarketDataProvider } from './tradingview.js'

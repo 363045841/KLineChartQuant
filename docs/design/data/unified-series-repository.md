@@ -147,7 +147,7 @@ Provider 选择仍由 `SourceRouter` 负责。Repository 只按最终 source 身
 
 宿主行情通过 Provider 注册，主图、比较序列、脚本与 Agent 统一访问相同的 Repository，不再提供旁路数组注入入口。
 
-custom source 绑定 Chart 实例，不注册到全局 `marketDataProviderRegistry`，避免不同图表之间的数据冲突和生命周期泄漏。独立的 custom mode、`preCustomSpec` 与专用恢复路径已删除。
+custom source 绑定 Chart 实例，不注册到宿主级 `MarketDataProviderRegistry`，避免不同图表之间的数据冲突和生命周期泄漏。独立的 custom mode、`preCustomSpec` 与专用恢复路径已删除。
 
 ## Repository 职责
 

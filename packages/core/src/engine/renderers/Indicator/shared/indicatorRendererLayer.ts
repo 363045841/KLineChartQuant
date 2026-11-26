@@ -1,11 +1,10 @@
 /**
  * 指标渲染器 Layer 接缝。
  *
- * 指标工厂只声明身份（definitionId / paneId / instanceId / axisId）与绘制闭包；
+ * 指标工厂只声明身份（layerId / paneId / axisId）与绘制闭包；
  * `Layer` 的通用样板集中在此，避免每个指标渲染器重复实现。
  */
 
-import { resolveIndicatorLayerId } from '@/engine/indicators/indicatorLayerNaming.js'
 import { bindRenderAxis } from '@/foundation/geometry/axisBinding.js'
 import type {
   PrimitiveRenderContext,
@@ -17,10 +16,10 @@ import type { DrawListLayer, Layer, LayerRole } from '@/rendering/scene/types.js
 
 /** 两种 Layer 共用的身份声明。 */
 type IndicatorRendererLayerIdentity = {
+  /** 框架分配的稳定 Layer ID。 */
+  layerId: string
   /** 绘制目标 pane，具体 paneId。 */
   paneId: string
-  /** 实例身份；图层命名与多实例唯一性都依赖它。 */
-  instanceId?: string
   /** 框架派生的轴身份；绘制时把 pane.yAxis 绑定到该轴。 */
   axisId: string
   /** 叠放优先级，取 RENDERER_PRIORITY.*。 */
@@ -29,7 +28,7 @@ type IndicatorRendererLayerIdentity = {
   role?: LayerRole
   /** 卸载清理；缺省无操作。 */
   dispose?: () => void
-} & ({ definitionId: string; part?: 'renderer' } | { layerId: string })
+}
 
 /** 纯增量图层：只能提交原语，可与相邻同类图层合并成一次合成。 */
 export type IndicatorDrawListLayerSpec = IndicatorRendererLayerIdentity & {
@@ -57,10 +56,7 @@ export function bindIndicatorAxis<T extends RenderGeometryContext>(context: T, a
 /** 身份与生命周期字段，两种 Layer 共用。 */
 function base(spec: IndicatorRendererLayerSpec): Layer<RenderContext> {
   const identity = {
-    id:
-      'definitionId' in spec
-        ? resolveIndicatorLayerId(spec.definitionId, spec.paneId, spec.part, spec.instanceId)
-        : spec.layerId,
+    id: spec.layerId,
     role: spec.role ?? 'content',
     pane: spec.paneId,
     z: spec.z,

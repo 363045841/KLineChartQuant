@@ -1,34 +1,35 @@
 /** 警报面板：全量分组、折叠与参数命令。 */
-import { alertCatalog } from '@363045841yyt/klinechart-core'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { createAlertCatalog } from '@363045841yyt/klinechart-core/controllers'
+import { describe, expect, it } from 'vitest'
 import {
   projectAlertRule,
   useAlertPanel,
 } from '@vue-src/composables/alerts/useAlertPanel.js'
 import {
-  createAlertBackend,
+  createAlertTestContext,
   CURRENT,
   draft,
   ETH,
-  registerScript,
   settle,
 } from './helpers/alertTestKit.js'
 import { effectScope } from 'vue'
 
-beforeAll(registerScript)
-
 async function setup() {
-  const backend = await createAlertBackend()
+  const context = createAlertTestContext()
+  context.registerScript()
+  const backend = await context.createBackend()
   const scope = effectScope()
   const panel = scope.run(() =>
     useAlertPanel({
       alerts: () => backend.service,
+      definitions: context.definitions,
     }),
   )
   if (!panel) throw new Error('Alert panel scope did not run')
   return {
     service: backend.service,
     panel,
+    definitions: context.definitions,
     async dispose() {
       scope.stop()
       await backend.dispose()
@@ -114,11 +115,11 @@ describe('useAlertPanel', () => {
     { name: 'no-params', mode: 'no-params', state: 'no-params', hint: '该脚本没有参数' },
     { name: 'no-script', mode: 'no-script', state: 'no-script', hint: '脚本不可用' },
   ] as const)('projects the $name params entry', async ({ mode, state, hint }) => {
-    const { service, dispose } = await setup()
+    const { service, definitions, dispose } = await setup()
     try {
       const rule = service.create(draft(CURRENT))
       await settle()
-      const script = alertCatalog().find((item) => item.id === 'PriceCross')
+      const script = createAlertCatalog(definitions)().find((item) => item.id === 'PriceCross')
       if (mode !== 'no-script' && !script) throw new Error('Missing test script')
       const scripts =
         mode === 'no-script' || !script

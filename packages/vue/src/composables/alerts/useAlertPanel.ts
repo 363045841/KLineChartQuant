@@ -7,8 +7,9 @@ import type { InstrumentDescriptor } from '@363045841yyt/klinechart-core/market-
 import {
   type Alert,
   type AlertScriptDefinition,
-  alertCatalog,
+  createAlertCatalog,
   type AlertService,
+  type DefinitionRegistry,
 } from '@363045841yyt/klinechart-core/controllers'
 import type { ParamValues } from '@vue-src/components/params/types.js'
 import { symbolIdentityKey } from '@vue-src/composables/symbol/useSymbolSearch.js'
@@ -17,6 +18,7 @@ import { computed, ref } from 'vue'
 
 export interface AlertPanelOptions {
   readonly alerts: () => AlertService | null
+  readonly definitions: DefinitionRegistry
 }
 
 /** 参数入口的三种状态：可编辑、脚本无参数、脚本定义缺失。 */
@@ -32,7 +34,7 @@ export interface AlertRuleRow {
 }
 
 /** 一个品种分组；组内规则保持稳定排序。 */
-export interface AlertGroup {
+interface AlertGroup {
   readonly key: string
   readonly label: string
   readonly instrument: InstrumentDescriptor
@@ -94,7 +96,7 @@ export function projectAlertRule(
  * @returns 分组投影、折叠状态与规则命令
  */
 export function useAlertPanel(options: AlertPanelOptions) {
-  const scripts = coreSignalToVueRef(alertCatalog)
+  const scripts = coreSignalToVueRef(createAlertCatalog(options.definitions))
   const rules = useSignalSource(
     () => options.alerts()?.alerts,
     (value) => value,

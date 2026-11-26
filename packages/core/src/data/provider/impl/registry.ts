@@ -266,6 +266,3 @@ export class MarketDataProviderRegistry {
     this.stateSignal.set(EMPTY_STATE)
   }
 }
-
-/** 未显式注入管理实例时使用的兼容注册表。 */
-export const marketDataProviderRegistry = new MarketDataProviderRegistry()

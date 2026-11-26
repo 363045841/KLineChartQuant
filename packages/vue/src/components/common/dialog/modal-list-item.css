@@ -57,8 +57,9 @@
   justify-content: flex-start;
   gap: var(--klc-space-4, 4px);
   min-width: 0;
-  font-size: 12px;
-  color: var(--klc-color-foreground);
+  font-size: var(--klc-text-12-font-size);
+  line-height: var(--klc-text-12-line-height);
+  color: var(--klc-color-ui-text);
 }
 
 /* 可截断的文本层：省略号只作用于文本，说明图标始终完整可见。 */

@@ -3,7 +3,7 @@
  *
  * 任何一步失败都不会替换已提交版本，也不会改变内存中的库快照。
  */
-import type { RegistrableIndicator } from '@363045841yyt/klinechart-core'
+import type { DefinitionRegistry, RegistrableIndicator } from '@363045841yyt/klinechart-core'
 import { resolveScriptLibraries } from '@363045841yyt/klinechart-script'
 import type { ScriptDocument } from '../types.js'
 import { validateLibrary } from './libraryValidation.js'
@@ -18,6 +18,7 @@ interface SaveScriptLibraryRequest {
   readonly previous?: ScriptDocument
   readonly store: ScriptDocumentStore
   readonly executor: ScriptExecutor
+  readonly definitions: DefinitionRegistry
   persist(documents: readonly ScriptDocument[]): Promise<void>
 }
 
@@ -31,7 +32,7 @@ interface AffectedScript {
 export async function saveScriptLibrary(
   request: SaveScriptLibraryRequest,
 ): Promise<ScriptDocument> {
-  const { document, previous, store, executor, persist } = request
+  const { document, previous, store, executor, persist, definitions } = request
   const documents = [...store.list().filter((item) => item.id !== document.id), document]
   if (
     documents.some(
@@ -86,7 +87,7 @@ export async function saveScriptLibrary(
         definition,
       })
     }
-    commitIndicators(registrable)
+    commitIndicators(definitions, registrable)
     return document
   } finally {
     // 已提交的句柄由执行器持有；只有编译后未注册的句柄需要归还。

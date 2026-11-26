@@ -39,10 +39,7 @@ import { isTimeSharePeriod, type SymbolInfo, type SymbolSpec } from '../../../co
 import type { MarketDataCache } from '../../../data/buffer/impl/marketDataCache.js'
 import { resolveMarketDataCacheMaxBytes } from '../../../data/buffer/impl/marketDataPolicy.js'
 import type { CoverageResult } from '../../../data/buffer/types.js'
-import {
-  defaultMarketDataContext,
-  type MarketDataContext,
-} from '../../../data/management/impl/context.js'
+import { type MarketDataContext } from '../../../data/management/impl/context.js'
 import { lookupInstrumentsBySymbol } from '../../../data/provider/impl/instrumentSearch.js'
 import type { MarketDataProviderRegistry } from '../../../data/provider/impl/registry.js'
 import {
@@ -61,6 +58,7 @@ import { MarketSessionRegistry } from '../../../foundation/config/marketSession/
 import { resolveSymbolMarketSession } from '../../../foundation/config/marketSession/resolveSymbolMarketSession.js'
 import type { PriceAxisRangeMode } from '../../../foundation/config/priceAxisRangeMode.js'
 import { availablePriceRangeModes } from '../../../foundation/config/priceAxisRangeMode.js'
+import type { DefinitionRegistry } from '../../indicators/registry/index.js'
 import type { RenderContext } from '../../../foundation/plugin/index.js'
 import {
   createPluginHost,
@@ -116,7 +114,6 @@ import {
 } from '../../drawing/index.js'
 import { ChartRenderer } from '../../frame/index.js'
 import { ChartIndicatorManager } from '../../indicators/chartIndicatorManager.js'
-import { getRegisteredIndicatorDefinition } from '../../indicators/pipeline/index.js'
 import { toPlotBar } from '../../indicators/plotBars.js'
 import type { LayoutViewportSnapshot } from '../../layout/index.js'
 import { LegendManager } from '../../legend/impl/LegendManager.js'
@@ -190,13 +187,15 @@ interface ChartRuntime {
   readonly calculationHub: CalculationHub
   /** 会话级市场时段表；图表与计算行情共用同一份。 */
   readonly marketSessionRegistry: MarketSessionRegistry
-  marketDataContext?: MarketDataContext
+  /** 指标与警报定义注册表；图表只读取已提交定义。 */
+  readonly definitions: DefinitionRegistry
+  readonly marketDataContext: MarketDataContext
   /** 帧时间源，测试或宿主可注入 Unix 毫秒时钟。 */
   clock?: import('../../../foundation/utils/clock.js').Clock
 }
 
-function resolveMarketDataContext(runtime: ChartRuntime | undefined): MarketDataContext {
-  return runtime?.marketDataContext ?? defaultMarketDataContext
+function resolveMarketDataContext(runtime: ChartRuntime): MarketDataContext {
+  return runtime.marketDataContext
 }
 
 function resolveRendererHost(runtime: ChartRuntime | undefined): RendererHost {
@@ -331,6 +330,7 @@ export class Chart {
   private _timeShareMode = new TimeShareMode()
   private readonly marketSessions: MarketSessionRegistry
   private readonly marketDataProviderRegistry: MarketDataProviderRegistry
+  private readonly definitions: DefinitionRegistry
 
   /** 右轴 host 当前生效的 CSS 宽度；提交后锁定，布局变化时才重新评估。 */
   private readonly _effectiveRightAxisWidth = createSignal(0)
@@ -345,6 +345,7 @@ export class Chart {
    */
   constructor(dom: ChartDom, opt: ChartOptions, runtime: ChartRuntime) {
     this.dom = dom
+    this.definitions = runtime.definitions
     this.marketDataProviderRegistry = resolveMarketDataContext(runtime).registry
     this.legendDom = createLegendDomRenderer(
       dom.canvasLayer,
@@ -370,6 +371,7 @@ export class Chart {
       initialSettings: runtime?.initialSettings,
       initialRendererRuntime: this.rendererHost.runtime,
       marketSessions: this.marketSessions,
+      definitions: this.definitions,
       scheduleDraw: (level) => this.scheduleDraw(level as UpdateLevel | undefined),
     })
     this.rendererHost.setListeners({
@@ -723,6 +725,7 @@ export class Chart {
       getActivePaneId: () => this.interaction.activePaneId,
       scheduleDraw: (level) => this.scheduleDraw(level),
       indicator: this.kernel.indicator,
+      definitions: this.definitions,
       removeInstancesByDefinition: (definitionId) =>
         this.indicators.removeByDefinition(definitionId),
     })
@@ -779,12 +782,13 @@ export class Chart {
       panes: this.panes,
       indicators: this.indicators,
       comparisons: this.comparisonCommands,
+      definitions: this.definitions,
       getOptions: () => this.getOption(),
       hasPrimarySymbol: () => this.dataManager.symbols.peek().length > 0,
       getPricePaneId: () => this.kernel.systemObjects.readonly.pricePaneId.peek(),
       // 仅脚本指标提供代码编辑入口，普通指标不展示该按钮。
       isScriptIndicator: (definitionId) =>
-        !!getRegisteredIndicatorDefinition(definitionId)?.document,
+        !!this.definitions.getDefinition(definitionId)?.document,
       requestRender: () => this.scheduleDraw(),
     })
     this.objects = createObjectTree({
@@ -1006,7 +1010,7 @@ export class Chart {
     const indicatorAxes = [...this.kernel.indicator.readonly.instances()]
       .sort((left, right) => left.ordinal - right.ordinal)
       .map((instance) => {
-        const definition = getRegisteredIndicatorDefinition(instance.indicatorId)
+        const definition = this.definitions.getDefinition(instance.indicatorId)
         const groupKey =
           definition?.category === 'main'
             ? AXIS_GROUP_PRICE

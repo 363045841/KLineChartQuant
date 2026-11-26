@@ -9,7 +9,7 @@ import {
   SERIES_SELECTION_KIND,
 } from '@/data/buffer/impl/seriesRepository.js'
 import type { StreamEvent, StreamFrame, StreamHub } from '@/data/stream/types.js'
-import { marketDataProviderRegistry } from '@/data/provider/impl/registry.js'
+import { MarketDataProviderRegistry } from '@/data/provider/impl/registry.js'
 import { createSignal } from '@/foundation/reactivity/signal.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import {
@@ -20,6 +20,7 @@ import {
   makeKLine,
   makeTestSymbolSpec,
   registerTestProvider,
+  testProviderRegistry,
   unregisterTestProvider,
 } from '../../__tests__/helpers/chartDataManagerTestKit.js'
 import { MarketRuntime } from '../impl/marketRuntime.js'
@@ -42,7 +43,8 @@ function createHarness(stream?: StreamHub) {
     adjustment: 'none',
     barAggregation: 'original',
   })
-  const cache = new MarketDataCache(marketDataProviderRegistry)
+  const testRegistry = testProviderRegistry
+  const cache = new MarketDataCache(testRegistry)
   if (stream) {
     cache.repository
       .getOrCreateBars(selectionFor('MAIN'), () => new DataBuffer())
@@ -55,6 +57,7 @@ function createHarness(stream?: StreamHub) {
     return queryBars(query)
   })
   const runtime = new MarketRuntime({
+    registry: testRegistry,
     stream: stream === undefined ? inactiveStreamHub : stream,
     cache,
     session: createSignal<ReadyMarketSession | null>({

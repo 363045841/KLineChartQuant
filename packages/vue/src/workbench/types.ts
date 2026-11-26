@@ -31,7 +31,7 @@ export interface KlineWorkbenchProps {
   layoutStorageId?: string
   chart?: Omit<
     InstanceType<typeof KlineChart>['$props'],
-    'marketDataContext' | 'scriptsEnabled' | 'symbols'
+    'runtime' | 'scriptsEnabled' | 'symbols'
   >
 }
 

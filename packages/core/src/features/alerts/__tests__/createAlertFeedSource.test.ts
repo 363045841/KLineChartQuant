@@ -1,3 +1,4 @@
+/** 警报行情源：历史与实时尾部合并、收盘帧顺序与订阅释放。 */
 import { expect, it, vi } from 'vitest'
 import { createMarketDataHost } from '../../../data/management/impl/context.js'
 import { createMockDataSource } from '../../../data/provider/impl/sources/mock.js'
@@ -32,10 +33,11 @@ it('keeps the streamed tail during history loading and publishes explicit closes
   }
   const seen = vi.fn()
   const context = vi.fn((_owner, _bars, session) => ({ symbol: session?.instrument.symbol ?? 'Chart', loadBars: async () => [] }))
+  const definitionIdentity = {}
   const hub = createCalculationHub({
-    marketData: () => ({ context, revision: 0, retain: () => {} }),
+    marketData: () => ({ context, retain: () => {} }),
     resolveDefinition: (definitionId) => ({
-      definitionId, dependency: { kind: 'stateful' },
+      definitionId, identity: definitionIdentity, dependency: { kind: 'stateful' },
       compute: (data, _inputs, market) => ({ series: { bars: data.map(({ close }) => close), symbol: market?.symbol } }),
     }),
   })

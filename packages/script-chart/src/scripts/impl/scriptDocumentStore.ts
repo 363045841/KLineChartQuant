@@ -1,10 +1,5 @@
 /** 脚本文档读模型：指标来自 core 注册表，库由本服务持有；不维护第二份源码状态。 */
-import {
-  getIndicatorDescriptor,
-  getRegisteredIndicatorDefinition,
-  readRegisteredDefinitions,
-  type IndicatorMetadata,
-} from '@363045841yyt/klinechart-core'
+import type { DefinitionRegistry, IndicatorMetadata } from '@363045841yyt/klinechart-core'
 import {
   builtinLibraries,
   type QuickJSLibrary,
@@ -38,7 +33,10 @@ function fromMetadata(metadata: IndicatorMetadata | undefined): ScriptDocument |
  *
  * @param hostLibraries 宿主注入的库源码，参与依赖解析但不进入用户仓库
  */
-export function createScriptDocumentStore(hostLibraries: readonly QuickJSLibrary[]) {
+export function createScriptDocumentStore(
+  hostLibraries: readonly QuickJSLibrary[],
+  definitions: DefinitionRegistry,
+) {
   // 内置库随包发布，只做目录展示，不进入持久化和依赖目录。
   const builtinDocuments = new Map<string, ScriptDocument>(
     builtinLibraries.map((library) => [
@@ -66,13 +64,13 @@ export function createScriptDocumentStore(hostLibraries: readonly QuickJSLibrary
       userLibraries.get(id) ??
       [...userLibraries.values()].find((item) => item.definition.name === id)
     if (library) return library
-    return fromMetadata(getRegisteredIndicatorDefinition(id))
+    return fromMetadata(definitions.getDefinition(id))
   }
 
   /** 从唯一注册表派生用户快照，不维护第二份源码状态。 */
   function list(): readonly ScriptDocument[] {
     return Object.freeze([
-      ...readRegisteredDefinitions().flatMap((metadata) => {
+      ...definitions.readDefinitions().flatMap((metadata) => {
         const document = fromMetadata(metadata)
         return document ? [document] : []
       }),
@@ -94,7 +92,7 @@ export function createScriptDocumentStore(hostLibraries: readonly QuickJSLibrary
   function assertAvailable(definition: QuickJSScriptDefinition, currentId?: string): void {
     const name = definition.name
     if (!/[\p{L}\p{N}]/u.test(name)) throw new Error('脚本名称必须包含字母或数字')
-    const existing = getIndicatorDescriptor(name)
+    const existing = definitions.getDescriptor(name)
     if (existing && existing.name !== currentId) throw new Error(`脚本名称已存在：${name}`)
     if ([...userLibraries.values()].some((item) => item.definition.name === name))
       throw new Error(`脚本名称已存在：${name}`)

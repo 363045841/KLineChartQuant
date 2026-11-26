@@ -9,7 +9,6 @@
  */
 
 import type { Bar, IndicatorMarketContext } from '@363045841yyt/klinechart-plot-contracts'
-import type { AlertService } from '../features/alerts/types.js'
 import type {
   InstrumentCapabilities,
   InstrumentDescriptor,
@@ -66,8 +65,6 @@ export {
   isTimeSharePeriod,
   TIME_SHARE_PERIOD,
 } from '../foundation/types/chartPeriod.js'
-
-import type { MarketSessionConfig } from '../foundation/utils/sessionTimeLabels.js'
 
 // Controller-owned public surface. Legacy engine types may mirror these
 // shapes internally, but adapters depend only on core-defined contracts.
@@ -371,13 +368,12 @@ export interface DrawingControllerCallbacks {
 
 export interface ChartMountOptions {
   container: HTMLElement
-  /** 宿主持有的行情管理实例；多个图表可以显式共享。 */
-  marketDataContext?: import('../data/management/impl/context.js').MarketDataContext
+  /** 共享运行时；图表只消费，不创建也不释放。 */
+  runtime: import('../engine/runtime/index.js').MarketRuntime
   symbols?: ReadonlyArray<SymbolSpec>
   initialZoomLevel?: number
   zoomLevels?: number
   theme?: 'light' | 'dark'
-  marketSessions?: Readonly<Record<string, MarketSessionConfig>>
   // Pre-existing DOM elements (skip buildDom when provided)
   canvasLayer?: HTMLElement
   rightAxisLayer?: HTMLElement
@@ -440,8 +436,6 @@ export interface ChartController
     ChartRendererAccess,
     LayoutApi,
     IndicatorTemplateApi {
-  /** 会话级警报服务；与图表平级，由控制器作为会话根持有并在销毁时释放。 */
-  readonly alerts: AlertService
   /** 一次临时指标计算，共享当前行情与 Request 上下文，完成后释放行情使用权。 */
   withIndicatorData<T>(
     compute: (bars: readonly Bar[], market: IndicatorMarketContext) => Promise<T>,

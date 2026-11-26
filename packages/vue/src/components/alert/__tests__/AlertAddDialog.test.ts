@@ -1,14 +1,19 @@
 /** 新建警报弹窗：脚本入口打开独立选择器，选择结果写回草稿。 */
 import AlertAddDialog from '@vue-src/components/alert/AlertAddDialog.vue'
 import {
+  type AlertTestContext,
   CURRENT,
-  registerScript,
-  scriptDefinition,
+  createAlertTestContext,
 } from '@vue-src/composables/alerts/__tests__/helpers/alertTestKit.js'
 import { mount } from '@vue/test-utils'
-import { beforeAll, expect, it } from 'vitest'
+import { beforeEach, expect, it } from 'vitest'
 
-beforeAll(registerScript)
+let context: AlertTestContext
+
+beforeEach(() => {
+  context = createAlertTestContext()
+  context.registerScript()
+})
 
 const BaseModalStub = {
   props: {
@@ -45,6 +50,7 @@ function mountDialog() {
     props: {
       open: true,
       alerts: null,
+      definitions: context.definitions,
       currentSpec: CURRENT,
       instruments: [],
       searchSymbols: async () => [],
@@ -65,7 +71,7 @@ it('opens the script picker and writes the chosen script into the draft', async 
   expect(row.exists()).toBe(true)
 
   await row.trigger('click')
-  expect(trigger.text()).toContain(scriptDefinition().label)
+  expect(trigger.text()).toContain(context.scriptDefinition().label)
   expect(wrapper.find('.modal-list-entry').exists()).toBe(false)
 })
 

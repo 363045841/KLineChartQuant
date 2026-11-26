@@ -6,12 +6,7 @@
  */
 
 import type { Chart } from '@/engine/chart/index.js'
-import {
-  getIndicatorDescriptor,
-  getRegisteredIndicatorDefinition,
-  isIndicatorDefinitionLoaded,
-  resolveCanonicalIndicatorId,
-} from '@/engine/indicators/pipeline/index.js'
+import type { DefinitionRegistry } from '@/engine/indicators/registry/index.js'
 import type { IndicatorPlacement, InstanceMoveTarget, PanePatch } from '@/engine/pane/types.js'
 import type { IndicatorInstancePatch } from '@/engine/state/indicatorState.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
@@ -28,14 +23,18 @@ import type { DrawingControllerCallbacks, IndicatorRole } from '../types.js'
  * @param isDisposed 查询 controller 是否已销毁；销毁后所有方法短路为默认值
  * @returns 可展开进 ChartController 的方法集合
  */
-export function createChartMethods(chart: Chart, isDisposed: () => boolean) {
+export function createChartMethods(
+  chart: Chart,
+  definitions: DefinitionRegistry,
+  isDisposed: () => boolean,
+) {
   /**
    * 同步指标方法只接受已加载的定义；目录中存在但实现未加载时提示宿主先加载，
    * 未知 ID 保持原有的静默失败语义。
    */
   function isLoaded(definitionId: string): boolean {
-    if (isIndicatorDefinitionLoaded(definitionId)) return true
-    if (getIndicatorDescriptor(definitionId)) {
+    if (definitions.isLoaded(definitionId)) return true
+    if (definitions.getDescriptor(definitionId)) {
       console.warn(
         `[ChartController] indicator '${definitionId}' is not loaded; await controller.loadIndicators(['${definitionId}']) first`,
       )

@@ -55,8 +55,7 @@ export interface ScriptWorkerPoolOptions {
   readonly onOutput?: (id: string, events: readonly LogEvent[]) => void
 }
 
-export type ScriptWorkerPool = Omit<ScriptWorker, 'run' | 'requests'> & {
-  run(
+export type ScriptWorkerPool = Omit<ScriptWorker, 'run' | 'requests'> & {  run(
     id: string,
     bars: Parameters<ScriptWorker['run']>[1],
     params?: Parameters<ScriptWorker['run']>[2],
@@ -72,6 +71,9 @@ export type ScriptWorkerPool = Omit<ScriptWorker, 'run' | 'requests'> & {
     signal?: AbortSignal,
   ): ReturnType<ScriptWorker['requests']>
 }
+
+/** 环境提供的 Worker 池工厂；浏览器用 Web Worker，Node 用 worker_threads。 */
+export type ScriptWorkerPoolFactory = (options: ScriptWorkerPoolOptions) => ScriptWorkerPool
 
 /** 仅传递数据；编译闭包始终留在 Worker 内。 */
 export type ScriptWorkerRequest = { readonly requestId: number; readonly id: string } & (

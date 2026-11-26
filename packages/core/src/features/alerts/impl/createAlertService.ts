@@ -1,3 +1,8 @@
+/**
+ * 警报服务：消费计算中枢的结果，负责频率、冷却、过期、日志与投递。
+ *
+ * 规则只声明脚本、品种、参数与投递策略；触发条件完全由脚本定义。
+ */
 import type { SymbolSpec } from '../../../controllers/types.js'
 import {
   type CalculationHub,
@@ -10,7 +15,7 @@ import {
   type FeedKey,
   type ScriptAlertEvent,
 } from '../../../engine/calculation/index.js'
-import { getIndicatorDescriptor, indicatorCatalogRevision } from '../../../engine/indicators/pipeline/index.js'
+import type { DefinitionRegistry } from '../../../engine/indicators/registry/index.js'
 import { ALERT_ERROR_CODES, KLineChartError } from '../../../errors.js'
 import type { DocumentStore } from '../../../foundation/persistence/index.js'
 import { asReadonlySignal, batch, computed, createSignal, type ReadonlySignal } from '../../../foundation/reactivity/signal.js'
@@ -34,6 +39,7 @@ const DEFAULT_LIMITS: AlertLimits = { maxAlerts: 200, maxFires: 1000, maxFiresPe
 
 interface AlertServiceDependencies {
   readonly hub: CalculationHub
+  readonly definitions: DefinitionRegistry
   readonly rules: DocumentStore<AlertRulesDocument>
   readonly fires: DocumentStore<AlertFiresDocument>
   readonly feeds: Pick<AlertFeedLease, 'retain'>
@@ -44,11 +50,11 @@ interface AlertServiceDependencies {
 
 interface RuleEvaluation {
   revision: number
-  pendingClose?: ScriptAlertEvent | undefined
+  pendingClose?: ScriptAlertEvent
 }
 
-function readScript(id: string) {
-  const descriptor = getIndicatorDescriptor(id)
+function readScript(definitions: DefinitionRegistry, id: string) {
+  const descriptor = definitions.getDescriptor(id)
   if (descriptor?.kind !== 'alert') return undefined
   return { id: descriptor.name, frequency: descriptor.frequency, defaults: descriptor.defaultInputs }
 }
@@ -73,8 +79,11 @@ function validateDraft(draft: AlertDraft): void {
   }
 }
 
-function scriptReference(script: Alert['script']): Alert['script'] {
-  const definition = readScript(script.definitionId)
+function scriptReference(
+  definitions: DefinitionRegistry,
+  script: Alert['script'],
+): Alert['script'] {
+  const definition = readScript(definitions, script.definitionId)
   if (!definition) {
     throw new KLineChartError(ALERT_ERROR_CODES.INVALID_CONDITION, `Alert requires a registered alert script: ${script.definitionId}`)
   }
@@ -128,6 +137,7 @@ function makeFire(alert: Alert, event: ScriptAlertEvent, firedAt: number): Alert
 }
 
 export async function createAlertService(deps: AlertServiceDependencies): Promise<AlertService> {
+  const { definitions } = deps
   const limits = { ...DEFAULT_LIMITS, ...deps.limits }
   const now = deps.now ?? Date.now
   const reportError = deps.onError ?? ((error) => console.error('[Alerts]', error))
@@ -162,7 +172,7 @@ export async function createAlertService(deps: AlertServiceDependencies): Promis
     routes = new Map()
     for (const alert of rules.values()) {
       if (!alert.enabled) continue
-      const script = readScript(alert.script.definitionId)
+      const script = readScript(definitions, alert.script.definitionId)
       if (!script || !canEvaluate(alert, script.frequency, now())) continue
       const feed = createFeedKey(alertFeedIdentity(alert.symbol))
       const request = {
@@ -236,7 +246,7 @@ export async function createAlertService(deps: AlertServiceDependencies): Promis
     for (const id of routes.get(createCalculationKey(feed, result.key)) ?? []) {
       const alert = rules.get(id)
       if (!alert?.enabled) continue
-      const script = readScript(alert.script.definitionId)
+      const script = readScript(definitions, alert.script.definitionId)
       if (!script) continue
       const evaluation = evaluations.get(id) ?? { revision: 0 }
       if (result.dataRevision <= evaluation.revision) continue
@@ -280,7 +290,7 @@ export async function createAlertService(deps: AlertServiceDependencies): Promis
   }
 
   const client = deps.hub.createClient('alerts', { onResult: acceptResult, onError: reportError })
-  const unsubscribeCatalog = indicatorCatalogRevision.subscribe(updatePlan)
+  const unsubscribeCatalog = definitions.revision.subscribe(updatePlan)
   updatePlan()
 
   return {
@@ -307,7 +317,7 @@ export async function createAlertService(deps: AlertServiceDependencies): Promis
       }
       return save({
         ...draft,
-        script: scriptReference(draft.script),
+        script: scriptReference(definitions, draft.script),
         id: generateUUID(),
         enabled: draft.enabled ?? true,
         createdAt: now(),
@@ -318,7 +328,7 @@ export async function createAlertService(deps: AlertServiceDependencies): Promis
       const next: Alert = {
         ...alert,
         name: patch.name ?? alert.name,
-        script: patch.script === undefined ? alert.script : scriptReference(patch.script),
+        script: patch.script === undefined ? alert.script : scriptReference(definitions, patch.script),
         symbol: patch.symbol ?? alert.symbol,
         cooldownMs: patch.cooldownMs ?? alert.cooldownMs,
         expiresAt: patch.expiresAt ?? alert.expiresAt,
@@ -345,7 +355,7 @@ export async function createAlertService(deps: AlertServiceDependencies): Promis
       const timestamp = now()
       return [...rules.values()].filter((alert) =>
         (!feed || createFeedKey(alertFeedIdentity(alert.symbol)) === feed) &&
-        (status === undefined || alertStatus(alert, readScript(alert.script.definitionId)?.frequency, timestamp) === status),
+        (status === undefined || alertStatus(alert, readScript(definitions, alert.script.definitionId)?.frequency, timestamp) === status),
       )
     },
     setEnabled(id, enabled) {

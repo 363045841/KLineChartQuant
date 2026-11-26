@@ -2,15 +2,20 @@
 import { expect, it } from 'vitest'
 import { createFootprintExecution } from '../../../components/footprint/runtime/impl/footprintExecution.js'
 import { FOOTPRINT_METRICS } from '../../../components/footprint/types.js'
-import { marketDataProviderRegistry } from '../../provider/impl/registry.js'
-import { binanceMarketDataProvider } from '../../provider/impl/sources/index.js'
+import { MarketDataProviderRegistry } from '../../provider/impl/registry.js'
+import { installBuiltinProviders } from '../../provider/impl/sources/index.js'
+import { DataSource } from '@363045841yyt/klinechart-plot-contracts'
 import { TRADE_STATUS } from '../types.js'
+
+const registry = new MarketDataProviderRegistry()
+installBuiltinProviders(registry)
+const binanceMarketDataProvider = registry.getRequired(DataSource.binance)
 
 // 默认不访问外网；设置 BINANCE_CONNECTOR_TEST_URL 指向已启动的真实 Go 服务。
 it.skipIf(!process.env.BINANCE_CONNECTOR_TEST_URL)(
   'matches a closed Binance candle using aggregated trades through the standard pipeline',
   async () => {
-    marketDataProviderRegistry.setConfig('binance', {
+    registry.setConfig('binance', {
       baseUrl: process.env.BINANCE_CONNECTOR_TEST_URL,
     })
     const provider = binanceMarketDataProvider

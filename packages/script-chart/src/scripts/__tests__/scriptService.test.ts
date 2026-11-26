@@ -1,17 +1,20 @@
 /** 完整脚本生命周期：提交快照、版本冲突、失败隔离及删除。 */
 import 'fake-indexeddb/auto'
-import {
-  getIndicatorDescriptor,
-  getRegisteredIndicatorDefinition,
-  unregisterIndicator,
-} from '@363045841yyt/klinechart-core'
 import type { IndicatorMarketContext, LogEvent } from '@363045841yyt/klinechart-plot-contracts'
+import { createDefinitionRegistry, type DefinitionRegistry } from '@363045841yyt/klinechart-core'
 import { builtinScriptSources } from '@363045841yyt/klinechart-script'
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NodeScriptWorker } from '../../../../script/src/worker/__tests__/nodeWorker.js'
 import { createScriptService } from '../impl/createScriptService.js'
 import { createScriptPersistence } from '../impl/scriptPersistence.js'
 import type { ScriptPersistence, ScriptWorkspace } from '../types.js'
+
+/** 本用例的 App 级定义仓库。 */
+let definitions: DefinitionRegistry
+
+const getIndicatorDescriptor = (id: string) => definitions.getDescriptor(id)
+const getRegisteredIndicatorDefinition = (id: string) => definitions.getDefinition(id)
+const unregisterIndicator = (id: string) => definitions.unregister(id)
 
 const source = `defineIndicator({ version: 2, name: 'ServiceAverage', position: 'sub',
   onBar() { const n = input.int(2); plot.Line((open + close) / n, 'average') } })`
@@ -41,6 +44,9 @@ function createMemoryPersistence(options: { writable?: () => boolean } = {}) {
 vi.stubGlobal('Worker', NodeScriptWorker)
 
 describe('ScriptService', () => {
+  beforeEach(() => {
+    definitions = createDefinitionRegistry()
+  })
   it.each([false, true])(
     '直接运行草稿复用库与 Request，输出不注册或保存指标，失败后可重跑（trusted=%s）',
     async (trusted) => {
@@ -52,7 +58,7 @@ describe('ScriptService', () => {
             source: `defineLibrary('debugLibrary', { value(n: number): number { return n + 1 } })`,
           },
         ],
-        { persistence },
+        { definitions, persistence },
       )
       const bars = [{ time: 1, open: 10, high: 10, low: 10, close: 10, volume: 1 }]
       const market = { symbol: 'TEST', loadBars: vi.fn(async () => bars) }
@@ -94,7 +100,7 @@ describe('ScriptService', () => {
   // 同一用例串行启动真实 Worker，覆盖多轮编译、失败更新及持久化恢复。
   it('库依赖按顺序恢复、隔离私有变量，更新刷新指标并保留失败前的版本', async () => {
     const persistence = createScriptPersistence()
-    const scripts = await createScriptService([], { persistence })
+    const scripts = await createScriptService([], { definitions, persistence })
     const base = await scripts.create(
       `const helper = 2; defineLibrary('serviceBase', { scale(source: Series): Series { return ta.sma(source, helper) } })`,
     )
@@ -146,7 +152,7 @@ describe('ScriptService', () => {
     })
     unregisterIndicator(indicator.id)
     scripts.dispose()
-    const restored = await createScriptService([], { persistence })
+    const restored = await createScriptService([], { definitions, persistence })
     try {
       expect(restored.read(base.id)).toEqual(next)
       expect(await values()).toMatchObject({
@@ -162,7 +168,7 @@ describe('ScriptService', () => {
   })
   it('文件夹持久化后随工作区恢复，文档只能落在已存在的目录', async () => {
     const { persistence } = createMemoryPersistence()
-    const scripts = await createScriptService([], { persistence })
+    const scripts = await createScriptService([], { definitions, persistence })
     try {
       await expect(scripts.createFolder({ kind: 'indicator', path: '策略/均线' })).rejects.toThrow(
         '文件夹不存在',
@@ -190,7 +196,7 @@ describe('ScriptService', () => {
       scripts.dispose()
     }
     unregisterIndicator('FolderAverage')
-    const restored = await createScriptService([], { persistence })
+    const restored = await createScriptService([], { definitions, persistence })
     try {
       expect(restored.listFolders()).toEqual([
         { kind: 'indicator', path: '策略' },
@@ -205,7 +211,7 @@ describe('ScriptService', () => {
 
   it('createIndicator 只接受指标脚本，库脚本在写入前失败', async () => {
     const persistence = { load: async () => null, save: async () => true }
-    const scripts = await createScriptService([], { persistence })
+    const scripts = await createScriptService([], { definitions, persistence })
     try {
       await expect(
         scripts.createIndicator(
@@ -227,7 +233,7 @@ describe('ScriptService', () => {
   it.each(['file', 'folder'])('blocks deletion of a referenced alert through its %s', async (kind) => {
     const memory = createMemoryPersistence()
     const referenced = new Set<string>()
-    const scripts = await createScriptService([], {
+    const scripts = await createScriptService([], { definitions,
       persistence: memory.persistence,
       isDefinitionReferenced: async (id) => referenced.has(id),
     })
@@ -250,7 +256,7 @@ describe('ScriptService', () => {
 
   it('删除文件夹级联删除内容，目录外仍引用的库阻止删除', async () => {
     const { persistence } = createMemoryPersistence()
-    const scripts = await createScriptService([], { persistence })
+    const scripts = await createScriptService([], { definitions, persistence })
     try {
       await scripts.createFolder({ kind: 'library', path: '工具' })
       const library = await scripts.create(
@@ -281,7 +287,7 @@ describe('ScriptService', () => {
   it('目录操作先提交持久化，失败保留原目录与文档，成功返回实际删除范围', async () => {
     let writable = true
     const memory = createMemoryPersistence({ writable: () => writable })
-    const scripts = await createScriptService([], { persistence: memory.persistence })
+    const scripts = await createScriptService([], { definitions, persistence: memory.persistence })
     try {
       await scripts.createFolder({ kind: 'library', path: '工具' })
       await scripts.createFolder({ kind: 'library', path: '工具/计算' })
@@ -314,7 +320,7 @@ describe('ScriptService', () => {
 
   it('内置脚本使用原生引擎，用户保存信任选择后切换实际执行后端', async () => {
     const engineSource = `defineIndicator({ version: 2, name: 'ServiceEngine', position: 'main', onBar() { plot.Line(typeof WebAssembly === 'object' ? 1 : 0, 'native') } })`
-    const scripts = await createScriptService([], { builtinSources: [engineSource] })
+    const scripts = await createScriptService([], { definitions, builtinSources: [engineSource] })
     const bars = [{ timestamp: 1, open: 1, high: 1, low: 1, close: 1 }]
     /** 从正式注册入口计算，验证注册属性传到了 Worker。 */
     async function compute(id: string) {
@@ -358,7 +364,7 @@ describe('ScriptService', () => {
   })
 
   it('注册计算端口实际返回 Worker Promise，销毁后计算明确失败', async () => {
-    const scripts = await createScriptService()
+    const scripts = await createScriptService([], { definitions })
     const document = await scripts.create(source.replace('ServiceAverage', 'WorkerAverage'))
     const runtime = getRegisteredIndicatorDefinition(document.id)!.runtime!
     const result = runtime.compute([{ timestamp: 1, open: 10, high: 20, low: 10, close: 20 }], {
@@ -374,7 +380,7 @@ describe('ScriptService', () => {
 
   it('信任标记随注册快照持久化，恢复后仍可显式撤销', async () => {
     const persistence = createScriptPersistence()
-    const scripts = await createScriptService([], { persistence })
+    const scripts = await createScriptService([], { definitions, persistence })
     const initial = await scripts.create(source.replace('ServiceAverage', 'TrustedAverage'), true)
     expect(initial.trusted).toBe(true)
     expect(getRegisteredIndicatorDefinition(initial.id)?.document?.trusted).toBe(true)
@@ -386,7 +392,7 @@ describe('ScriptService', () => {
       folder: '',
     })
     unregisterIndicator(initial.id)
-    const restored = await createScriptService([], { persistence })
+    const restored = await createScriptService([], { definitions, persistence })
     expect(restored.read(initial.id)).toEqual(initial)
     const revoked = await restored.update(initial.id, initial.source, 1, false)
     expect(revoked.trusted).toBe(false)
@@ -407,6 +413,7 @@ describe('ScriptService', () => {
     let persistence: ReturnType<typeof createScriptPersistence>
     let scripts: Awaited<ReturnType<typeof createScriptService>>
     let saved: unknown
+    let builtinDefinitions: DefinitionRegistry
 
     const data = Array.from({ length: 50 }, (_, index) => ({
       timestamp: Date.UTC(2026, 0, 5) + index * 60_000,
@@ -425,7 +432,8 @@ describe('ScriptService', () => {
     beforeAll(async () => {
       persistence = createScriptPersistence()
       saved = await persistence.load()
-      scripts = await createScriptService([], {
+      builtinDefinitions = createDefinitionRegistry()
+      scripts = await createScriptService([], { definitions: builtinDefinitions,
         builtinSources: builtinScriptSources,
         persistence,
       })
@@ -440,7 +448,7 @@ describe('ScriptService', () => {
         const definition = scripts
           .list()
           .find((document) => document.source === builtinSource)!.definition
-        expect(getRegisteredIndicatorDefinition(definition.name)?.document).toMatchObject({
+        expect(builtinDefinitions.getDefinition(definition.name)?.document).toMatchObject({
           identity: 'builtin',
           source: builtinSource,
         })
@@ -457,7 +465,7 @@ describe('ScriptService', () => {
         const definition = scripts
           .list()
           .find((document) => document.source === builtinSource)!.definition
-        const metadata = getRegisteredIndicatorDefinition(definition.name)
+        const metadata = builtinDefinitions.getDefinition(definition.name)
         const output = await metadata?.runtime?.compute(
           data,
           metadata.runtime.defaultInputs,
@@ -469,7 +477,7 @@ describe('ScriptService', () => {
   })
 
   it('用户源码和版本从 IndexedDB 恢复，删除后不再恢复', async () => {
-    const scripts = await createScriptService()
+    const scripts = await createScriptService([], { definitions })
     await expect(scripts.create(source.replace('ServiceAverage', '!!!'))).rejects.toThrow(
       '脚本名称',
     )
@@ -487,17 +495,18 @@ describe('ScriptService', () => {
     await scripts.remove(reusedName.id, reusedName.revision)
     // 清除运行定义模拟页面刷新，保留真实 IndexedDB 数据。
     unregisterIndicator(next.id)
-    const restored = await createScriptService()
+    const restored = await createScriptService([], { definitions })
     expect(restored.read(next.id)).toEqual(next)
     await restored.remove(next.id, next.revision)
-    expect((await createScriptService()).read(next.id)).toBeUndefined()
+    expect((await createScriptService([], { definitions })).read(next.id)).toBeUndefined()
   })
 
   it('保存失败不发布源码，排队的过期提交不能覆盖成功提交', async () => {
     const persistence = createScriptPersistence()
-    const scripts = await createScriptService([], { persistence })
+    const definitions = createDefinitionRegistry()
+    const scripts = await createScriptService([], { definitions, persistence })
     const initial = await scripts.create(source.replace('ServiceAverage', 'FailedSaveAverage'))
-    const failed = await createScriptService([], {
+    const failed = await createScriptService([], { definitions,
       persistence: {
         load: async () => null,
         save: async () => {
@@ -510,12 +519,12 @@ describe('ScriptService', () => {
     ).rejects.toThrow('磁盘写入失败')
     expect(scripts.read(initial.id)).toEqual(initial)
     await expect(
-      getRegisteredIndicatorDefinition(initial.id)!.runtime!.compute(
+      definitions.getDefinition(initial.id)!.runtime!.compute(
         [{ timestamp: 1, open: 10, high: 20, low: 10, close: 20 }],
         { n: 2 },
       ),
     ).resolves.toMatchObject({ series: { plots: [{ id: 'average', data: [{ value: 15 }] }] } })
-    expect(getIndicatorDescriptor('FailedRename')).toBeUndefined()
+    expect(definitions.getDescriptor('FailedRename')).toBeUndefined()
     expect((await persistence.load())?.scripts ?? []).toContainEqual({
       id: initial.id,
       source: initial.source,
@@ -532,8 +541,8 @@ describe('ScriptService', () => {
   })
 
   it('内置脚本只读且不写入用户存储', async () => {
-    const persistence = createScriptPersistence()
-    const scripts = await createScriptService([], {
+    const { persistence } = createMemoryPersistence()
+    const scripts = await createScriptService([], { definitions,
       builtinSources: [source.replace('ServiceAverage', 'BuiltinAverage')],
       persistence,
     })
@@ -542,11 +551,11 @@ describe('ScriptService', () => {
     await expect(scripts.update(builtin.id, builtin.source, 1)).rejects.toThrow('内置脚本只读')
     await expect(scripts.remove(builtin.id, 1)).rejects.toThrow('内置脚本只读')
     expect(() => unregisterIndicator(builtin.id)).toThrow()
-    expect(await persistence.load()).toEqual({ scripts: [], folders: [] })
+    expect(await persistence.load()).toBeNull()
   })
 
   it('单个快照完成 CRUD，更新不新增身份，过期版本或错误源码不覆盖', async () => {
-    const scripts = await createScriptService()
+    const scripts = await createScriptService([], { definitions })
     const initial = await scripts.create(source)
     expect(initial.revision).toBe(1)
     expect(scripts.read(initial.id)).toEqual(initial)

@@ -4,7 +4,6 @@
  * 宿主只提供行情与输出桥，Series/ta 全部在 VM prelude 内；同一脚本的 VM 不再按 tick 重建。
  */
 import {
-  type ComputeRange,
   type DrawingObject,
   type IndicatorSeries,
   isPlotKind,
@@ -25,6 +24,7 @@ import type { Bar } from '../../contracts/input.js'
 import type { LogEvent } from '../../contracts/log.js'
 import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
 import { createScriptConsole } from '../../execution/impl/createScriptConsole.js'
+import { createPreparedScript } from '../../execution/impl/createPreparedScript.js'
 import { FIELD_READERS, toOhlcPlotPoint, toPlotPoint } from '../../execution/impl/scriptRuntime.js'
 import { createScriptExecutionSession } from '../../execution/session/impl/createScriptExecutionSession.js'
 import type {
@@ -39,7 +39,6 @@ import { CURRENT_SYMBOL } from '../../request/impl/symbols.js'
 import type {
   RequestExecution,
   RequestValue,
-  ScriptRequestContext,
   SecurityRequest,
 } from '../../request/types.js'
 import {
@@ -697,22 +696,5 @@ export function prepareQuickJSModule(
     replayOnUpdate: compiled.replayOnUpdate,
     onLog,
   })
-  return Object.freeze({
-    definition: Object.freeze({ ...session.definition, dependency: compiled.dependency }),
-    requests(params: Readonly<Record<string, ScriptParamValue>> = {}, symbol = CURRENT_SYMBOL) {
-      return session.requests(params, symbol)
-    },
-    run(
-      bars: readonly Bar[],
-      params: Readonly<Record<string, ScriptParamValue>> = {},
-      context?: ScriptRequestContext,
-      range?: ComputeRange,
-      live?: boolean,
-    ) {
-      return session.run({ bars, params, context, range, ...(live === undefined ? {} : { live }) })
-    },
-    dispose() {
-      session.dispose()
-    },
-  })
+  return createPreparedScript(session, compiled.dependency)
 }

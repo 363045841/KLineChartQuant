@@ -92,18 +92,18 @@
 
   /* ── 定义说明 ── */
   .definition-description {
-    margin-bottom: 8px;
+    margin-bottom: var(--klc-space-8);
     margin-inline: var(--base-modal-content-inset);
-    padding: 10px 12px;
-    border-radius: 8px;
+    padding: var(--klc-space-8) var(--klc-space-12);
+    border-radius: var(--klc-radius-md, 8px);
     background: var(--klc-color-ui-notice-background);
     border: 1px solid var(--klc-color-ui-border);
   }
 
   .definition-description p {
     margin: 0;
-    font-size: 12px;
-    line-height: 1.6;
+    font-size: var(--klc-text-12-font-size);
+    line-height: var(--klc-text-12-line-height);
     color: var(--klc-color-ui-muted);
   }
 
@@ -123,7 +123,7 @@
   .footer-right {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--klc-space-8);
   }
 
   /* ── 定义的展开/收起动画 ── */

@@ -10,12 +10,12 @@ import {
   installChartDomStubs,
 } from '@/engine/__tests__/helpers/chartDomTestKit'
 import { registerPlotIndicatorFixture } from '@/engine/indicators/__tests__/helpers/plotIndicatorTestKit'
-import { resolveIndicatorLayerId } from '@/engine/indicators/indicatorLayerNaming.js'
+import { createTestDefinitions } from '@/engine/indicators/__tests__/helpers/definitionsTestKit.js'
+import { createIndicatorLayerId } from '@/engine/indicators/indicatorLayerNaming.js'
 import { PRICE_AXIS_RANGE_MODE } from '@/foundation/config/priceAxisRangeMode.js'
 import {
   type ChartController,
   type ChartRendererAccess,
-  createChartController,
   getChartRenderers,
   type IndicatorMetadata,
   type IndicatorRendererOptions,
@@ -23,8 +23,8 @@ import {
   makePluginLayerId,
   type Plugin,
   type RenderContext,
-  registerIndicators,
 } from '@/index'
+import { createTestChartController as createChartController } from '../../__tests__/helpers/controllerTestKit'
 
 /** 构造第三方自有 Layer，记录真实 Scene 对其绘制和释放的调用。 */
 function createExternalLayer(id: string, pane = 'main') {
@@ -54,13 +54,6 @@ const ExternalIndicator = {
     createExternalLayer(indicatorLayerId, options?.paneId),
   ),
 } satisfies IndicatorMetadata
-registerIndicators([
-  {
-    kind: 'definition',
-    candidate: { key: indicatorName, origin: 'third-party', identity: 'native' },
-    definition: ExternalIndicator,
-  },
-])
 
 /** 远价位主图指标：用于验证自动口径与 K 线口径对轴范围的取舍。 */
 const FAR_PRICE = 300
@@ -70,25 +63,35 @@ const CANDLE_OBJECT_ID = 'plugin:candle'
 const BAR_MIN = 9
 const BAR_MAX = 13
 
-registerPlotIndicatorFixture({
-  name: FAR_PRICE_INDICATOR,
-  category: 'main',
-  compute: (data) => ({
-    plots: [
-      {
-        kind: 'line',
-        id: 'far',
-        label: 'FAR',
-        data: data.map(() => ({ value: FAR_PRICE, color: 'red' })),
-        visible: true,
-        offset: 0,
-        size: ShapeSize.auto,
-        dash: [],
-      },
-    ],
-    fills: [],
-  }),
-})
+/** 注册共用的第三方指标与远价位指标。 */
+function registerFixtures(definitions: ReturnType<typeof createTestDefinitions>): void {
+  definitions.register([
+    {
+      kind: 'definition',
+      candidate: { key: indicatorName, origin: 'third-party', identity: 'native' },
+      definition: ExternalIndicator,
+    },
+  ])
+  registerPlotIndicatorFixture(definitions, {
+    name: FAR_PRICE_INDICATOR,
+    category: 'main',
+    compute: (data) => ({
+      plots: [
+        {
+          kind: 'line',
+          id: 'far',
+          label: 'FAR',
+          data: data.map(() => ({ value: FAR_PRICE, color: 'red' })),
+          visible: true,
+          offset: 0,
+          size: ShapeSize.auto,
+          dash: [],
+        },
+      ],
+      fills: [],
+    }),
+  })
+}
 
 /** 读取指标工厂最近一次创建的 Layer。 */
 function lastIndicatorLayer(): Layer<RenderContext> {
@@ -136,9 +139,12 @@ describe('public chart renderer access', () => {
       ).source,
     )
     const instrument = await host.resolveInstrument('test', 'A')
+    const definitions = createTestDefinitions()
+    registerFixtures(definitions)
     const controller = await createChartController({
       ...dom,
-      marketDataContext: host,
+      definitions,
+      market: host,
       symbols: [{ instrument, period: 'daily' }],
       settings: { rendererBackend: 'canvas' },
     })
@@ -269,8 +275,14 @@ describe('public chart renderer access', () => {
 
     const instanceId = controller.addIndicator(indicatorName)
     expect(instanceId).not.toBeNull()
+    await vi.waitFor(() => expect(ExternalIndicator.rendererFactory).toHaveBeenCalled())
     const layer = lastIndicatorLayer()
-    const expectedLayerId = resolveIndicatorLayerId(indicatorName, 'main', 'renderer', instanceId!)
+    const expectedLayerId = createIndicatorLayerId(
+      ExternalIndicator.getRendererName,
+      indicatorName,
+      'main',
+      instanceId!,
+    )
     expect(controller.getRenderer(expectedLayerId)).toBeDefined()
 
     expect(controller.removeIndicator(instanceId!)).toBe(true)
