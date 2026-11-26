@@ -41,6 +41,9 @@ export const darkInterfaceColors: UiColors = {
   neutral: '#838A98',
   onAccent: '#FFFFFF',
   secondaryButtonText: '#ACB2BE',
+  switchOn: '#626D82', // 开关 on 态轨道：深色沿用交互灰蓝。
+  switchOff: '#838A98', // 开关 off 态轨道：比描边更亮一档，保证白色圆钮与轨道、轨道与背景的对比。
+  switchThumb: '#FFFFFF', // 开关圆钮：两个主题统一使用白色。
 }
 
 export const lightInterfaceColors: UiColors = {
@@ -82,4 +85,7 @@ export const lightInterfaceColors: UiColors = {
   neutral: '#666666',
   onAccent: '#FFFFFF',
   secondaryButtonText: '#666666',
+  switchOn: '#666666', // 开关 on 态轨道：浅色使用中性灰，避免大面积墨黑压过内容。
+  switchOff: '#8C8C8C', // 开关 off 态轨道：中性描边色，与白色圆钮保持非文本对比。
+  switchThumb: '#FFFFFF', // 开关圆钮：两个主题统一使用白色。
 }

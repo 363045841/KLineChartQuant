@@ -339,6 +339,12 @@ export interface UiColors {
   readonly onAccent: ColorValue
   /** 非确认（次级）按钮的文字色，如取消、重置。 */
   readonly secondaryButtonText: ColorValue
+  /** 开关 on 态轨道；浅色中性灰，深色交互灰蓝。 */
+  readonly switchOn: ColorValue
+  /** 开关 off 态轨道；与白色圆钮保持非文本对比。 */
+  readonly switchOff: ColorValue
+  /** 开关圆钮；两个主题统一白色。 */
+  readonly switchThumb: ColorValue
   /** 交互控件（chip、trigger 等）的默认底色。 */
   readonly controlBackground: ColorValue
 }

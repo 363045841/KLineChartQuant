@@ -201,6 +201,9 @@
   --klc-color-ui-neutral: #838A98;
   --klc-color-ui-on-accent: #16191E;
   --klc-color-ui-secondary-button-text: #ACB2BE;
+  --klc-color-ui-switch-on: #626D82;
+  --klc-color-ui-switch-off: #838A98;
+  --klc-color-ui-switch-thumb: #FFFFFF;
   --klc-color-agent-composer-control-background: #242A32;
   --klc-color-agent-composer-control-hover: #303843;
   --klc-color-agent-user-message: #20242B;
