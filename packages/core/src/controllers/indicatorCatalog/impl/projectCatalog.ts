@@ -132,7 +132,7 @@ export const indicatorCatalog: ReadonlySignal<readonly IndicatorDefinition[]> = 
 /**
  * 警报脚本目录信号：只含 `kind === 'alert'` 的定义。
  *
- * 供警报选择器展示。
+ * 供警报面板展示。
  */
 export const alertCatalog: ReadonlySignal<readonly AlertScriptDefinition[]> = computed(() => {
   indicatorCatalogRevision()

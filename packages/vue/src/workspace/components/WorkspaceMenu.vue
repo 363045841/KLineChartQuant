@@ -17,6 +17,7 @@
     label="应用菜单"
     placement="bottom"
     density="loose"
+    semantics="dialog"
     :groups="menu.groups"
     @select="menu.select"
   >
@@ -50,7 +51,7 @@
   defineProps<{ accent: string; themeMode?: ChartSettings['theme'] }>()
   const emit = defineEmits<{ 'theme-change': [mode: ChartSettings['theme']] }>()
   const menu = useWorkspaceMenu()
-  const dropdown = useMenuButton()
+  const dropdown = useMenuButton(undefined, 'dialog')
 </script>
 
 <style scoped>

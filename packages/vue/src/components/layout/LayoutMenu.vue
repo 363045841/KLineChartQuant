@@ -11,6 +11,7 @@
     :message="message"
     empty-text="暂无布局"
     placement="bottom"
+    semantics="dialog"
     keep-open-on-select
     @open="refresh"
     @select="onSelect"
@@ -18,8 +19,7 @@
     <template #item="{ group, item, select }">
       <button
         type="button"
-        :role="group.id === LAYOUT_MENU.group.layouts ? 'menuitemradio' : 'menuitem'"
-        :aria-checked="group.id === LAYOUT_MENU.group.layouts ? item.checked : undefined"
+        :aria-pressed="rowPressed(item)"
         class="drop-menu__item-main"
         :disabled="item.disabled"
         @click="select"
@@ -27,11 +27,13 @@
         <IconDeviceFloppy v-if="group.id === LAYOUT_MENU.group.actions" aria-hidden="true" />
         <IconPlus v-else-if="group.id === LAYOUT_MENU.group.create" aria-hidden="true" />
         <span>{{ item.label }}</span>
-        <span v-if="item.id === LAYOUT_MENU.item.autosave" class="drop-menu__switch" role="switch" :aria-checked="autoSave" aria-label="自动保存"><span /></span>
       </button>
     </template>
-    <template #item-status="{ group, item }">
-      <span v-if="group.id === LAYOUT_MENU.group.actions && item.id === LAYOUT_MENU.item.save && saved" class="drop-menu__status" role="status" aria-label="布局保存成功"><IconCheck aria-hidden="true" /></span>
+    <template #item-status="{ item }">
+      <span v-if="item.id === LAYOUT_MENU.item.autosave" class="drop-menu__switch">
+        <ToggleSwitchTrack size="compact" :checked="autoSave" />
+      </span>
+      <span v-else-if="item.id === LAYOUT_MENU.item.save && saved" class="drop-menu__status" role="status" aria-label="布局保存成功"><IconCheck aria-hidden="true" /></span>
     </template>
     <template #item-action="{ group, item }">
       <button
@@ -75,6 +77,8 @@
   import '@vue-src/components/common/menu/control-button.css'
 
   import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
+  import ToggleSwitchTrack from '@vue-src/components/common/form/ToggleSwitchTrack.vue'
+  import type { DropMenuItem } from '@vue-src/components/common/menu/dropMenuTypes.js'
   import MenuSurface from '@vue-src/components/common/menu/MenuSurface.vue'
   import { useMenuButton } from '@vue-src/components/common/menu/useMenuButton.js'
   import { LAYOUT_MENU, useLayouts } from '@vue-src/composables/chart/useLayouts.js'
@@ -88,7 +92,7 @@
   import LayoutNameDialog from './LayoutNameDialog.vue'
 
   const props = defineProps<{ controller: ChartController | null }>()
-  const menu = useMenuButton()
+  const menu = useMenuButton(undefined, 'dialog')
   const {
     groups,
     currentName,
@@ -109,6 +113,11 @@
     submitNaming,
     remove,
   } = useLayouts(toRef(props, 'controller'))
+
+  /** 开关与单选共用按钮的按下态；命令项不设置 aria-pressed。 */
+  function rowPressed(item: DropMenuItem): boolean | undefined {
+    return item.id === LAYOUT_MENU.item.autosave ? autoSave.value : item.checked
+  }
 </script>
 
 <style scoped>

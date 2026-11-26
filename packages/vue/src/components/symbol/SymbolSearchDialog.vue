@@ -18,7 +18,7 @@
         :placeholder="searchPlaceholder"
         :aria-label="searchAriaLabel"
       >
-        <AggregationSourceButton @click="emit('manageSources')" />
+        <AggregationSourceButton v-if="manageSources" @click="emit('manageSources')" />
       </ModalSearchBar>
     </template>
     <slot name="body" />
@@ -40,10 +40,13 @@
       searchPlaceholder?: string
       /** 搜索框 aria-label */
       searchAriaLabel?: string
+      /** 是否显示数据源管理入口 */
+      manageSources?: boolean
     }>(),
     {
       searchPlaceholder: '搜索',
       searchAriaLabel: '搜索',
+      manageSources: true,
     },
   )
 

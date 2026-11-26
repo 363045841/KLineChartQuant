@@ -187,7 +187,7 @@
       @reset="selectVisibility('all')"
       @confirm="onParamsConfirm"
     >
-      <template v-if="instanceSettings?.period" #after-params>
+      <template v-if="instancePeriod" #after-params>
         <div class="indicator-timeframe-visibility">
           <span>{{ TIMEFRAME_VISIBILITY_LABEL }}</span>
           <DropMenu
@@ -286,17 +286,37 @@
   const filteredMain = coreSignalToVueRef(controller.filteredMain)
   const filteredSub = coreSignalToVueRef(controller.filteredSub)
 
+  type IndicatorDefinitionView = NonNullable<ReturnType<typeof findIndicatorDefinition>>
+
+  /** 参数弹窗的一次会话：目录项参数与图例实例设置走不同分支。 */
+  type ParamsSession =
+    | {
+        readonly kind: 'catalog'
+        readonly definitionId: string
+        readonly indicator: IndicatorDefinitionView
+      }
+    | {
+        readonly kind: 'instance'
+        readonly indicator: IndicatorDefinitionView
+        readonly chart: ChartController
+        readonly entry: Extract<LegendEntry, { kind: 'indicator' }>
+        readonly period: string | null
+        readonly visibilityDraft?: TimeframeVisibility
+      }
+
+  const paramsSession = shallowRef<ParamsSession | null>(null)
   const paramsVisible = ref(false)
-  const currentIndicatorId = ref<string | null>(null)
-  const instanceSettings = shallowRef<{
-    chart: ChartController
-    entry: Extract<LegendEntry, { kind: 'indicator' }>
-    period: string | null
-  } | null>(null)
-  const visibilityDraft = shallowRef<TimeframeVisibility>()
-  const visibility = computed(
-    () => visibilityDraft.value ?? instanceSettings.value?.entry.timeframeVisibility,
+  /** 会话在关闭后保留到退场结束；下一次打开整体替换。 */
+  const currentIndicator = computed(() => paramsSession.value?.indicator)
+  const instancePeriod = computed(() =>
+    paramsSession.value?.kind === 'instance' ? paramsSession.value.period : null,
   )
+  const visibility = computed(() => {
+    const session = paramsSession.value
+    return session?.kind === 'instance'
+      ? session.visibilityDraft ?? session.entry.timeframeVisibility
+      : undefined
+  })
   const visibilityLabel = computed(() => {
     const rule = visibility.value
     if (!rule || rule.mode === 'all') return '所有时间周期'
@@ -314,8 +334,6 @@
   const visibilityGroups = computed(() => [
     { id: 'visibility', label: '', items: timeframeVisibilityItems([visibility.value]) },
   ])
-  /** 打开设置时快照定义，保证编辑脚本后重新打开能读到最新参数。 */
-  const currentIndicator = ref<ReturnType<typeof findIndicatorDefinition>>()
   /** 参数弹窗标题优先用长名称，缺省回落到列表标签。 */
   const currentIndicatorName = computed(
     () => currentIndicator.value?.name ?? currentIndicator.value?.label ?? '',
@@ -411,9 +429,7 @@
     const indicator = findIndicatorDefinition(indicatorId)
     // 没有可设置项时不打开空弹窗；入口按钮保持可见并置灰。
     if (!indicator?.inputs?.length) return
-    instanceSettings.value = null
-    currentIndicatorId.value = indicatorId
-    currentIndicator.value = indicator
+    paramsSession.value = { kind: 'catalog', definitionId: indicatorId, indicator }
     paramsVisible.value = true
   }
 
@@ -423,17 +439,15 @@
     if (!chart || entry?.kind !== 'indicator') return
     const indicator = findIndicatorDefinition(entry.definitionId)
     if (!indicator || (period === null && !indicator.inputs?.length)) return
-    instanceSettings.value = { chart, entry, period }
-    visibilityDraft.value = undefined
-    currentIndicator.value = indicator
+    paramsSession.value = { kind: 'instance', indicator, chart, entry, period }
     paramsVisible.value = true
   }
 
   function selectVisibility(itemId: string) {
-    const period = instanceSettings.value?.period
-    if (!period) return
-    const rule = resolveTimeframeVisibility(itemId, period)
-    if (rule) visibilityDraft.value = rule
+    const session = paramsSession.value
+    if (session?.kind !== 'instance' || !session.period) return
+    const rule = resolveTimeframeVisibility(itemId, session.period)
+    if (rule) paramsSession.value = { ...session, visibilityDraft: rule }
   }
 
   /** 请求宿主打开脚本代码编辑器；打开动作与图例的编辑脚本共用同一会话。 */
@@ -467,8 +481,11 @@
       defaultInputs[p.key] = p.default ?? p.options?.[0]?.value ?? p.min ?? 1
     }
 
+    const session = paramsSession.value
     const userParams =
-      instanceSettings.value?.entry.params ?? props.indicatorParams?.[indicator.id] ?? {}
+      session?.kind === 'instance'
+        ? session.entry.params
+        : (props.indicatorParams?.[indicator.id] ?? {})
     const result: Record<string, number | string | boolean> = { ...defaultInputs }
 
     // 数字与选项参数都可回填；其他类型暂由定义默认值表达。
@@ -482,24 +499,25 @@
   })
 
   function onParamsConfirm(values: Record<string, number | string | boolean>) {
-    const settings = instanceSettings.value
-    if (settings && settings.chart === props.chartController) {
-      const entry = settings.chart.legend.get(settings.entry.id)
-      if (entry?.kind === 'indicator' && entry.definitionId === settings.entry.definitionId) {
+    const session = paramsSession.value
+    if (session?.kind === 'instance' && session.chart === props.chartController) {
+      const entry = session.chart.legend.get(session.entry.id)
+      if (entry?.kind === 'indicator' && entry.definitionId === session.entry.definitionId) {
         const edits = Object.entries(values).filter(
           ([key, value]) => paramValues.value[key] !== value,
         )
-        if (edits.length > 0 || visibilityDraft.value) {
-          settings.chart.legend.update(entry.id, {
+        const visibilityDraft = session.visibilityDraft
+        if (edits.length > 0 || visibilityDraft) {
+          session.chart.legend.update(entry.id, {
             ...(edits.length > 0
               ? { params: { ...entry.params, ...Object.fromEntries(edits) } }
               : {}),
-            ...(visibilityDraft.value ? { timeframeVisibility: visibilityDraft.value } : {}),
+            ...(visibilityDraft ? { timeframeVisibility: visibilityDraft } : {}),
           })
         }
       }
-    } else if (!settings && currentIndicatorId.value) {
-      emit('updateParams', currentIndicatorId.value, values)
+    } else if (session?.kind === 'catalog') {
+      emit('updateParams', session.definitionId, values)
     }
     paramsVisible.value = false
   }

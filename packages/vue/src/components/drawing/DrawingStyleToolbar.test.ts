@@ -24,7 +24,9 @@ describe('DrawingStyleToolbar 模板菜单', () => {
     try {
       await openMenu(wrapper)
       expect(
-        [...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent?.trim()),
+        [...document.querySelectorAll('.drop-menu__item-main')].map((item) =>
+          item.textContent?.trim(),
+        ),
       ).toEqual(['保存为模板', 'existing'])
       expect(document.querySelector('[aria-label="保存模板 existing"]')).not.toBeNull()
       expect(document.querySelector('[aria-label="删除模板 existing"]')).not.toBeNull()
@@ -39,12 +41,14 @@ describe('DrawingStyleToolbar 模板菜单', () => {
       await wrapper.setProps({ drawings: [createDrawingObject('a'), createDrawingObject('b')] })
       await openMenu(wrapper)
       expect(
-        [...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent?.trim()),
+        [...document.querySelectorAll('.drop-menu__item-main')].map((item) =>
+          item.textContent?.trim(),
+        ),
       ).toEqual(['existing'])
       expect(document.querySelector('[aria-label="保存模板 existing"]')).toBeNull()
       document.querySelector<HTMLButtonElement>('[aria-label="删除模板 existing"]')!.click()
       expect(wrapper.emitted('deleteTemplate')).toEqual([['existing']])
-      document.querySelector<HTMLButtonElement>('[role="menuitem"]')!.click()
+      document.querySelector<HTMLButtonElement>('.drop-menu__item-main')!.click()
       expect(wrapper.emitted('applyTemplate')).toEqual([['existing']])
     } finally {
       wrapper.unmount()

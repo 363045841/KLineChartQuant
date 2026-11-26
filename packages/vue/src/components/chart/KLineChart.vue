@@ -11,7 +11,6 @@
         :is-fullscreen="isFullscreen"
         @toggle-fullscreen="handleToggleFullscreen"
         @toggle-indicator="onToggleIndicator"
-        @toggle-alerts="alertSelectorOpen = true"
         @footprint-settings="footprintSettingsOpen = true"
         :can-undo-drawing="canUndoDrawing"
         :can-redo-drawing="canRedoDrawing"
@@ -368,11 +367,6 @@
       @create-script="openBlankScriptEditor"
       @close="replacementPaneId = null"
     />
-    <AlertSelector
-      v-model:open="alertSelectorOpen"
-      :controller="controller"
-      :symbol="alertSymbol"
-    />
     <AlertNotificationStack v-if="controller" :alerts="controller.alerts" />
     <ChartSettingsDialog
       v-model:open="chartSettingsOpen"
@@ -464,7 +458,6 @@
     KLineAdjustment,
     KLinePeriod,
     type MarketDataContext,
-    searchInstruments,
   } from '@363045841yyt/klinechart-core/market-data'
   import {
     BRAND_MARK_PATH,
@@ -518,7 +511,6 @@
   import ExportProgressDialog from '@vue-src/components/export/ExportProgressDialog.vue'
   import RangeSelectionExport from '@vue-src/components/export/RangeSelectionExport.vue'
   import IndicatorSelector from '@vue-src/components/indicator/IndicatorSelector.vue'
-  import AlertSelector from '@vue-src/components/alert/AlertSelector.vue'
   import AlertNotificationStack from '@vue-src/components/alert/AlertNotificationStack.vue'
   import CanvasToolbarStack from './CanvasToolbarStack.vue'
 
@@ -575,6 +567,7 @@
     symbolItemForSpec,
     toSymbolSpec,
   } from '@vue-src/composables/symbol/symbolSpec.js'
+  import { createInstrumentSearch } from '@vue-src/composables/symbol/createInstrumentSearch.js'
   import { symbolIdentityKey } from '@vue-src/composables/symbol/useSymbolSearch.js'
   import { useWatchlist } from '@vue-src/composables/watchlist/useWatchlist.js'
 
@@ -738,12 +731,6 @@
     const primary = controllerSymbols.value[0]
     return primary ? symbolItemForSpec(primary) : null
   })
-  /** 警报新建规则使用当前图表品种与周期；与图表切换保持同一口径。 */
-  const alertSymbol = computed<SymbolSpec | null>(() => {
-    const item = currentSymbolItem.value
-    if (!item) return null
-    return toSymbolSpec(item, { period: kLineLevel.value, adjust: kLineAdjust.value })
-  })
   /** 范围预置挑周期时只能选该品种支持的粒度。 */
   const supportedPeriods = computed<readonly KLinePeriod[]>(() => {
     const periods = currentSymbolItem.value?.capabilities?.bars?.periods
@@ -860,20 +847,10 @@
     }
   }
 
-  async function searchSymbols(
-    query: string,
-    limit: number,
-    signal: AbortSignal,
-    sources?: ReadonlyArray<string>,
-  ): Promise<ReadonlyArray<SymbolItem>> {
-    const result = await searchInstruments(marketDataContext.registry, {
-      keyword: query,
-      limit,
-      signal,
-      sources: sources ?? enabledSourceNames.value,
-    })
-    return result.instruments
-  }
+  const searchSymbols = createInstrumentSearch(
+    marketDataContext,
+    () => enabledSourceNames.value,
+  )
 
   /** 当前图表上下文：周期、复权与主品种日期边界。 */
   function currentSelection(adjust = kLineAdjust.value): SymbolSpecSelection {
@@ -913,7 +890,6 @@
   const tooltipLayerRef = ref<HTMLDivElement | null>(null)
   const tooltipContentRef = ref<HTMLDivElement | null>(null)
   const indicatorSelectorRef = ref<InstanceType<typeof IndicatorSelector> | null>(null)
-  const alertSelectorOpen = ref(false)
 
   // ── Browser fullscreen ──
   const isFullscreen = ref(false)

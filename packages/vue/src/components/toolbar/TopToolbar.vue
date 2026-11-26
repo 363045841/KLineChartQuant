@@ -70,28 +70,19 @@
         :controller="layoutController ?? null"
         @toggle-indicator="emit('toggleIndicator')"
       />
-      <BaseTooltip v-if="!showBackButton" content="警报" placement="bottom">
+      <BaseTooltip
+        v-if="!showBackButton && kLineShape === FOOTPRINT_SHAPE"
+        content="足迹图设置"
+        placement="bottom"
+      >
         <BaseIconButton
-          class="top-toolbar__item"
-          label="警报"
-          @click="emit('toggleAlerts')"
+          label="足迹图设置"
+          class="footprint-settings-button"
+          @click="emit('footprintSettings')"
         >
-          <IconTablerBell aria-hidden="true" />
+          <IconTablerSettings class="footprint-settings-button__icon" aria-hidden="true" />
         </BaseIconButton>
       </BaseTooltip>
-        <BaseTooltip
-          v-if="!showBackButton && kLineShape === FOOTPRINT_SHAPE"
-          content="足迹图设置"
-          placement="bottom"
-        >
-          <BaseIconButton
-            label="足迹图设置"
-            class="footprint-settings-button"
-            @click="emit('footprintSettings')"
-          >
-            <IconTablerSettings class="footprint-settings-button__icon" aria-hidden="true" />
-          </BaseIconButton>
-        </BaseTooltip>
       <MarketDataManagementDialog
         :show="showSourceDialog"
         @close="showSourceDialog = false"
@@ -207,7 +198,6 @@
   import IconTablerArrowBackUp from '~icons/tabler/arrow-back-up'
   import IconTablerArrowForwardUp from '~icons/tabler/arrow-forward-up'
   import IconTablerArrowLeft from '~icons/tabler/arrow-left'
-  import IconTablerBell from '~icons/tabler/bell'
   import IconTablerCamera from '~icons/tabler/camera'
   import IconTablerClipboard from '~icons/tabler/clipboard'
   import IconTablerDownload from '~icons/tabler/download'
@@ -353,7 +343,6 @@
     (e: 'toggleFullscreen'): void
     (e: 'footprintSettings'): void
     (e: 'toggleIndicator'): void
-    (e: 'toggleAlerts'): void
     (e: 'screenshot', action: ChartScreenshotAction): void
   }>()
 

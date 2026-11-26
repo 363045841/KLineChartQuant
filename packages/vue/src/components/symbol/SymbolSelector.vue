@@ -29,6 +29,7 @@
     <SymbolSearchDialog
       v-model:search="picker.searchQuery"
       :show="picker.showPopup"
+      :manage-sources="showManageSources"
       dialog-label="选择商品"
       search-placeholder="搜索代码或名称…"
       search-aria-label="搜索商品"
@@ -78,7 +79,7 @@
               <SymbolMetaBadge :symbol="item" />
             </button>
             <BaseTooltip
-              v-if="!watchlistKeys.has(symbolIdentityKey(item))"
+              v-if="showWatchlistAction && !watchlistKeys.has(symbolIdentityKey(item))"
               content="添加自选"
               placement="left"
               trigger-display="contents"
@@ -129,7 +130,7 @@
     defineProps<{
       symbol: string
       selectedItem?: SymbolItem
-      symbols: SymbolItem[]
+      symbols: readonly SymbolItem[]
       search?: SymbolSearchFn<SymbolItem>
       loading?: boolean
       error?: boolean
@@ -143,11 +144,17 @@
       enabledSourceNames?: ReadonlySet<string>
       /** 已加入自选股的品种身份 */
       watchlistKeys?: ReadonlySet<string>
+      /** 选择列表是否提供“添加自选”操作；警报等只选品种的场景关闭。 */
+      showWatchlistAction?: boolean
+      /** 是否在搜索栏提供数据源管理入口。 */
+      showManageSources?: boolean
     }>(),
     {
       aggregationSources: () => [],
       enabledSourceNames: () => new Set<string>(),
       watchlistKeys: () => new Set<string>(),
+      showWatchlistAction: true,
+      showManageSources: true,
     },
   )
 

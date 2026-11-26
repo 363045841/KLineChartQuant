@@ -30,6 +30,7 @@
       :density="density"
       :keep-open-on-select="keepOpenOnSelect"
       :placement="placement"
+      :semantics="semantics"
       @open="emit('open')"
       @close="emit('close')"
       @select="onSelect"
@@ -58,16 +59,18 @@
   import type { TooltipPlacement } from '@vue-src/composables/ui/useTooltip.js'
   import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import ControlTrigger from './ControlTrigger.vue'
-  import type { DropMenuGroup } from './dropMenuTypes.js'
+  import type { DropMenuGroup, MenuPopupSemantics } from './dropMenuTypes.js'
   import MenuSurface from './MenuSurface.vue'
   import { useMenuButton } from './useMenuButton.js'
 
   export type { DropMenuGroup, DropMenuItem } from './dropMenuTypes.js'
 
-  withDefaults(
+  const props = withDefaults(
     defineProps<{
       label: string
       groups: ReadonlyArray<DropMenuGroup>
+      /** 面板语义：纯菜单项用 menu；行内带按钮或输入时用 dialog。 */
+      semantics?: MenuPopupSemantics
       disabled?: boolean
       triggerSize?: 'sm'
       /** 菜单相对触发按钮的弹出方向。 */
@@ -85,7 +88,7 @@
       /** 撑满父容器：设置行里的下拉与输入同宽，轴边入口占满整格。 */
       fill?: boolean
     }>(),
-    { tooltipPlacement: 'top', tooltip: true, density: 'compact' },
+    { tooltipPlacement: 'top', tooltip: true, density: 'compact', semantics: 'menu' },
   )
 
   const emit = defineEmits<{
@@ -95,7 +98,10 @@
   }>()
 
   const surface = useTemplateRef<InstanceType<typeof MenuSurface>>('surface')
-  const { buttonProps, menuProps } = useMenuButton(() => surface.value?.focusFirst())
+  const { buttonProps, menuProps } = useMenuButton(
+    () => surface.value?.focusFirst(),
+    props.semantics,
+  )
   const open = computed(() => menuProps.value.open)
 
   /** 选择事件按原有参数个数转发：顶层两项，二级菜单带父项 id。 */
