@@ -208,7 +208,7 @@ export interface DrawingFrameProjection {
   yAxisRanges: ReadonlyArray<YAxisRange>
   xAxisRanges: ReadonlyArray<XAxisRange>
   /** 选中图元的轴标签；未选中时为空。 */
-  axisLabels: ReadonlyArray<import('../../engine/axisLabels/index.js').AxisLabel>
+  axisLabels: ReadonlyArray<import('../types/axisLabel.js').AxisLabel>
   /**
    * 本帧可用于磁吸的线段（Pane 局部坐标）。
    * 只统计已提交层，会话覆盖（拖拽中的图元）不进入候选。
@@ -300,12 +300,12 @@ export interface RenderDataContext {
   /** 当前图表实例解析后的市场交易时段 */
   marketSession?: import('../utils/sessionTimeLabels.js').MarketSessionConfig
   comparisonData?: ReadonlyMap<string, ReadonlyArray<KLineData>>
-  comparisonSymbols?: ReadonlyArray<import('../../controllers/types.js').SymbolSpec>
+  comparisonSymbols?: ReadonlyArray<import('../types/instrument.js').SymbolSpec>
   comparisonColors?: ReadonlyMap<string, string>
   /** 比较品种的隐藏状态，图例保留名称供恢复显示。 */
   comparisonHidden?: ReadonlyMap<string, boolean>
   /** K 线原生比较单帧投影，蜡烛、折线与坐标轴共享同一基准。 */
-  comparisonProjection?: import('../../engine/chartModel/index.js').ComparisonProjection
+  comparisonProjection?: import('../types/comparison.js').ComparisonProjection
   /** 本帧唯一坐标服务：绝对时间 ↔ 逻辑槽位 ↔ 像素，以及本 Pane 的价格投影。 */
   coordinates: import('../geometry/frameCoordinates.js').FrameCoordinates
   /** 当前图表的显示时区 formatter；只做文本格式化，不参与刻度选择。 */
@@ -343,7 +343,7 @@ export interface RenderGeometryContext {
   kWidthPx: number
   /** K 线真正可视区的 high/low 及其索引；由帧准备阶段计算，供多个 renderer 共享。 */
   visiblePriceExtrema?:
-    | import('../../engine/viewport/visiblePriceExtrema.js').VisiblePriceExtrema
+    | import('../types/visiblePriceExtrema.js').VisiblePriceExtrema
     | null
   viewport: {
     scrollLeft: number

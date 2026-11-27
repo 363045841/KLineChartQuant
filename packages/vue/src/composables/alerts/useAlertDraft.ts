@@ -7,8 +7,8 @@
 import type {
   AlertScriptDefinition,
   AlertService,
-  SymbolSpec,
 } from '@363045841yyt/klinechart-core/controllers'
+import type { SymbolSpec } from '@363045841yyt/klinechart-core'
 import type { InstrumentDescriptor } from '@363045841yyt/klinechart-core/market-data'
 import { computed, ref, shallowRef } from 'vue'
 

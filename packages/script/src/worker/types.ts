@@ -1,4 +1,4 @@
-/** Script Worker 的异步执行接口与消息类型。 */
+/** Script Worker 的异步执行接口与消息协议。 */
 import type {
   Bar,
   ComputeRange,
@@ -15,20 +15,34 @@ import type {
 import type { ScriptRequestContext, SecurityRequest } from '../request/types.js'
 import type { PackedIndicatorSeries, RunInputPatch } from './transport/types.js'
 
-/** 一次 Worker 计算的输出；警报事件与序列一起返回，不另开通道。 */
+/** 一次 Worker 计算的结果；告警事件与序列一起返回，便于统一抛回。 */
 export interface ScriptRunResult {
   readonly series: IndicatorSeries
   readonly alerts: readonly ScriptAlertEvent[]
 }
 
-/** 一个客户端持有一个 Worker；同一脚本 ID 再次准备成功后替换编译结果。 */
+/**
+ * 一条脚本执行线程。
+ *
+ * 浏览器实现包装 Web Worker，Node 实现包装 `worker_threads`；库内只使用这组方法，
+ * 不感知线程由谁创建。事件订阅不支持解绑，关闭后由调用方的状态位忽略迟到事件。
+ */
+export interface ScriptThread {
+  postMessage(message: unknown, transfer?: ArrayBuffer[]): void
+  onMessage(listener: (data: unknown) => void): void
+  onError(listener: (error: Error) => void): void
+  onMessageError(listener: () => void): void
+  terminate(): void
+}
+
+/** 一个客户端持有一个 Worker；同一脚本 ID 再次准备成功会替换旧定义。 */
 export interface ScriptWorker {
   prepare(
     id: string,
     source: string,
     libraries?: readonly QuickJSLibrary[],
     trusted?: boolean,
-    /** metadata 读取声明后销毁临时会话，execution 同时安装运行态。 */
+    /** metadata 只读取参数与声明；执行会话在 execution 时同时安装运行态。 */
     mode?: 'metadata' | 'execution',
   ): Promise<PreparedScriptDefinition>
   run(
@@ -48,14 +62,20 @@ export interface ScriptWorker {
   dispose(): void
 }
 
-/** 线程池只配置资源上限和线程工厂，不接受指标轻重或行情版本参数。 */
+/** 线程池只做资源上限与线程管理，不识别指标、行情版本或任务轻重。 */
 export interface ScriptWorkerPoolOptions {
-  readonly size?: number
-  readonly createWorker?: () => ScriptWorker
-  readonly onOutput?: (id: string, events: readonly LogEvent[]) => void
+  /** 执行线程数量；由宿主显式给出。 */
+  readonly size: number
+  /** 创建一条执行线程。 */
+  readonly createThread: () => ScriptThread
+  /** 创建编译线程；池持有并在销毁时关闭。 */
+  readonly createCompilerThread: () => ScriptThread
+  /** 脚本输出回调；由宿主决定转发到哪。 */
+  readonly onOutput: (id: string, events: readonly LogEvent[]) => void
 }
 
-export type ScriptWorkerPool = Omit<ScriptWorker, 'run' | 'requests'> & {  run(
+export type ScriptWorkerPool = Omit<ScriptWorker, 'run' | 'requests'> & {
+  run(
     id: string,
     bars: Parameters<ScriptWorker['run']>[1],
     params?: Parameters<ScriptWorker['run']>[2],
@@ -72,8 +92,13 @@ export type ScriptWorkerPool = Omit<ScriptWorker, 'run' | 'requests'> & {  run(
   ): ReturnType<ScriptWorker['requests']>
 }
 
-/** 环境提供的 Worker 池工厂；浏览器用 Web Worker，Node 用 worker_threads。 */
-export type ScriptWorkerPoolFactory = (options: ScriptWorkerPoolOptions) => ScriptWorkerPool
+/** 池创建时由执行器提供的运行期回调；宿主据此绑定自己的线程配置。 */
+export interface ScriptWorkerPoolRuntime {
+  readonly onOutput: (id: string, events: readonly LogEvent[]) => void
+}
+
+/** 宿主提供的 Worker 池工厂；浏览器用 Web Worker，Node 用 worker_threads。 */
+export type ScriptWorkerPoolFactory = (runtime: ScriptWorkerPoolRuntime) => ScriptWorkerPool
 
 /** 仅传递数据；编译闭包始终留在 Worker 内。 */
 export type ScriptWorkerRequest = { readonly requestId: number; readonly id: string } & (

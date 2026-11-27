@@ -1,6 +1,6 @@
 /** 将公开数据源接入唯一 Provider 协议；这里仅管理接口翻译、鉴权与取消。 */
 
-import type { KLineData } from '@/controllers/types.js'
+import type { KLineData } from '@/foundation/types/bar.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import type { DataSourceInstrument, MarketDataProvider, MarketDataSource } from '../types.js'
 

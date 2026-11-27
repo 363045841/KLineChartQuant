@@ -1,6 +1,6 @@
 /** 比较选择入口只添加所选折线，不将主品种重复加入比较集合。 */
 
-import type { SymbolSpec } from '@363045841yyt/klinechart-core/controllers'
+import type { SymbolSpec } from '@363045841yyt/klinechart-core'
 import type { SymbolItem } from '@vue-src/components/symbol/SymbolSelector.vue'
 import { describe, expect, it, vi } from 'vitest'
 import { createMockChartController } from '../../../__tests__/_mockController'

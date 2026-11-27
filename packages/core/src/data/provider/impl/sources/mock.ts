@@ -2,7 +2,7 @@
  * 内置 MOCK 数据源：实现与宿主数据源相同的公开注册接口，历史按 UTC 日索引即时生成，
  * 因而不存在「生成一次就耗尽」的边界；实时订阅只覆盖当日那一根。
  */
-import type { KLineData } from '@/controllers/types.js'
+import type { KLineData } from '@/foundation/types/bar.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import {
   type DataSourceInstrument,

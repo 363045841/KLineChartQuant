@@ -53,6 +53,7 @@ export function createMarketRuntime(options: MarketRuntimeOptions): MarketRuntim
     calculation,
     marketSessions,
     data,
+    clock: options.clock,
     dispose() {
       if (disposed) return
       disposed = true

@@ -8,7 +8,7 @@
 - 图表与警报是平级消费者：图表用 `onCommit` 取最新完整结果，警报用 `onResult` 逐次消费。任何一方销毁都不释放中枢。
 - 定义注册表随运行时创建，不再有全局注册表。定义替换时注册表写入新的元数据对象，计算层据此换掉旧计算器并让中枢丢弃旧结果。
 - 警报规则身份是 `(脚本, 品种, 参数)`；同一脚本可以在多个品种上各有一条规则，选择器按当前品种投影规则。
-- 运行时由 `createMarketRuntime({ market, definitions, clock })` 创建；图表与警报分别通过 `createChartController({ runtime })` 与 `createAlertRuntime({ runtime, rules, fires })` 接入。两者都从 `runtime.data` 取数，没有图表时警报仍按同一服务运行。
+- 运行时由 `createMarketRuntime({ market, definitions, clock })` 创建；图表与警报分别通过 `createChartController({ runtime })` 与 `createAlertRuntime({ runtime, rules, fires, limits, onError })` 接入。警报的时间取自 `runtime.clock`，容量与错误出口由宿主显式给出。两者都从 `runtime.data` 取数，没有图表时警报仍按同一服务运行。
 
 ## 行情与计算
 

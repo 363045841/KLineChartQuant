@@ -9,6 +9,7 @@ export { createAlertRuntime } from './impl/createAlertRuntime.js'
 export type { AlertRuntime, AlertRuntimeOptions } from './impl/createAlertRuntime.js'
 export { createAlertStores } from './impl/alertPersistence.js'
 export { createAlertService } from './impl/createAlertService.js'
+export { DEFAULT_ALERT_LIMITS } from './types.js'
 export type {
   Alert,
   AlertChannel,

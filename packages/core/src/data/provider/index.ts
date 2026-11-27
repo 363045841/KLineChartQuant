@@ -68,6 +68,11 @@ export type {
   ProtocolTradingCalendar,
   ProtocolTradingCalendarRequest,
 } from './protocol/index.js'
+export type {
+  EventStream,
+  EventStreamFactory,
+  EventStreamHandlers,
+} from '../stream/types.js'
 export {
   createHttpMarketDataTransport,
   createMarketDataProvider,

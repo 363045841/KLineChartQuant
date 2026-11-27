@@ -1,6 +1,6 @@
 /** 真实 Worker 验证：目录元数据不安装计算会话，首次执行可恢复，重新准备仍保持输出正确。 */
 import { afterEach, expect, it, vi } from 'vitest'
-import { createScriptWorker } from '../impl/createScriptWorker.js'
+import { createNodeScriptWorker } from './helpers/nodeScriptWorker.js'
 import { NodeScriptWorker } from './nodeWorker.js'
 
 afterEach(() => vi.unstubAllGlobals())
@@ -20,8 +20,7 @@ it('keeps metadata-only scripts executable without retaining their temporary ses
       super.postMessage(message, transfer)
     }
   }
-  vi.stubGlobal('Worker', ObservedWorker)
-  const worker = createScriptWorker()
+  const worker = createNodeScriptWorker({ thread: () => new ObservedWorker() })
   try {
     const source =
       'defineIndicator({ version: 2,name:"MetadataOnly",position:Position.main,onBar(){plot.Line(close,"close")}})'

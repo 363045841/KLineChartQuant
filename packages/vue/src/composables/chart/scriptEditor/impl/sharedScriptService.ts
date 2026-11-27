@@ -20,9 +20,9 @@ export function sharedScriptService(
   isDefinitionReferenced: (definitionId: string) => boolean | Promise<boolean>,
 ): Promise<ScriptService> {
   let shared = services.get(definitions)
-  shared ??= import('@363045841yyt/klinechart-script-chart')
-    .then(({ createBuiltinScriptService }) =>
-      createBuiltinScriptService({ definitions, isDefinitionReferenced }),
+  shared ??= import('./createBrowserScriptService.js')
+    .then(({ createBrowserScriptService }) =>
+      createBrowserScriptService({ definitions, isDefinitionReferenced }),
     )
     .catch((error: unknown) => {
       services.delete(definitions)

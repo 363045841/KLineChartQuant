@@ -16,8 +16,7 @@ import {
   type QuickJSLibrary,
   resolveScriptLibraries,
 } from '@363045841yyt/klinechart-script'
-import { createScriptWorkerPool } from '@363045841yyt/klinechart-script/worker'
-import type { ScriptRunResult, ScriptWorkerPool, ScriptWorkerPoolOptions } from '@363045841yyt/klinechart-script/worker'
+import type { ScriptRunResult, ScriptWorkerPoolFactory } from '@363045841yyt/klinechart-script/worker'
 import type { ScriptDocument } from '../types.js'
 import type { createScriptLog } from './createScriptLog.js'
 import { prepareScriptMarketData } from './prepareScriptMarketData.js'
@@ -61,7 +60,7 @@ interface CompiledEntry {
 export function createScriptExecutor(
   documents: ScriptDocumentStore,
   log: ReturnType<typeof createScriptLog>,
-  createWorkerPool: (options: ScriptWorkerPoolOptions) => ScriptWorkerPool = createScriptWorkerPool,
+  createWorkerPool: ScriptWorkerPoolFactory,
 ) {
   /** 编译句柄 → 源码与日志频道；一张表同时承担源码快照与输出路由。 */
   const compiled = new Map<string, CompiledEntry>()

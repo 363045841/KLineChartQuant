@@ -1,5 +1,5 @@
-/** 用户脚本文档持久化：复用 Core 的文档仓库保存整份用户工作区。 */
-import { createDocumentStore } from '@363045841yyt/klinechart-core'
+/** 用户脚本文档持久化：浏览器组合根使用的 IndexedDB 实现，保存整份用户工作区。 */
+import { createIndexedDbDocumentStore } from '@363045841yyt/klinechart-core/persistence'
 import { normalizeFolderPath } from '@363045841yyt/klinechart-plot-contracts'
 import type { SavedScript, ScriptFolder, ScriptPersistence, ScriptWorkspace } from '../types.js'
 
@@ -60,8 +60,8 @@ function decode(value: unknown): ScriptWorkspace {
 }
 
 /** 创建工作区隔离的用户脚本存储，显式保存直接等待事务完成。 */
-export function createScriptPersistence(): ScriptPersistence {
-  const store = createDocumentStore<ScriptWorkspace>({
+export function createIndexedDbScriptPersistence(): ScriptPersistence {
+  const store = createIndexedDbDocumentStore<ScriptWorkspace>({
     databaseName: '@363045841yyt/klinechart-user-scripts-v2',
     version: 1,
     storeName: 'scripts',

@@ -1,17 +1,21 @@
-/** 显式开启的真实 Connector 验收：标准 Provider → 足迹主序列执行 → K 线成交额核对。 */
+/** 真实 Connector 验收：标准 Provider → 足迹执行器，逐根 K 线成交额对齐。 */
 import { expect, it } from 'vitest'
 import { createFootprintExecution } from '../../../components/footprint/runtime/impl/footprintExecution.js'
 import { FOOTPRINT_METRICS } from '../../../components/footprint/types.js'
 import { MarketDataProviderRegistry } from '../../provider/registry.js'
 import { installBuiltinProviders } from '../../provider/impl/sources/index.js'
+import { unavailableEventStream } from '../../stream/__tests__/helpers/eventStreamKit.js'
 import { DataSource } from '@363045841yyt/klinechart-plot-contracts'
 import { TRADE_STATUS } from '../types.js'
 
 const registry = new MarketDataProviderRegistry()
-installBuiltinProviders(registry)
+installBuiltinProviders(registry, {
+  // 本用例只走范围查询，不建立实时连接。
+  fetchImpl: (input, init) => globalThis.fetch(input, init),
+  openEventStream: unavailableEventStream,
+})
 const binanceMarketDataProvider = registry.getRequired(DataSource.binance)
 
-// 默认不访问外网；设置 BINANCE_CONNECTOR_TEST_URL 指向已启动的真实 Go 服务。
 it.skipIf(!process.env.BINANCE_CONNECTOR_TEST_URL)(
   'matches a closed Binance candle using aggregated trades through the standard pipeline',
   async () => {
@@ -63,7 +67,7 @@ it.skipIf(!process.env.BINANCE_CONNECTOR_TEST_URL)(
     if (!('series' in output)) throw new Error(output.error)
     const series = output.series
     expect(series.bars[0]?.complete).toBe(true)
-    // 聚合成交按成交额累计，应与同一根 K 线的报价额（turnover）一致。
+    // 聚合成交按成交额累计，应与同一根 K 线的成交额一致。
     const turnover = first.turnover ?? 0
     const total = Number(series.bars[0]?.total)
     expect(turnover).toBeGreaterThan(0)

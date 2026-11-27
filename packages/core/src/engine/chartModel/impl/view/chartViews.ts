@@ -1,5 +1,8 @@
 /** 图表视图唯一事实来源：视图标识、分类、主序列渲染能力与工作区映射。 */
-import { FIVE_DAY_TIME_SHARE_PERIOD, isTimeSharePeriod } from '../../../../controllers/types.js'
+import {
+  FIVE_DAY_TIME_SHARE_PERIOD,
+  isTimeSharePeriod,
+} from '../../../../foundation/types/chartPeriod.js'
 import {
   type ChartDataView,
   ChartDataViewId,

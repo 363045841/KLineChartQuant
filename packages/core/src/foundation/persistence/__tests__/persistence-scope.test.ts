@@ -25,11 +25,11 @@ async function boot(scope: string) {
   const { configureBrowserPersistenceScope } = await import('../persistence-scope.js')
   configureBrowserPersistenceScope(scope)
   const { createLocalStoragePersistence } = await import('../impl/localStoragePersistence.js')
-  const { createDocumentStore } = await import('../impl/documentStore.js')
+  const { createIndexedDbDocumentStore } = await import('../impl/indexedDbDocumentStore.js')
   return {
     configureBrowserPersistenceScope,
     local: createLocalStoragePersistence({ key: 'settings', storage, codec }),
-    database: createDocumentStore({
+    database: createIndexedDbDocumentStore({
       databaseName: 'scope-regression',
       version: 1,
       storeName: 'layouts',

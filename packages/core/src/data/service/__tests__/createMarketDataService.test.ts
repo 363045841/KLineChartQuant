@@ -2,7 +2,10 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry.js'
 import { systemClock } from '@/foundation/utils/clock.js'
-import { createBuiltinMarketDataContext } from '../../provider/impl/sources/index.js'
+import {
+  createBuiltinMarketDataContext,
+  createMockDataSource,
+} from '../../provider/impl/sources/index.js'
 import type { MarketDataContext } from '../../management/context.js'
 import { KLineAdjustment, KLinePeriod, ORIGINAL_BAR_AGGREGATION } from '../../provider/types.js'
 import { createMarketDataService, type BarsOptions, type MarketDataService } from '../index.js'
@@ -23,7 +26,15 @@ async function setup(): Promise<{
   service: MarketDataService
   spec: { instrument: Awaited<ReturnType<MarketDataContext['resolveInstrument']>>; period: string; adjust: string }
 }> {
-  context = createBuiltinMarketDataContext()
+  context = createBuiltinMarketDataContext({
+    // 本用例只消费 mock 源，不建立真实连接。
+    fetchImpl: (input, init) => globalThis.fetch(input, init),
+    openEventStream: () => {
+      throw new Error('Market data service test does not open event streams')
+    },
+  })
+  // 预览源是宿主自己的装配决定，通用装配不再内置。
+  context.registerDataSource(createMockDataSource())
   service = createMarketDataService({
     registry: context.registry,
     stream: context.stream,

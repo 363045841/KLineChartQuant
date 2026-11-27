@@ -4,9 +4,9 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { createIndicatorCatalog } from '../../../controllers/indicatorCatalog/index.js'
 import { createTestDefinitions } from '@/engine/indicators/__tests__/helpers/definitionsTestKit.js'
 import type { DefinitionRegistry } from '@/engine/indicators/registry/index.js'
-import type { SymbolSpec } from '../../../controllers/types.js'
+import type { SymbolSpec } from '@/foundation/types/instrument.js'
 import { PRICE_AXIS_RANGE_MODE } from '../../../foundation/config/priceAxisRangeMode.js'
-import { createDocumentStore } from '../../../foundation/persistence/index.js'
+import { createIndexedDbDocumentStore } from '../../../foundation/persistence/index.js'
 import type { DrawingObject } from '../../drawing/types.js'
 import { registerEmptyPlot } from '../../indicators/__tests__/helpers/plotIndicatorTestKit.js'
 import { MAIN_PANE_ID } from '../../pane/types.js'
@@ -46,7 +46,7 @@ function createManager(restore = true, storageId?: string) {
 
 /** 绕过当前文档编码，模拟浏览器里已有的旧记录。 */
 function createRawLayoutStorage() {
-  return createDocumentStore<unknown>({
+  return createIndexedDbDocumentStore<unknown>({
     databaseName: '@363045841yyt/klinechart-layouts',
     version: LAYOUT_DOCUMENT_VERSION,
     storeName: 'layouts',

@@ -137,8 +137,8 @@
 <script setup lang="ts">
   import type {
     ChartController,
-    SymbolSpec,
   } from '@363045841yyt/klinechart-core/controllers'
+  import type { SymbolSpec } from '@363045841yyt/klinechart-core'
   import AlertAddDialog from '@vue-src/components/alert/AlertAddDialog.vue'
   import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
   import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'

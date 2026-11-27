@@ -4,7 +4,8 @@
  * 依赖全部是窄接口替身，因此用例直接断言"调用了哪个领域命令"，不需要图表实例。
  */
 import { describe, expect, it, vi } from 'vitest'
-import type { IndicatorInputDef, SymbolSpec } from '@/controllers/types'
+import type { IndicatorInputDef } from '@/controllers/types'
+import type { SymbolSpec } from '@/foundation/types/instrument.js'
 import type {
   BarsWindowCacheQuery,
   BarsWindowCacheResult,

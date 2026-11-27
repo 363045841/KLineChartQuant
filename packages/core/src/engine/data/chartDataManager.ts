@@ -9,8 +9,8 @@ import {
   FIVE_DAY_TIME_SHARE_PERIOD,
   isTimeSharePeriod,
   type SymbolInfo,
-  type SymbolSpec,
 } from '../../controllers/types.js'
+import type { SymbolSpec } from '@/foundation/types/instrument.js'
 import { DEFAULT_BAR_PAGE_LIMIT } from '../../data/buffer/impl/marketDataPolicy.js'
 import {
   type BarsSelection,

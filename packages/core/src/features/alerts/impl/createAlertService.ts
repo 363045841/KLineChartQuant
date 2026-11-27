@@ -2,8 +2,9 @@
  * 警报服务：消费计算中枢的结果，负责频率、冷却、过期、日志与投递。
  *
  * 规则只声明脚本、品种、参数与投递策略；触发条件完全由脚本定义。
+ * 时钟、容量策略与错误出口都由宿主注入，服务内不提供任何默认值。
  */
-import type { SymbolSpec } from '../../../controllers/types.js'
+import type { SymbolSpec } from '@/foundation/types/instrument.js'
 import {
   type CalculationHub,
   type CalculationInputs,
@@ -17,8 +18,15 @@ import {
 } from '../../../engine/calculation/index.js'
 import type { DefinitionRegistry } from '../../../engine/indicators/registry/index.js'
 import { ALERT_ERROR_CODES, KLineChartError } from '../../../errors.js'
-import type { DocumentStore } from '../../../foundation/persistence/index.js'
-import { asReadonlySignal, batch, computed, createSignal, type ReadonlySignal } from '../../../foundation/reactivity/signal.js'
+import type { DocumentStore } from '@/foundation/persistence/types.js'
+import {
+  asReadonlySignal,
+  batch,
+  computed,
+  createSignal,
+  type ReadonlySignal,
+} from '../../../foundation/reactivity/signal.js'
+import type { Clock } from '../../../foundation/utils/clock.js'
 import { deepFreezeSnapshot } from '../../../foundation/utils/deepFreezeSnapshot.js'
 import { generateUUID } from '../../../foundation/utils/uuid.js'
 import type {
@@ -30,12 +38,14 @@ import type {
   AlertLimits,
   AlertService,
 } from '../types.js'
-import { ALERT_DOCUMENT_VERSION, type AlertFiresDocument, type AlertRulesDocument } from './alertCodec.js'
+import {
+  ALERT_DOCUMENT_VERSION,
+  type AlertFiresDocument,
+  type AlertRulesDocument,
+} from './alertCodec.js'
 import { alertStatus } from './alertStatus.js'
 import { alertFeedIdentity } from './alertSymbol.js'
 import type { AlertFeedLease } from './createAlertFeeds.js'
-
-const DEFAULT_LIMITS: AlertLimits = { maxAlerts: 200, maxFires: 1000, maxFiresPerAlert: 200 }
 
 interface AlertServiceDependencies {
   readonly hub: CalculationHub
@@ -43,9 +53,12 @@ interface AlertServiceDependencies {
   readonly rules: DocumentStore<AlertRulesDocument>
   readonly fires: DocumentStore<AlertFiresDocument>
   readonly feeds: Pick<AlertFeedLease, 'retain'>
-  readonly now?: () => number
-  readonly limits?: Partial<AlertLimits>
-  readonly onError?: (error: unknown) => void
+  /** 时间来源；频率、冷却与过期判断共用。 */
+  readonly clock: Clock
+  /** 容量策略；由宿主显式给出。 */
+  readonly limits: AlertLimits
+  /** 持久化与投递失败的唯一出口。 */
+  readonly onError: (error: unknown) => void
 }
 
 interface RuleEvaluation {
@@ -72,7 +85,10 @@ function validateDraft(draft: AlertDraft): void {
     )
   }
   if (draft.cooldownMs !== undefined && (!Number.isFinite(draft.cooldownMs) || draft.cooldownMs < 0)) {
-    throw new KLineChartError(ALERT_ERROR_CODES.INVALID_POLICY, 'Alert cooldownMs must be a non-negative finite number')
+    throw new KLineChartError(
+      ALERT_ERROR_CODES.INVALID_POLICY,
+      'Alert cooldownMs must be a non-negative finite number',
+    )
   }
   if (draft.expiresAt !== undefined && !Number.isFinite(draft.expiresAt)) {
     throw new KLineChartError(ALERT_ERROR_CODES.INVALID_POLICY, 'Alert expiresAt must be a finite timestamp')
@@ -85,14 +101,20 @@ function scriptReference(
 ): Alert['script'] {
   const definition = readScript(definitions, script.definitionId)
   if (!definition) {
-    throw new KLineChartError(ALERT_ERROR_CODES.INVALID_CONDITION, `Alert requires a registered alert script: ${script.definitionId}`)
+    throw new KLineChartError(
+      ALERT_ERROR_CODES.INVALID_CONDITION,
+      `Alert requires a registered alert script: ${script.definitionId}`,
+    )
   }
   return { definitionId: definition.id, inputs: script.inputs }
 }
 
 function isScalar(value: unknown): value is number | string | boolean {
-  return typeof value === 'string' || typeof value === 'boolean' ||
+  return (
+    typeof value === 'string' ||
+    typeof value === 'boolean' ||
     (typeof value === 'number' && Number.isFinite(value))
+  )
 }
 
 function calculationInputs(
@@ -137,10 +159,7 @@ function makeFire(alert: Alert, event: ScriptAlertEvent, firedAt: number): Alert
 }
 
 export async function createAlertService(deps: AlertServiceDependencies): Promise<AlertService> {
-  const { definitions } = deps
-  const limits = { ...DEFAULT_LIMITS, ...deps.limits }
-  const now = deps.now ?? Date.now
-  const reportError = deps.onError ?? ((error) => console.error('[Alerts]', error))
+  const { definitions, clock, limits, onError: reportError } = deps
   const [rulesDocument, firesDocument] = await Promise.all([deps.rules.read(), deps.fires.read()])
   const rules = new Map((rulesDocument?.alerts ?? []).map((rule) => [rule.id, rule]))
   let history = (firesDocument?.fires ?? []).slice(0, limits.maxFires)
@@ -157,8 +176,14 @@ export async function createAlertService(deps: AlertServiceDependencies): Promis
     const nextRules = rulesChanged ? Object.freeze([...rules.values()]) : undefined
     const nextHistory = historyChanged ? Object.freeze(history) : undefined
     writes = writes.then(async () => {
-      if (nextRules) await deps.rules.write({ version: ALERT_DOCUMENT_VERSION, alerts: nextRules }).catch(reportError)
-      if (nextHistory) await deps.fires.write({ version: ALERT_DOCUMENT_VERSION, fires: nextHistory }).catch(reportError)
+      if (nextRules)
+        await deps.rules
+          .write({ version: ALERT_DOCUMENT_VERSION, alerts: nextRules })
+          .catch(reportError)
+      if (nextHistory)
+        await deps.fires
+          .write({ version: ALERT_DOCUMENT_VERSION, fires: nextHistory })
+          .catch(reportError)
     })
     batch(() => {
       if (nextRules) alerts.set(nextRules)
@@ -170,10 +195,11 @@ export async function createAlertService(deps: AlertServiceDependencies): Promis
     const symbols = new Map<FeedKey, SymbolSpec>()
     const requests = new Map<FeedKey, Map<string, CalculationRequest>>()
     routes = new Map()
+    const now = clock.now()
     for (const alert of rules.values()) {
       if (!alert.enabled) continue
       const script = readScript(definitions, alert.script.definitionId)
-      if (!script || !canEvaluate(alert, script.frequency, now())) continue
+      if (!script || !canEvaluate(alert, script.frequency, now)) continue
       const feed = createFeedKey(alertFeedIdentity(alert.symbol))
       const request = {
         definitionId: script.id,
@@ -200,7 +226,7 @@ export async function createAlertService(deps: AlertServiceDependencies): Promis
   function recordFires(id: string, events: readonly ScriptAlertEvent[], frequency: AlertFrequency): void {
     const original = rules.get(id)
     if (!original) return
-    const timestamp = now()
+    const timestamp = clock.now()
     const status = alertStatus(original, frequency, timestamp)
     if (status === 'expired') updatePlan()
     if (status !== 'active' && status !== 'error') return
@@ -213,7 +239,8 @@ export async function createAlertService(deps: AlertServiceDependencies): Promis
       if (
         (frequency === 'per-bar' || frequency === 'per-bar-close') &&
         alert.lastFiredBarTime === event.barTime
-      ) continue
+      )
+        continue
       accepted.push(makeFire(alert, event, timestamp))
       alert = Object.freeze({ ...alert, lastFiredAt: timestamp, lastFiredBarTime: event.barTime })
       if (frequency === 'once') break
@@ -313,14 +340,17 @@ export async function createAlertService(deps: AlertServiceDependencies): Promis
     create(draft) {
       validateDraft(draft)
       if (rules.size >= limits.maxAlerts) {
-        throw new KLineChartError(ALERT_ERROR_CODES.LIMIT_REACHED, `Alert limit reached: ${limits.maxAlerts}`)
+        throw new KLineChartError(
+          ALERT_ERROR_CODES.LIMIT_REACHED,
+          `Alert limit reached: ${limits.maxAlerts}`,
+        )
       }
       return save({
         ...draft,
         script: scriptReference(definitions, draft.script),
         id: generateUUID(),
         enabled: draft.enabled ?? true,
-        createdAt: now(),
+        createdAt: clock.now(),
       })
     },
     update(id, patch) {
@@ -337,7 +367,9 @@ export async function createAlertService(deps: AlertServiceDependencies): Promis
         enabled: patch.enabled ?? alert.enabled,
       }
       validateDraft(next)
-      const sameFeed = createFeedKey(alertFeedIdentity(next.symbol)) === createFeedKey(alertFeedIdentity(alert.symbol))
+      const sameFeed =
+        createFeedKey(alertFeedIdentity(next.symbol)) ===
+        createFeedKey(alertFeedIdentity(alert.symbol))
       if (sameFeed) return save(next)
       const { lastFiredBarTime: _previousBar, ...rebound } = next
       return save(rebound)
@@ -352,10 +384,16 @@ export async function createAlertService(deps: AlertServiceDependencies): Promis
     get: (id) => rules.get(id) ?? null,
     list({ symbol, status } = {}) {
       const feed = symbol && createFeedKey(alertFeedIdentity(symbol))
-      const timestamp = now()
-      return [...rules.values()].filter((alert) =>
-        (!feed || createFeedKey(alertFeedIdentity(alert.symbol)) === feed) &&
-        (status === undefined || alertStatus(alert, readScript(definitions, alert.script.definitionId)?.frequency, timestamp) === status),
+      const timestamp = clock.now()
+      return [...rules.values()].filter(
+        (alert) =>
+          (!feed || createFeedKey(alertFeedIdentity(alert.symbol)) === feed) &&
+          (status === undefined ||
+            alertStatus(
+              alert,
+              readScript(definitions, alert.script.definitionId)?.frequency,
+              timestamp,
+            ) === status),
       )
     },
     setEnabled(id, enabled) {

@@ -4,7 +4,7 @@
  * 只有本模块可以查询 Provider、订阅实时流并合并历史；调用方只读取序列，
  * 不再各自维护缓存、分页或实时补偿。
  */
-import type { SymbolSpec } from '@/controllers/types.js'
+import type { SymbolSpec } from '@/foundation/types/instrument.js'
 import type { ReadonlySignal } from '@/foundation/reactivity/signal.js'
 import type { KLineData, TimeShareData } from '@/foundation/types/price.js'
 import type {

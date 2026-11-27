@@ -1,14 +1,9 @@
 import type { KLineData } from '../../foundation/types/price.js'
+import type { VisiblePriceExtrema } from '../../foundation/types/visiblePriceExtrema.js'
 import type { VisibleRange } from './viewport.js'
 import { findVisibleBarRange } from './visibleBarIndex.js'
 
-/** 主图真正落在视口内的 K 线高低点；供同帧多个消费者共享。 */
-export type VisiblePriceExtrema = {
-  min: number
-  max: number
-  minIndex: number
-  maxIndex: number
-}
+export type { VisiblePriceExtrema } from '../../foundation/types/visiblePriceExtrema.js'
 
 export function computeVisiblePriceExtrema(
   data: readonly KLineData[],

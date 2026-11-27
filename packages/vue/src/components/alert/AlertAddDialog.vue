@@ -72,8 +72,8 @@
   import type {
     AlertService,
     DefinitionRegistry,
-    SymbolSpec,
   } from '@363045841yyt/klinechart-core/controllers'
+  import type { SymbolSpec } from '@363045841yyt/klinechart-core'
   import AlertScriptSelector from '@vue-src/components/alert/AlertScriptSelector.vue'
   import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'

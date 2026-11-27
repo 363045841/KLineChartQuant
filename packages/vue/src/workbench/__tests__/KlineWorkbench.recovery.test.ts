@@ -1,4 +1,5 @@
 /** 工作台行情错误恢复期间保留图表及 Agent 实例。 */
+import 'fake-indexeddb/auto'
 import { defineComponent, h, onMounted, onUnmounted } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'

@@ -1,5 +1,5 @@
 /** 左下栏预置编排：挑周期 → 整体替换 → 等覆盖 → 装进屏幕。 */
-import type { SymbolSpec } from '@363045841yyt/klinechart-core/controllers'
+import type { SymbolSpec } from '@363045841yyt/klinechart-core'
 import type { InstrumentDescriptor } from '@363045841yyt/klinechart-core/market-data'
 import { KLinePeriod } from '@363045841yyt/klinechart-core/market-data'
 import { describe, expect, it, vi } from 'vitest'

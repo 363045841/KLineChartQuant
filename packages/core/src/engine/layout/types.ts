@@ -7,7 +7,7 @@
  * 本文件只描述文档形状，不依赖同模块 impl/。
  */
 
-import type { SymbolSpec } from '../../controllers/types.js'
+import type { SymbolSpec } from '@/foundation/types/instrument.js'
 import type { ChartSettings } from '../../foundation/config/chartSettings.js'
 import type { PriceAxisRangeMode } from '../../foundation/config/priceAxisRangeMode.js'
 import type { ChartWorkspaceId } from '../../foundation/types/chartView.js'

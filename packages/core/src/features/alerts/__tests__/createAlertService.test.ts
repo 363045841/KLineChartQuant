@@ -6,6 +6,7 @@ import { createTestDefinitions } from '@/engine/indicators/__tests__/helpers/def
 import { createMemoryDocumentStore } from '../../../foundation/persistence/index.js'
 import {
   createAlertService,
+  DEFAULT_ALERT_LIMITS,
   type AlertDraft,
   type AlertFiresDocument,
   type AlertFrequency,
@@ -47,7 +48,16 @@ async function setup(frequency: AlertFrequency) {
   const fires = createMemoryDocumentStore<AlertFiresDocument>(null)
   const retain = vi.fn()
   let clock = 1000
-  const deps = { hub, definitions, rules, fires, feeds: { retain }, now: () => clock }
+  const deps = {
+    hub,
+    definitions,
+    rules,
+    fires,
+    feeds: { retain },
+    clock: { now: () => clock },
+    limits: DEFAULT_ALERT_LIMITS,
+    onError: vi.fn(),
+  }
   const service = await createAlertService(deps)
   let revision = 0
   function push(time: number, events: readonly number[], closed = false) {

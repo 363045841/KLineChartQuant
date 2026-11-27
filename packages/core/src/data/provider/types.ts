@@ -3,7 +3,7 @@
  * 数据源适配器负责把私有协议转换为这些类型，图表和 UI 不解析上游字段。
  */
 
-import type { KLineData, TimeShareData } from '../../controllers/types.js'
+import type { KLineData, TimeShareData } from '../../foundation/types/bar.js'
 import type { MarketSessionConfig } from '../../foundation/utils/sessionTimeLabels.js'
 import type { DepthSource } from '../depth/types.js'
 import type { StreamTransportFactory } from '../stream/types.js'

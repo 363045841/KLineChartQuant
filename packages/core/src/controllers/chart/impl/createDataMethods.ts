@@ -7,7 +7,8 @@
 import type { CoverageResult } from '@/data/buffer/types.js'
 import type { Chart } from '@/engine/chart/index.js'
 import type { RangePreset, RangeWindow } from '@/engine/viewport/rangePreset.js'
-import type { KLineData, SymbolInfo, SymbolSpec } from '../types.js'
+import type { KLineData, SymbolInfo } from '../types.js'
+import type { SymbolSpec } from '@/foundation/types/instrument.js'
 
 /**
  * 创建数据与视图定位的委托方法集。

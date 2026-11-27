@@ -1,13 +1,11 @@
 /** 真实 Worker 验证：警报事件随计算结果返回，历史运行不产生事件。 */
 import { afterEach, expect, it, vi } from 'vitest'
-import { createScriptWorker } from '../impl/createScriptWorker.js'
-import { NodeScriptWorker } from './nodeWorker.js'
+import { createNodeScriptWorker } from './helpers/nodeScriptWorker.js'
 
 afterEach(() => vi.unstubAllGlobals())
 
 it('returns live alerts from the worker and keeps history silent', async () => {
-  vi.stubGlobal('Worker', NodeScriptWorker)
-  const worker = createScriptWorker()
+  const worker = createNodeScriptWorker()
   try {
     const source =
       "defineAlert({ version: 2, name: 'WorkerAlert', frequency: 'all', onBar() { if (close[0] >= 10) alert('hit ' + close[0]) } })"

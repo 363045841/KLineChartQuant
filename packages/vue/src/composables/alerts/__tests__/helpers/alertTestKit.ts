@@ -9,6 +9,7 @@ import {
   createAlertService,
   createCalculationHub,
   createDefinitionRegistry,
+  DEFAULT_ALERT_LIMITS,
   type DefinitionRegistry,
   type SymbolSpec,
 } from '@363045841yyt/klinechart-core'
@@ -91,6 +92,9 @@ export function createAlertTestContext(): AlertTestContext {
       rules: createMemoryDocumentStore<AlertRulesDocument>(null),
       fires: createMemoryDocumentStore<AlertFiresDocument>(null),
       feeds: { retain: () => {} },
+      clock: { now: () => 0 },
+      limits: DEFAULT_ALERT_LIMITS,
+      onError: () => {},
     })
     return {
       service,

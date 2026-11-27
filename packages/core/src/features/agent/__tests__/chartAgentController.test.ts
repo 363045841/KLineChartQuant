@@ -2,7 +2,8 @@
  * Agent 上下文投影测试：上下文只读取图表状态，不携带工具定义。
  */
 import { describe, expect, it, vi } from 'vitest'
-import type { IndicatorInstance, SymbolSpec } from '@/controllers/types'
+import type { IndicatorInstance } from '@/controllers/types'
+import type { SymbolSpec } from '@/foundation/types/instrument.js'
 import { SERIES_SELECTION_KIND } from '@/data/buffer/seriesSelection'
 import { makeSymbolSpec } from '@/engine/data/__tests__/helpers/symbolSpecFixture'
 import type { DrawingObject } from '@/engine/drawing/index'

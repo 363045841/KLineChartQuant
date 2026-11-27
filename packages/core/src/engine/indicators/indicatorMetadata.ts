@@ -10,11 +10,11 @@ import type {
   IndicatorSourceDocument,
   ScriptDefinitionKind,
 } from '@363045841yyt/klinechart-plot-contracts'
-import type { IndicatorRenderStateReader, RenderContext } from '../../foundation/plugin/index.js'
+import type { IndicatorRenderStateReader, RenderContext } from '../../foundation/plugin/types.js'
 import type { ColorTokens } from '../../foundation/tokens/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import type { Layer } from '../../rendering/scene/types.js'
-import type { ChartDataView } from '../chartModel/index.js'
+import type { ChartDataView } from '../../foundation/types/chartView.js'
 import type { IndicatorPlotDefinition } from '../plots/types.js'
 import type { CalculationCompute } from '../calculation/types.js'
 

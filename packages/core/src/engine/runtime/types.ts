@@ -27,5 +27,7 @@ export interface MarketRuntime {
   readonly marketSessions: MarketSessionRegistry
   /** 唯一取数入口；图表、计算与警报共用。 */
   readonly data: MarketDataService
+  /** 运行时唯一的时间来源；所有消费者共用同一份时钟。 */
+  readonly clock: Clock
   dispose(): void
 }

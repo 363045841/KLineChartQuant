@@ -1,5 +1,6 @@
 /** 数据缓冲层共享契约：已加载窗口、统一的数据变更描述与 K 线/分时缓冲接口。 */
-import type { KLineData, SymbolSpec } from '../../controllers/types.js'
+import type { KLineData } from '../../foundation/types/bar.js'
+import type { SymbolSpec } from '@/foundation/types/instrument.js'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { TimeShareData } from '../../foundation/types/price.js'
 import type {

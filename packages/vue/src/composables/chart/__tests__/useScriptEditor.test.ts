@@ -2,7 +2,20 @@
 import 'fake-indexeddb/auto'
 
 import source from '@363045841yyt/klinechart-script/scripts/sma.ts?raw'
-import { createScriptService, type ScriptWorkspace } from '@363045841yyt/klinechart-script-chart'
+import type { QuickJSLibrary } from '@363045841yyt/klinechart-script'
+import {
+  COMPILER_WORKER_URL,
+  createScriptWorkerPool,
+  fromEventTarget,
+  SCRIPT_WORKER_URL,
+} from '@363045841yyt/klinechart-script/worker'
+import {
+  createIndexedDbScriptPersistence,
+  createScriptService as createService,
+  type ScriptService,
+  type ScriptServiceOptions,
+  type ScriptWorkspace,
+} from '@363045841yyt/klinechart-script-chart'
 import { createDefinitionRegistry } from '@363045841yyt/klinechart-core'
 import { describe, expect, it, vi } from 'vitest'
 import { effectScope, shallowRef } from 'vue'
@@ -13,6 +26,26 @@ import type { ScriptSourceStore } from '../scriptEditor/types.js'
 import { useScriptEditor } from '../useScriptEditor.js'
 
 vi.stubGlobal('Worker', NodeScriptWorker)
+
+/** 用例只声明差异：线程与存储由浏览器默认实现补齐。 */
+function createScriptService(
+  libraries: readonly QuickJSLibrary[],
+  options: Omit<ScriptServiceOptions, 'builtinSources' | 'createWorkerPool' | 'persistence'> &
+    Partial<Pick<ScriptServiceOptions, 'builtinSources' | 'createWorkerPool' | 'persistence'>>,
+): Promise<ScriptService> {
+  return createService(libraries, {
+    builtinSources: [],
+    persistence: createIndexedDbScriptPersistence(),
+    createWorkerPool: (runtime) =>
+      createScriptWorkerPool({
+        ...runtime,
+        size: 2,
+        createThread: () => fromEventTarget(new Worker(SCRIPT_WORKER_URL)),
+        createCompilerThread: () => fromEventTarget(new Worker(COMPILER_WORKER_URL)),
+      }),
+    ...options,
+  })
+}
 
 describe('useScriptEditor', () => {
   it('无需仓库即可删除未保存文件并选择相邻标签', async () => {

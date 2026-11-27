@@ -432,6 +432,7 @@
 
 <script setup lang="ts">
   import { FOOTPRINT_SHAPE } from '@363045841yyt/klinechart-core'
+  import type { SymbolSpec } from '@363045841yyt/klinechart-core'
   import {
     type ChartSettings,
     normalizeSettings,
@@ -449,7 +450,6 @@
     type LegendOptions,
     type LegendTemplateContext,
     type RendererBackendRuntime,
-    type SymbolSpec,
     TIME_SHARE_PERIOD,
   } from '@363045841yyt/klinechart-core/controllers'
   import { bindChartInput, type ChartInputHooks } from '@363045841yyt/klinechart-core/input'

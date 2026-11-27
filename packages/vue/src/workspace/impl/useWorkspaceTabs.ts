@@ -1,5 +1,5 @@
 /** 标签状态只发布成功提交的快照；本地操作有序，跨窗口操作由 IndexedDB 事务串行化。 */
-import type { SymbolSpec } from '@363045841yyt/klinechart-core/controllers'
+import type { SymbolSpec } from '@363045841yyt/klinechart-core'
 import { computed, ref, shallowRef } from 'vue'
 import {
   createBlankTab,

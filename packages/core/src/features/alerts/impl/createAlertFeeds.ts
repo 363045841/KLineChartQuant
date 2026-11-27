@@ -3,7 +3,7 @@
  *
  * 本文件只做投影，不查询历史、不订阅流、不维护第二份 K 线。
  */
-import type { SymbolSpec } from '@/controllers/types.js'
+import type { SymbolSpec } from '@/foundation/types/instrument.js'
 import { DATA_CHANGE_KINDS } from '@/data/buffer/types.js'
 import type { MarketDataProviderRegistry } from '@/data/provider/registry.js'
 import { ORIGINAL_BAR_AGGREGATION } from '@/data/provider/types.js'

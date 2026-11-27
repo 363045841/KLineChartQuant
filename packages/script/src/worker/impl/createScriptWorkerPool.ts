@@ -1,6 +1,8 @@
 /** Worker 池：保留编译快照，按活动句柄安装运行态，空闲时立即清理已释放会话。 */
 import type { PreparedScriptDefinition, QuickJSLibrary } from '../../quickjs/types.js'
-import type { ScriptWorker, ScriptWorkerPool, ScriptWorkerPoolOptions } from '../types.js'
+import type { CompilationHost } from '../compiler/types.js'
+import { createCompilerHost } from '../compiler/impl/compilerHost.js'
+import type { ScriptThread, ScriptWorker, ScriptWorkerPool, ScriptWorkerPoolOptions } from '../types.js'
 import { createScriptWorker } from './createScriptWorker.js'
 
 interface Source {
@@ -25,12 +27,20 @@ interface Job {
   cancel(): void
 }
 
-/** 线程池不识别指标、行情版本或轻重任务，也不替调用方合并任务。 */
-export function createScriptWorkerPool(options: ScriptWorkerPoolOptions = {}): ScriptWorkerPool {
-  const size =
-    options.size ?? Math.min(4, Math.max(2, (globalThis.navigator?.hardwareConcurrency ?? 4) - 1))
+/**
+ * 创建脚本线程池。
+ *
+ * 线程数量、线程实现与编译线程都由宿主给出；池持有编译宿主并在销毁时一并关闭。
+ *
+ * @param options - 线程工厂、池大小与输出回调
+ */
+export function createScriptWorkerPool(options: ScriptWorkerPoolOptions): ScriptWorkerPool {
+  const { size } = options
   if (!Number.isInteger(size) || size < 1)
     throw new RangeError('Worker pool size must be a positive integer')
+  const compiler: CompilationHost = createCompilerHost({
+    createThread: options.createCompilerThread,
+  })
   const slots: Slot[] = Array.from({ length: size }, () => ({ compiled: new Map() }))
   const sources = new Map<string, Source>()
   const queue: Job[] = []
@@ -73,14 +83,14 @@ export function createScriptWorkerPool(options: ScriptWorkerPoolOptions = {}): S
     }
   }
 
-  /** 一个Job独占槽位，跨await始终检查槽位身份，防止取消后继续使用新线程。 */
+  /** 一个任务独占槽位，跨 await 始终检查槽位身份，防止取消后继续使用新线程。 */
   function schedule<T>(
     id: string,
     source: Source,
     run: (worker: ScriptWorker, definition: PreparedScriptDefinition) => Promise<T>,
     signal?: AbortSignal,
   ): Promise<T> {
-    if (disposed) return Promise.reject(new Error('Script Worker pool 已销毁'))
+    if (disposed) return Promise.reject(new Error('Script Worker 池已销毁'))
     if (signal?.aborted) return Promise.reject(signal.reason)
     return new Promise<T>((resolve, reject) => {
       let settled = false
@@ -110,8 +120,11 @@ export function createScriptWorkerPool(options: ScriptWorkerPoolOptions = {}): S
             .then(async () => {
               check()
               if (!slot.worker) {
-                slot.worker =
-                  options.createWorker?.() ?? createScriptWorker(undefined, options.onOutput)
+                slot.worker = createScriptWorker(
+                  options.createThread(),
+                  options.onOutput,
+                  compiler,
+                )
               }
               const worker = slot.worker
               let compiled = slot.compiled.get(id)
@@ -150,7 +163,7 @@ export function createScriptWorkerPool(options: ScriptWorkerPoolOptions = {}): S
     run: (worker: ScriptWorker) => Promise<T>,
     signal?: AbortSignal,
   ): Promise<T> {
-    if (disposed) return Promise.reject(new Error('Script Worker pool 已销毁'))
+    if (disposed) return Promise.reject(new Error('Script Worker 池已销毁'))
     const source = sources.get(id)
     return source
       ? schedule(id, source, run, signal)
@@ -186,6 +199,7 @@ export function createScriptWorkerPool(options: ScriptWorkerPoolOptions = {}): S
         job.cancel()
       for (const slot of slots) reset(slot)
       sources.clear()
+      compiler.dispose()
     },
   }
 }

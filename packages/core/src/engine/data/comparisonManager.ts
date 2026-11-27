@@ -1,5 +1,6 @@
 /** 比较叠加数据投影：订阅统一行情服务的序列，向主图提供折线数据。 */
-import type { KLineData, SymbolSpec } from '../../controllers/types.js'
+import type { KLineData } from '@/foundation/types/bar.js'
+import type { SymbolSpec } from '@/foundation/types/instrument.js'
 import { DEFAULT_BAR_PAGE_LIMIT } from '../../data/buffer/impl/marketDataPolicy.js'
 import type { BarsSeries } from '../../data/service/index.js'
 import { OLDER_DATA_STATUS } from '../../data/provider/types.js'

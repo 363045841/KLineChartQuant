@@ -1,5 +1,5 @@
 /** 工作台只解析用户选择，不取历史、不写 Buffer；查询和订阅仍由 Core 运行时负责。 */
-import type { SymbolSpec } from '@363045841yyt/klinechart-core/controllers'
+import type { SymbolSpec } from '@363045841yyt/klinechart-core'
 import { KLineAdjustment, KLinePeriod } from '@363045841yyt/klinechart-core/market-data'
 import type { MarketDataContext } from '@363045841yyt/klinechart-core/market-data'
 import { onScopeDispose, shallowRef, watch } from 'vue'

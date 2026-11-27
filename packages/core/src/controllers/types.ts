@@ -9,11 +9,11 @@
  */
 
 import type { Bar, IndicatorMarketContext } from '@363045841yyt/klinechart-plot-contracts'
-import type {
-  InstrumentCapabilities,
-  InstrumentDescriptor,
-  InstrumentType,
-} from '../data/provider/types.js'
+import type { InstrumentCapabilities, InstrumentType } from '../data/provider/types.js'
+import type { SymbolSpec } from '../foundation/types/instrument.js'
+import type { KLineData, TimeShareData } from '../foundation/types/bar.js'
+
+export type { KLineData, TimeShareData }
 import type {
   IndicatorInstance,
   IndicatorRole,
@@ -111,31 +111,6 @@ export type IndicatorPaneRole = IndicatorRole
 // long-term; the legacy types re-export from here once migration completes)
 // ---------------------------------------------------------------------------
 
-export interface KLineData {
-  timestamp: number
-  open: number
-  high: number
-  low: number
-  close: number
-  volume?: number
-  turnover?: number
-  symbol?: string
-  amplitude?: number
-  changePercent?: number
-  changeAmount?: number
-  turnoverRate?: number
-}
-
-export interface TimeShareData {
-  timestamp: number
-  price: number
-  average: number
-  /** 分时成交量，单位手；上游未提供时缺失。 */
-  volume?: number
-  /** 分时成交额，单位元；上游未提供时缺失。 */
-  amount?: number
-}
-
 export type { InstanceMoveTarget, PaneGeometry, PaneSpec }
 
 // ---------------------------------------------------------------------------
@@ -157,26 +132,6 @@ export interface SymbolInfo {
   exchange?: string
   source?: string
   params?: DataSourceParams
-}
-
-// Symbol specification
-// ---------------------------------------------------------------------------
-
-export interface SymbolSpec {
-  /** 统一行情模型提供的品种；身份、请求路由与展示都只从这里读取。 */
-  instrument: InstrumentDescriptor
-  /** K 线周期；缺省按日线。 */
-  period?: string
-  /** 复权方式；缺省不复权。 */
-  adjust?: string
-  /** 显式历史查询边界；仅历史窗口查询使用。 */
-  startDate?: string
-  endDate?: string
-  /**
-   * 该序列是否支持向前分页；缺省支持。
-   * false 表示数据全部由调用方提供，不再向数据源请求更早历史。
-   */
-  incremental?: boolean
 }
 
 // ---------------------------------------------------------------------------

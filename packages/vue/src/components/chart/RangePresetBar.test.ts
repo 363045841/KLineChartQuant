@@ -1,5 +1,5 @@
 /** 左下栏按钮：共享按钮控件、派生高亮、分时置灰。 */
-import type { SymbolSpec } from '@363045841yyt/klinechart-core/controllers'
+import type { SymbolSpec } from '@363045841yyt/klinechart-core'
 import type { InstrumentDescriptor } from '@363045841yyt/klinechart-core/market-data'
 import { KLinePeriod } from '@363045841yyt/klinechart-core/market-data'
 import { mount } from '@vue/test-utils'

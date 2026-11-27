@@ -4,7 +4,7 @@
  * 只做编排，不判断加载状态、不算几何：加载策略归数据层，定位归视图层。
  */
 
-import type { SymbolSpec } from '@363045841yyt/klinechart-core/controllers'
+import type { SymbolSpec } from '@363045841yyt/klinechart-core'
 import {
   type ChartController,
   ChartDataViewId,

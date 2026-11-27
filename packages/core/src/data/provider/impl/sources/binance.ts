@@ -1,9 +1,12 @@
-/** Binance Provider 的实例装配，K 线与成交共享连接配置；实时连接由 `data/stream` 的连接注册表统一建立。 */
+/** Binance Provider 的实例装配；K 线与成交流共用同一份传输，实时连接由 Provider 声明。 */
 import type { MarketDataProviderRegistry } from '../../registry.js'
 import { dataSourceRegistry } from '../sourceRegistry.js'
-import { createHttpSource } from './createHttpSource.js'
+import { createHttpSource, type HttpSourceOptions } from './createHttpSource.js'
 
-/** 通过同一实例装配 HTTP 与成交流；实时 K 线走同一张连接注册表。 */
-export function createBinanceMarketDataProvider(registry: MarketDataProviderRegistry) {
-  return createHttpSource(dataSourceRegistry.binance, registry, { trades: true })
+/** 同一实例装配 HTTP 成交流与实时 K 线，共用宿主注入的 fetch 与事件流。 */
+export function createBinanceMarketDataProvider(
+  registry: MarketDataProviderRegistry,
+  options: HttpSourceOptions,
+) {
+  return createHttpSource(dataSourceRegistry.binance, registry, { ...options, trades: true })
 }

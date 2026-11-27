@@ -1,30 +1,9 @@
-export interface KLineData {
-  /* 时间戳（毫秒） */
-  timestamp: number
-  /* 开盘价 */
-  open: number
-  /* 最高价 */
-  high: number
-  /* 最低价 */
-  low: number
-  /* 收盘价 */
-  close: number
-  symbol?: string
-  /** 成交量 */
-  volume?: number
-  /** 成交额 */
-  turnover?: number
-  /** 振幅 */
-  amplitude?: number
-  /** 涨跌幅 */
-  changePercent?: number
-  /** 涨跌额 */
-  changeAmount?: number
-  /** 换手率 */
-  turnoverRate?: number
-  /** 添加自定义字段 */
-  [key: string]: any
-}
+/**
+ * 行情数据入口：K 线、分时的唯一形状来自 `bar.ts`，本文件只保留响应包装与视图判别。
+ */
+import type { KLineData, TimeShareData } from './bar.js'
+
+export type { KLineData, TimeShareData } from './bar.js'
 
 export interface KLineDailyDongCaiResponse extends KLineData {
   symbol: string
@@ -36,19 +15,10 @@ export interface KLineDailyDongCaiResponse extends KLineData {
   turnoverRate: number
 }
 
-export interface TimeShareData {
-  timestamp: number
-  price: number
-  average: number
-  /** 分时成交量，单位手；上游未提供时缺失。 */
-  volume?: number
-  /** 分时成交额，单位元；上游未提供时缺失。 */
-  amount?: number
-}
-
 /** 渲染管线中的单条序列数据：K 线柱或分时点。 */
 export type ChartSeriesDatum = KLineData | TimeShareData
 
+/** 按首条数据是否带 price/average 判断分时。 */
 export function isTimeShareData(data: unknown[]): data is TimeShareData[] {
   const first = data[0]
   return (
@@ -60,13 +30,13 @@ export function isTimeShareData(data: unknown[]): data is TimeShareData[] {
   )
 }
 
-/** 按首条序列判断是否为 K 线视图数据；分时数据没有 OHLC */
+/** 按首条序列判断是否为 K 线视图数据；分时数据没有 OHLC。 */
 export function isKLineDataArray(data: ReadonlyArray<ChartSeriesDatum>): data is KLineData[] {
   const first = data[0]
   return first !== undefined && 'close' in first
 }
 
-/** 按首条序列判断是否为分时视图数据；K 线数据没有 price/average */
+/** 按首条序列判断是否为分时视图数据；K 线数据没有 price/average。 */
 export function isTimeShareDataArray(
   data: ReadonlyArray<ChartSeriesDatum>,
 ): data is TimeShareData[] {
@@ -74,6 +44,7 @@ export function isTimeShareDataArray(
   return first !== undefined && 'price' in first && 'average' in first
 }
 
+/** 把东财日线响应转成标准 K 线并按时间升序排序。 */
 export function toKLineData(arr: KLineDailyDongCaiResponse[]): KLineData[] {
   return arr
     .map((e) => ({

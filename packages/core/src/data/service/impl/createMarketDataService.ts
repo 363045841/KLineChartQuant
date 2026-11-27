@@ -3,7 +3,7 @@
  *
  * 图表、计算与警报都从这里取数；任何调用方都不再自行查询 Provider 或订阅流。
  */
-import type { SymbolSpec } from '@/controllers/types.js'
+import type { SymbolSpec } from '@/foundation/types/instrument.js'
 import type { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry.js'
 import { asReadonlySignal, createSignal, type WritableSignal } from '@/foundation/reactivity/signal.js'
 import { formatDateInTimeZone } from '@/foundation/time/index.js'

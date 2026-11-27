@@ -7,7 +7,19 @@ import {
   createIndicatorSelectorController,
   findIndicatorDefinition,
 } from '@363045841yyt/klinechart-core/controllers'
-import { createScriptService, type ScriptService } from '@363045841yyt/klinechart-script-chart'
+import type { QuickJSLibrary } from '@363045841yyt/klinechart-script'
+import {
+  COMPILER_WORKER_URL,
+  createScriptWorkerPool,
+  fromEventTarget,
+  SCRIPT_WORKER_URL,
+} from '@363045841yyt/klinechart-script/worker'
+import {
+  createIndexedDbScriptPersistence,
+  createScriptService as createService,
+  type ScriptService,
+  type ScriptServiceOptions,
+} from '@363045841yyt/klinechart-script-chart'
 import { createDefinitionRegistry } from '@363045841yyt/klinechart-core'
 import { useParams } from '@vue-src/components/params/impl/useParams.js'
 import { coreSignalToVueRef } from '@vue-src/utils/signalBridge.js'
@@ -18,6 +30,26 @@ import { INDICATOR_SELECTOR_SECTIONS, useIndicatorFavorites } from '../useIndica
 import { useScriptRemoval } from '../useScriptRemoval.js'
 
 vi.stubGlobal('Worker', NodeScriptWorker)
+
+/** 用例只声明差异：线程与存储由浏览器默认实现补齐。 */
+function createScriptService(
+  libraries: readonly QuickJSLibrary[],
+  options: Omit<ScriptServiceOptions, 'builtinSources' | 'createWorkerPool' | 'persistence'> &
+    Partial<Pick<ScriptServiceOptions, 'builtinSources' | 'createWorkerPool' | 'persistence'>>,
+): Promise<ScriptService> {
+  return createService(libraries, {
+    builtinSources: [],
+    persistence: createIndexedDbScriptPersistence(),
+    createWorkerPool: (runtime) =>
+      createScriptWorkerPool({
+        ...runtime,
+        size: 2,
+        createThread: () => fromEventTarget(new Worker(SCRIPT_WORKER_URL)),
+        createCompilerThread: () => fromEventTarget(new Worker(COMPILER_WORKER_URL)),
+      }),
+    ...options,
+  })
+}
 
 describe('Script selector catalog', () => {
   let scripts: ScriptService

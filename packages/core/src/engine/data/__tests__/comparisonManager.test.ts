@@ -1,7 +1,7 @@
 /** ComparisonManager 单元测试：只投影行情服务提供的比较序列。 */
 import { describe, expect, it, vi } from 'vitest'
 
-import type { SymbolSpec } from '@/controllers/types'
+import type { SymbolSpec } from '@/foundation/types/instrument.js'
 import type { DataChange } from '@/data/buffer/types'
 import { DATA_CHANGE_KINDS } from '@/data/buffer/types'
 import type { BarsSeries } from '@/data/service/index'

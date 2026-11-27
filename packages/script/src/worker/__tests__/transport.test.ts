@@ -2,7 +2,7 @@
 import type { Bar, IndicatorSeries } from '@363045841yyt/klinechart-plot-contracts'
 import { describe, expect, it, vi } from 'vitest'
 import { prepareNative } from '../../__tests__/backends.js'
-import { createScriptWorker } from '../impl/createScriptWorker.js'
+import { createNodeScriptWorker } from './helpers/nodeScriptWorker.js'
 import {
   inputTransferList,
   WorkerInputReceiver,
@@ -149,8 +149,7 @@ it('keeps port-owned baselines correct across real thread calculations and failu
       if (transfer.length) detached.push(transfer.every((buffer) => buffer.byteLength === 0))
     }
   }
-  vi.stubGlobal('Worker', TransferWorker)
-  const worker = createScriptWorker()
+  const worker = createNodeScriptWorker({ thread: () => new TransferWorker() })
   const bars: Bar[] = Array.from({ length: 1500 }, (_, index) => ({
     time: index * 60000,
     open: index,

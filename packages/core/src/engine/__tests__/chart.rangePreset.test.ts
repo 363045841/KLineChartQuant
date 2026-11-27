@@ -1,7 +1,7 @@
 /** 预置完整链路：覆盖加载 → 一次提交定位 → 可见窗口派生高亮。 */
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { SymbolSpec } from '../../controllers/types'
+import type { SymbolSpec } from '@/foundation/types/instrument.js'
 import { Chart, type ChartOptions } from '../chart/index'
 import {
   createTestProvider,

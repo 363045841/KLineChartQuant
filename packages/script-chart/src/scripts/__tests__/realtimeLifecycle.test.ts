@@ -15,6 +15,8 @@ import type { Bar } from '@363045841yyt/klinechart-plot-contracts'
 import { describe, expect, it, vi } from 'vitest'
 import { createTestData } from '../../../../core/src/engine/indicators/__tests__/helpers/instanceTestKit.js'
 import { createDefinitionRegistry } from '@363045841yyt/klinechart-core'
+import { createScriptWorkerPool, fromEventTarget } from '@363045841yyt/klinechart-script/worker'
+import type { ScriptWorkerPoolFactory } from '@363045841yyt/klinechart-script/worker'
 import { NodeScriptWorker } from '../../../../script/src/worker/__tests__/nodeWorker.js'
 import { createScriptService } from '../impl/createScriptService.js'
 
@@ -70,10 +72,20 @@ describe('realtime script lifecycle', () => {
         super.terminate()
       }
     }
-    vi.stubGlobal('Worker', ObservedWorker)
+    // 执行线程与编译线程都跑真实产物，只统计执行线程的创建与终止。
+    const pool: ScriptWorkerPoolFactory = (runtime) =>
+      createScriptWorkerPool({
+        ...runtime,
+        size: 2,
+        createThread: () => fromEventTarget(new ObservedWorker()),
+        createCompilerThread: () =>
+          fromEventTarget(new ObservedWorker(new URL('compiler.worker.js', import.meta.url))),
+      })
     const registry = createDefinitionRegistry()
-    const service = await createScriptService([], { definitions: registry,
+    const service = await createScriptService([], {
+      definitions: registry,
       persistence: { load: async () => null, save: async () => true },
+      createWorkerPool: pool,
       builtinSources: [
         `defineIndicator({ version: 2,name:'LifetimeSlow',position:Position.main,onBar(){
         const values=request.securityLowerTf(syminfo.tickerId,Timeframe.minute1,()=>volume);

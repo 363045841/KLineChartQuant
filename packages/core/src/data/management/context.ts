@@ -1,49 +1,26 @@
-/** 宿主持有的行情管理实例：统一配置入口，Core 不选择持久化介质。 */
+/**
+ * 行情宿主的唯一持有者：注册表、实时连接与健康检查共享同一份权威快照。
+ *
+ * 宿主只装配数据源与管理配置；连接实现由 Provider 声明，页面恢复等宿主行为
+ * 留在组合根，Core 不再探测运行环境。
+ */
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { batch, type ReadonlySignal } from '@/foundation/reactivity/signal.js'
 import { createRegisteredDataSource } from '../provider/impl/registeredDataSource.js'
 import { MarketDataProviderRegistry } from '../provider/registry.js'
 import type { MarketDataSource } from '../provider/types.js'
 import { createStreamHub } from '../stream/impl/hub.js'
-import { createSseTransport } from '../stream/impl/sseTransport.js'
 import type { StreamHub } from '../stream/types.js'
 import type { MarketDataConfiguration } from './types.js'
 import { normalizeConnectionUrl } from './impl/connection.js'
 import { MarketDataHealth } from './impl/health.js'
 import { participatesInSearch } from './impl/policy.js'
 
-/**
- * 把页面恢复事件统一成一次“立即重试退避中的连接”。
- *
- * 系统睡眠期间浏览器暂停定时器且不发任何事件，醒来只能等逾期的看门狗或退避定时器补跑；
- * 标签页切回、bfcache 回退与网络恢复会给事件，这里接住它们，省掉剩余的退避等待。
- *
- * @param resume - 连接注册表的唤醒入口；在线或连接中调用是无副作用的
- * @returns 解除监听的函数；非浏览器环境返回 no-op
- */
-function attachPageRestore(resume: () => void): () => void {
-  if (typeof document === 'undefined' || typeof window === 'undefined') return () => {}
-  const onVisibility = (): void => {
-    if (document.visibilityState === 'visible') resume()
-  }
-  const onRestore = (): void => resume()
-  document.addEventListener('visibilitychange', onVisibility)
-  window.addEventListener('pageshow', onRestore)
-  window.addEventListener('online', onRestore)
-  return () => {
-    document.removeEventListener('visibilitychange', onVisibility)
-    window.removeEventListener('pageshow', onRestore)
-    window.removeEventListener('online', onRestore)
-  }
-}
-
 /** 连接、Provider 目录和策略共享注册表中的权威快照。 */
 export class MarketDataContext {
   private readonly registrations = new Set<() => void>()
   private disposed = false
   private readonly unsubscribeSources: () => void
-  /** 解除页面恢复监听的函数。 */
-  private readonly detachPageRestore: () => void
 
   /** 注册宿主数据源；返回幂等注销函数，取消该来源的在途查询和实时订阅。 */
   registerDataSource(source: MarketDataSource): () => void {
@@ -81,18 +58,15 @@ export class MarketDataContext {
     this.stream = createStreamHub({
       createTransport: (request, handlers) => {
         const provider = registry.getRequired(request.source)
-        if (provider.stream) return provider.stream(request, handlers)
-        const connection = registry.getConnection(request.source)
-        const baseUrl = connection.baseUrl ?? connection.defaultBaseUrl
-        if (baseUrl === undefined)
+        // 数据源没有实时能力时明确失败，不退回到某种通用连接实现。
+        if (!provider.stream)
           throw new KLineChartError(
             GENERIC_ERROR_CODES.INVALID_STATE,
-            'Stream endpoint is not configured',
+            `[${request.source}] does not declare a realtime stream`,
           )
-        return createSseTransport(request, baseUrl, handlers)
+        return provider.stream(request, handlers)
       },
     })
-    this.detachPageRestore = attachPageRestore(() => this.stream.resume())
     this.unsubscribeSources = registry.state.subscribe(() => this.probeUnresolvedSources())
     this.probeUnresolvedSources()
     const read = (): MarketDataConfiguration => {
@@ -170,7 +144,6 @@ export class MarketDataContext {
   dispose(): void {
     if (this.disposed) return
     this.disposed = true
-    this.detachPageRestore()
     this.unsubscribeSources()
     this.stream.dispose()
     for (const unregister of this.registrations) unregister()

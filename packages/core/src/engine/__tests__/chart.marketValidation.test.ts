@@ -3,9 +3,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   FIVE_DAY_TIME_SHARE_PERIOD,
-  type SymbolSpec,
   TIME_SHARE_PERIOD,
 } from '../../controllers/types'
+import type { SymbolSpec } from '@/foundation/types/instrument.js'
 import { HK_MARKET_SESSION } from '../../foundation/utils/sessionTimeLabels'
 import { Chart, type ChartOptions } from '../chart/index'
 import { ChartDataViewId } from '../chartModel/index'

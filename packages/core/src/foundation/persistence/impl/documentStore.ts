@@ -1,27 +1,18 @@
 /**
- * 单文档仓库：把编解码、读三态和原子读改写收敛到公共层。
+ * 文档仓库：在驱动的事务之上实现读取、整份写入与读改写。
  *
- * @remarks
- * `read()` 只有在记录确实不存在时才返回 null；解码失败、连接不可用、事务中止都会抛出
- * 带错误码的异常。`update()` 在一个 readwrite 事务里完成读取和写入，跨标签页不会丢失更新。
+ * 仓库不创建也不释放驱动；事务边界与键空间完全由 `DocumentDriver` 定义。
  */
 import type { CreateDocumentStoreOptions, DocumentStore } from '../types.js'
 import { closedFailure, corruptFailure, readFailure, writeFailure } from './errors.js'
-import { createIndexedDbDriver } from './indexedDbDriver.js'
 
-/** 创建单文档仓库；未注入驱动时仓库独占一个连接。 */
+/**
+ * 创建单文档仓库。
+ *
+ * @param options - 驱动、store 名、键与编解码
+ * @returns 只使用传入驱动的文档仓库
+ */
 export function createDocumentStore<T>(options: CreateDocumentStoreOptions<T>): DocumentStore<T> {
-  const ownsDriver = options.driver === undefined
-  const driver =
-    options.driver ??
-    createIndexedDbDriver({
-      databaseName: options.databaseName,
-      version: options.version,
-      upgrade: (database) => {
-        if (!database.objectStoreNames.contains(options.storeName))
-          database.createObjectStore(options.storeName)
-      },
-    })
   let disposed = false
 
   /** 已释放的仓库拒绝一切读写，避免迟到的异步写改到新状态。 */
@@ -32,7 +23,7 @@ export function createDocumentStore<T>(options: CreateDocumentStoreOptions<T>): 
   /** 读取并解码；只有 undefined 表示记录不存在。 */
   async function readValue(): Promise<T | null> {
     requireActive()
-    return await driver.transaction([options.storeName], 'readonly', async (transaction) => {
+    return await options.driver.transaction([options.storeName], 'readonly', async (transaction) => {
       let raw: unknown
       try {
         raw = await transaction.get(options.storeName, options.key)
@@ -50,7 +41,7 @@ export function createDocumentStore<T>(options: CreateDocumentStoreOptions<T>): 
   async function writeValue(value: T): Promise<void> {
     requireActive()
     const encoded = options.codec.encode(value)
-    await driver.transaction([options.storeName], 'readwrite', async (transaction) => {
+    await options.driver.transaction([options.storeName], 'readwrite', async (transaction) => {
       try {
         await transaction.put(options.storeName, encoded, options.key)
       } catch (error) {
@@ -68,33 +59,37 @@ export function createDocumentStore<T>(options: CreateDocumentStoreOptions<T>): 
 
     async update(change: (current: T | null) => T): Promise<T> {
       requireActive()
-      return await driver.transaction([options.storeName], 'readwrite', async (transaction) => {
-        let raw: unknown
-        try {
-          raw = await transaction.get(options.storeName, options.key)
-        } catch (error) {
-          throw readFailure(error)
-        }
-        let current: T | null = null
-        if (raw !== undefined) {
-          current = options.codec.decode(raw)
-          // 已存在的记录解不开时不能把它当空值交给 change，否则会用默认值覆盖用户数据。
-          if (current === null) throw corruptFailure(options.storeName)
-        }
-        const next = change(current)
-        const encoded = options.codec.encode(next)
-        try {
-          await transaction.put(options.storeName, encoded, options.key)
-        } catch (error) {
-          throw writeFailure(error)
-        }
-        return next
-      })
+      return await options.driver.transaction(
+        [options.storeName],
+        'readwrite',
+        async (transaction) => {
+          let raw: unknown
+          try {
+            raw = await transaction.get(options.storeName, options.key)
+          } catch (error) {
+            throw readFailure(error)
+          }
+          let current: T | null = null
+          if (raw !== undefined) {
+            current = options.codec.decode(raw)
+            // 已存在的记录解不开时不能把它当空值交给 change，否则会用默认值覆盖用户数据。
+            if (current === null) throw corruptFailure(options.storeName)
+          }
+          const next = change(current)
+          const encoded = options.codec.encode(next)
+          try {
+            await transaction.put(options.storeName, encoded, options.key)
+          } catch (error) {
+            throw writeFailure(error)
+          }
+          return next
+        },
+      )
     },
 
     async remove(): Promise<void> {
       requireActive()
-      await driver.transaction([options.storeName], 'readwrite', async (transaction) => {
+      await options.driver.transaction([options.storeName], 'readwrite', async (transaction) => {
         try {
           await transaction.delete(options.storeName, options.key)
         } catch (error) {
@@ -104,9 +99,8 @@ export function createDocumentStore<T>(options: CreateDocumentStoreOptions<T>): 
     },
 
     async dispose(): Promise<void> {
-      if (disposed) return
+      // 只标记仓库失效；驱动的连接由创建者关闭。
       disposed = true
-      if (ownsDriver) await driver.dispose()
     },
   }
 }

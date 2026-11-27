@@ -62,6 +62,7 @@
     createAlertStores,
     createDefinitionRegistry,
     createMarketRuntime,
+    DEFAULT_ALERT_LIMITS,
     systemClock,
   } from '@363045841yyt/klinechart-core'
   import AlertPanel from '@vue-src/components/alert/AlertPanel.vue'
@@ -157,6 +158,7 @@
   void createAlertRuntime({
     runtime: marketRuntime,
     ...alertStores,
+    limits: DEFAULT_ALERT_LIMITS,
     onError: (error) => emit('error', error instanceof Error ? error : new Error(String(error))),
   })
     .then((runtime) => {

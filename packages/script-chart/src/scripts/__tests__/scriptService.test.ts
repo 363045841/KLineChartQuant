@@ -2,12 +2,31 @@
 import 'fake-indexeddb/auto'
 import type { IndicatorMarketContext, LogEvent } from '@363045841yyt/klinechart-plot-contracts'
 import { createDefinitionRegistry, type DefinitionRegistry } from '@363045841yyt/klinechart-core'
-import { builtinScriptSources } from '@363045841yyt/klinechart-script'
+import { builtinScriptSources, type QuickJSLibrary } from '@363045841yyt/klinechart-script'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { NodeScriptWorker } from '../../../../script/src/worker/__tests__/nodeWorker.js'
-import { createScriptService } from '../impl/createScriptService.js'
-import { createScriptPersistence } from '../impl/scriptPersistence.js'
-import type { ScriptPersistence, ScriptWorkspace } from '../types.js'
+import { createScriptService as createService } from '../impl/createScriptService.js'
+import { createIndexedDbScriptPersistence } from '../impl/scriptPersistence.js'
+import type {
+  ScriptPersistence,
+  ScriptService,
+  ScriptServiceOptions,
+  ScriptWorkspace,
+} from '../types.js'
+import { testScriptPool } from './helpers/scriptTestPool.js'
+
+/** 用例只声明差异：线程与内置源码由替身补齐。 */
+function createScriptService(
+  libraries: readonly QuickJSLibrary[],
+  options: Omit<ScriptServiceOptions, 'builtinSources' | 'createWorkerPool' | 'persistence'> &
+    Partial<Pick<ScriptServiceOptions, 'builtinSources' | 'createWorkerPool' | 'persistence'>>,
+): Promise<ScriptService> {
+  return createService(libraries, {
+    builtinSources: [],
+    createWorkerPool: testScriptPool,
+    persistence: createIndexedDbScriptPersistence(),
+    ...options,
+  })
+}
 
 /** 本用例的 App 级定义仓库。 */
 let definitions: DefinitionRegistry
@@ -41,7 +60,7 @@ function createMemoryPersistence(options: { writable?: () => boolean } = {}) {
   }
 }
 
-vi.stubGlobal('Worker', NodeScriptWorker)
+vi.stubGlobal('Worker', undefined)
 
 describe('ScriptService', () => {
   beforeEach(() => {
@@ -99,7 +118,7 @@ describe('ScriptService', () => {
 
   // 同一用例串行启动真实 Worker，覆盖多轮编译、失败更新及持久化恢复。
   it('库依赖按顺序恢复、隔离私有变量，更新刷新指标并保留失败前的版本', async () => {
-    const persistence = createScriptPersistence()
+    const persistence = createIndexedDbScriptPersistence()
     const scripts = await createScriptService([], { definitions, persistence })
     const base = await scripts.create(
       `const helper = 2; defineLibrary('serviceBase', { scale(source: Series): Series { return ta.sma(source, helper) } })`,
@@ -379,7 +398,7 @@ describe('ScriptService', () => {
   })
 
   it('信任标记随注册快照持久化，恢复后仍可显式撤销', async () => {
-    const persistence = createScriptPersistence()
+    const persistence = createIndexedDbScriptPersistence()
     const scripts = await createScriptService([], { definitions, persistence })
     const initial = await scripts.create(source.replace('ServiceAverage', 'TrustedAverage'), true)
     expect(initial.trusted).toBe(true)
@@ -410,7 +429,7 @@ describe('ScriptService', () => {
   })
 
   describe('内置脚本自动发现', () => {
-    let persistence: ReturnType<typeof createScriptPersistence>
+    let persistence: ReturnType<typeof createIndexedDbScriptPersistence>
     let scripts: Awaited<ReturnType<typeof createScriptService>>
     let saved: unknown
     let builtinDefinitions: DefinitionRegistry
@@ -430,7 +449,7 @@ describe('ScriptService', () => {
     }
 
     beforeAll(async () => {
-      persistence = createScriptPersistence()
+      persistence = createIndexedDbScriptPersistence()
       saved = await persistence.load()
       builtinDefinitions = createDefinitionRegistry()
       scripts = await createScriptService([], { definitions: builtinDefinitions,
@@ -502,7 +521,7 @@ describe('ScriptService', () => {
   })
 
   it('保存失败不发布源码，排队的过期提交不能覆盖成功提交', async () => {
-    const persistence = createScriptPersistence()
+    const persistence = createIndexedDbScriptPersistence()
     const definitions = createDefinitionRegistry()
     const scripts = await createScriptService([], { definitions, persistence })
     const initial = await scripts.create(source.replace('ServiceAverage', 'FailedSaveAverage'))

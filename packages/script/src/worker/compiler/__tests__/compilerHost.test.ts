@@ -1,7 +1,9 @@
-/** 编译线程生命周期：保留已编译产物，空闲回收 TypeScript VM，在途请求不被回收。 */
+/** 编译线程宿主：结果按引用计数复用，空闲回收，故障后下一次编译重建线程。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { compileSources } from '../../../execution/impl/compileSources.js'
-import { acquireCompilation } from '../impl/sharedCompiler.js'
+import { fromEventTarget } from '../../thread/impl/fromEventTarget.js'
+import { createCompilerHost } from '../impl/compilerHost.js'
+import type { CompilationHost } from '../types.js'
 import type { CompilationLease, CompilerRequest, CompilerResponse } from '../types.js'
 
 const SOURCE =
@@ -9,8 +11,9 @@ const SOURCE =
 const NEXT_SOURCE = `${SOURCE}\n// next revision`
 const workers: CompilerWorker[] = []
 const leases: CompilationLease[] = []
+let host: CompilationHost
 
-/** 仅控制消息完成时刻，编译响应使用真实编译器生成的产物。 */
+/** 记录请求消息的线程替身；响应使用真实编译产物。 */
 class CompilerWorker extends EventTarget {
   readonly requests: CompilerRequest[] = []
   readonly terminate = vi.fn()
@@ -20,12 +23,12 @@ class CompilerWorker extends EventTarget {
     workers.push(this)
   }
 
-  /** 记录协议请求，由用例决定何时完成或发生线程错误。 */
+  /** 记录协议请求；测试在需要时手工完成。 */
   postMessage(request: CompilerRequest): void {
     this.requests.push(request)
   }
 
-  /** 使用真实编译产物完成指定请求，覆盖成功后缓存仍可独立使用的契约。 */
+  /** 使用真实编译器处理指定请求，覆盖成功后可多次使用的租约。 */
   complete(index = 0): void {
     const request = this.requests[index]
     if (!request) throw new Error('missing compiler request')
@@ -37,15 +40,15 @@ class CompilerWorker extends EventTarget {
     this.dispatchEvent(new MessageEvent('message', { data: response }))
   }
 
-  /** 模拟物理线程故障；脚本编译错误的协议响应不属于线程故障。 */
+  /** 模拟线程故障；脚本服务因此判定协议响应来自线程故障。 */
   fail(): void {
     this.dispatchEvent(Object.assign(new Event('error'), { message: 'compiler failed' }))
   }
 }
 
-/** 跟踪租约以保证失败用例同样释放宿主，不把共享缓存带到下一个用例。 */
+/** 取得租约并保证失败时同样释放，避免已挂在队列上的用例泄漏。 */
 function acquire(source = SOURCE): CompilationLease {
-  const lease = acquireCompilation(source)
+  const lease = host.acquire(source)
   leases.push(lease)
   void lease.module.catch(() => {})
   return lease
@@ -53,17 +56,17 @@ function acquire(source = SOURCE): CompilationLease {
 
 beforeEach(() => {
   vi.useFakeTimers()
-  vi.stubGlobal('Worker', CompilerWorker)
   workers.length = 0
+  host = createCompilerHost({ createThread: () => fromEventTarget(new CompilerWorker()) })
 })
 
 afterEach(() => {
   for (const lease of leases.splice(0)) lease.release()
+  host.dispose()
   vi.useRealTimers()
-  vi.unstubAllGlobals()
 })
 
-describe('shared compiler thread lifecycle', () => {
+describe('compiler thread lifecycle', () => {
   it('reclaims the idle thread while active leases keep their shared compiled result', async () => {
     const first = acquire()
     const second = acquire()
@@ -125,7 +128,7 @@ describe('shared compiler thread lifecycle', () => {
     expect(current.terminate).toHaveBeenCalledOnce()
   })
 
-  it('rejects outstanding requests on failure and starts a fresh host for later work', async () => {
+  it('rejects outstanding requests on failure and rebuilds the thread for later work', async () => {
     const failed = acquire()
     const rejected = expect(failed.module).rejects.toThrow('compiler failed')
     workers[0]!.fail()

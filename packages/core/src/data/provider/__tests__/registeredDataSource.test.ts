@@ -43,7 +43,7 @@ function setup(realtime = true, options: MockDataDependenciesOptions = {}) {
   }
   let seq = 0
   /** 构造一根帧；序号与时间由用例侧递增，保持协议合法。 */
-  function frame(bar: import('@/controllers/types.js').KLineData): StreamFrame {
+  function frame(bar: import('@/foundation/types/bar.js').KLineData): StreamFrame {
     return {
       seq: seq++,
       ts: bar.timestamp,

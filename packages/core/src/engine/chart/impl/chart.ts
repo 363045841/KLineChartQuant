@@ -35,7 +35,8 @@ import {
   type ChartRendererAccess,
 } from '../../../controllers/renderers/index.js'
 import type { ChartFrameCaptureContext } from '../../../controllers/screenshot/types.js'
-import { isTimeSharePeriod, type SymbolInfo, type SymbolSpec } from '../../../controllers/types.js'
+import { isTimeSharePeriod, type SymbolInfo } from '../../../controllers/types.js'
+import type { SymbolSpec } from '@/foundation/types/instrument.js'
 import type { MarketDataService } from '../../../data/service/index.js'
 import { resolveMarketDataCacheMaxBytes } from '../../../data/buffer/impl/marketDataPolicy.js'
 import type { CoverageResult } from '../../../data/buffer/types.js'

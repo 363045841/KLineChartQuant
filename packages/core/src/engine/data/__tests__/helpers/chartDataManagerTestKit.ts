@@ -9,7 +9,8 @@
 import { JSDOM } from 'jsdom'
 import { vi } from 'vitest'
 
-import type { KLineData, SymbolSpec } from '@/controllers/types'
+import type { KLineData } from '@/foundation/types/bar.js'
+import type { SymbolSpec } from '@/foundation/types/instrument.js'
 import type { StreamHub } from '@/data/stream/types.js'
 import { MarketDataProviderRegistry } from '@/data/provider/registry'
 import { createMarketDataService } from '@/data/service/index'

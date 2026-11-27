@@ -2,7 +2,7 @@
  * 协议通用 Provider 装配器：把任意 Transport 组装为标准 MarketDataProvider
  * 后端只要实现该契约即可接入数据，接入方仅需提供 source 元信息与可选的本地规则
  */
-import type { KLineData, TimeShareData } from '@/controllers/types.js'
+import type { KLineData, TimeShareData } from '@/foundation/types/bar.js'
 import { createMissingSessionError, ERROR_CODES, KLineChartError } from '@/errors.js'
 import { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry.js'
 

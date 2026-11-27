@@ -1,9 +1,12 @@
-/** MT5 Provider 的实例装配；实时连接由 `data/stream` 的连接注册表统一建立。注册入口见 builtinProviders.ts。 */
+/** MT5 Provider 的实例装配；实时连接由 Provider 声明，注册入口见 builtinProviders.ts。 */
 import type { MarketDataProviderRegistry } from '../../registry.js'
 import { dataSourceRegistry } from '../sourceRegistry.js'
-import { createHttpSource } from './createHttpSource.js'
+import { createHttpSource, type HttpSourceOptions } from './createHttpSource.js'
 
-/** 按注册表中的生效地址装配 MT5 HTTP Provider。 */
-export function createMt5MarketDataProvider(registry: MarketDataProviderRegistry) {
-  return createHttpSource(dataSourceRegistry.mt5, registry)
+/** 用注册表里的生效地址装配 MT5 HTTP Provider。 */
+export function createMt5MarketDataProvider(
+  registry: MarketDataProviderRegistry,
+  options: HttpSourceOptions,
+) {
+  return createHttpSource(dataSourceRegistry.mt5, registry, options)
 }

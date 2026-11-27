@@ -1,5 +1,5 @@
 /** 警报品种与计算数据身份之间的唯一换算；周期与复权缺省只在这里归一。 */
-import type { SymbolSpec } from '../../../controllers/types.js'
+import type { SymbolSpec } from '@/foundation/types/instrument.js'
 import { DEFAULT_KLINE_ADJUSTMENT, DEFAULT_KLINE_PERIOD } from '../../../data/provider/types.js'
 import { createDataIdentity, type DataIdentity } from '../../../engine/calculation/index.js'
 

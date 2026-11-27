@@ -3,20 +3,22 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import { createDefinitionRegistry } from '@363045841yyt/klinechart-core'
-import { NodeScriptWorker } from '../../../../script/src/worker/__tests__/nodeWorker.js'
 import { createScriptService } from '../impl/createScriptService.js'
+import { testScriptPool } from './helpers/scriptTestPool.js'
 
 describe('PVP service prepend', () => {
   it('computes PVP before and after a history prepend', async () => {
-    vi.stubGlobal('Worker', NodeScriptWorker)
+    vi.stubGlobal('Worker', undefined)
     const source = readFileSync(
       new URL('../../../../script/scripts/pvp.ts', import.meta.url),
       'utf8',
     )
     const definitions = createDefinitionRegistry()
-    const service = await createScriptService([], { definitions,
+    const service = await createScriptService([], {
+      definitions,
       persistence: { load: async () => null, save: async () => true },
       builtinSources: [source],
+      createWorkerPool: testScriptPool,
     })
     const runtime = definitions.getDefinition('PVP')?.runtime
     if (!runtime) throw new Error('PVP not registered')

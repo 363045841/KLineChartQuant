@@ -5,7 +5,7 @@
  * 日志与投递；视图与 UI 不参与判断。
  */
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
-import type { SymbolSpec } from '../../controllers/types.js'
+import type { SymbolSpec } from '@/foundation/types/instrument.js'
 import type { CalculationInputs } from '../../engine/calculation/index.js'
 import type { ScriptAlertFrequency } from '@363045841yyt/klinechart-plot-contracts'
 
@@ -80,6 +80,20 @@ export interface AlertFire {
 /** 状态推导结果；不落盘。 */
 export type AlertStatus = 'active' | 'triggered' | 'expired' | 'error' | 'paused'
 
+/** 规则与触发的容量策略；由宿主显式传入，服务内不做合并。 */
+export interface AlertLimits {
+  readonly maxAlerts: number
+  readonly maxFires: number
+  readonly maxFiresPerAlert: number
+}
+
+/** 默认可行的容量策略；两边宿主共用同一份数值，但必须显式传入。 */
+export const DEFAULT_ALERT_LIMITS: AlertLimits = {
+  maxAlerts: 200,
+  maxFires: 1000,
+  maxFiresPerAlert: 200,
+}
+
 export interface AlertService {
   readonly alerts: ReadonlySignal<readonly Alert[]>
   readonly fires: ReadonlySignal<readonly AlertFire[]>
@@ -96,10 +110,4 @@ export interface AlertService {
   clearHistory(alertId?: AlertId): void
   subscribeNotifications(channel: AlertChannel, listener: (fire: AlertFire) => void): () => void
   dispose(): Promise<void>
-}
-
-export interface AlertLimits {
-  readonly maxAlerts: number
-  readonly maxFires: number
-  readonly maxFiresPerAlert: number
 }

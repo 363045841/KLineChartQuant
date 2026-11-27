@@ -12,11 +12,12 @@ import {
   type AlertFiresDocument,
   type AlertRulesDocument,
   createAlertService,
+  DEFAULT_ALERT_LIMITS,
 } from '@363045841yyt/klinechart-core'
 import { createMemoryDocumentStore } from '@363045841yyt/klinechart-core/persistence'
-import { NodeScriptWorker } from '../../../../script/src/worker/__tests__/nodeWorker.js'
 import { createScriptService } from '../impl/createScriptService.js'
 import { makeSymbolSpec } from '../../../../core/src/engine/data/__tests__/helpers/symbolSpecFixture.js'
+import { testScriptPool } from './helpers/scriptTestPool.js'
 
 const SOURCE = `
 defineAlert({
@@ -55,13 +56,21 @@ afterEach(() => vi.unstubAllGlobals())
 
 describe('alert pipeline', () => {
   it('delivers an intrabar crossing with no chart instance, only a calculation session', async () => {
-    vi.stubGlobal('Worker', NodeScriptWorker)
+    vi.stubGlobal('Worker', undefined)
     const definitions = createDefinitionRegistry()
-    const market = createBuiltinMarketDataContext()
+    const market = createBuiltinMarketDataContext({
+      // 警报链路用例只驱动价格帧，不建立真实连接。
+      fetchImpl: (input, init) => globalThis.fetch(input, init),
+      openEventStream: () => {
+        throw new Error('Alert pipeline test does not open event streams')
+      },
+    })
     const runtime = createMarketRuntime({ clock: systemClock, market, definitions })
-    const service = await createScriptService([], { definitions,
+    const service = await createScriptService([], {
+      definitions,
       persistence: { load: async () => null, save: async () => true },
       builtinSources: [SOURCE],
+      createWorkerPool: testScriptPool,
     })
     // 运行时是唯一所有者：警报与图表都只是它的消费者。
     const hub = runtime.calculation
@@ -71,6 +80,11 @@ describe('alert pipeline', () => {
       rules: createMemoryDocumentStore<AlertRulesDocument>(null),
       fires: createMemoryDocumentStore<AlertFiresDocument>(null),
       feeds: { retain: () => {} },
+      clock: systemClock,
+      limits: DEFAULT_ALERT_LIMITS,
+      onError: (error) => {
+        throw error
+      },
     })
     alerts.create({
       name: 'cross 10',

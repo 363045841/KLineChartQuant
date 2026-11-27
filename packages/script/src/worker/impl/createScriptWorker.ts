@@ -1,34 +1,34 @@
-/** Script Worker 端口：按物理线程同步行情增量，转移数值块并关联计算响应。 */
+/** Script Worker 端口：把主线程调用转成消息、把返回值解包并转发调试输出。 */
 
 import type { DrawingObject } from '@363045841yyt/klinechart-plot-contracts'
 import type { LogEvent } from '../../contracts/log.js'
 import { applyDrawingDelta } from '../../execution/session/impl/drawingDelta.js'
-import { acquireCompilation } from '../compiler/impl/sharedCompiler.js'
-import type { CompilationLease } from '../compiler/types.js'
+import type { CompilationHost, CompilationLease } from '../compiler/types.js'
 import { inputTransferList, WorkerInputSender } from '../transport/impl/input.js'
 import { unpackIndicatorSeries } from '../transport/impl/series.js'
-import type { ScriptWorker, ScriptWorkerRequest, ScriptWorkerResponse } from '../types.js'
+import type {
+  ScriptThread,
+  ScriptWorker,
+  ScriptWorkerRequest,
+  ScriptWorkerResponse,
+} from '../types.js'
 
 /**
- * 创建独立计算线程；可传入宿主创建的 Worker，销毁客户端时一并终止。
+ * 创建脚本执行端口。
  *
- * @example
- * const worker = createScriptWorker()
- * try {
- *   const definition = await worker.prepare('my-script', source)
- *   const series = await worker.run('my-script', bars, params)
- * } finally {
- *   worker.dispose()
- * }
+ * @param thread - 宿主线程；Web Worker 或 worker_threads 由调用方适配
+ * @param onOutput - 脚本输出的接收方
+ * @param compiler - 池持有的编译宿主，用于取得编译产物
  */
 export function createScriptWorker(
-  worker = new Worker(new URL('./script.worker.js', import.meta.url), { type: 'module' }),
-  onOutput?: (id: string, events: readonly LogEvent[]) => void,
+  thread: ScriptThread,
+  onOutput: (id: string, events: readonly LogEvent[]) => void,
+  compiler: CompilationHost,
 ): ScriptWorker {
   let nextRequestId = 0
   let failure: Error | undefined
   const input = new WorkerInputSender()
-  /** 每个脚本保留上一轮完整绘图；增量只替换变化对象，未变化对象保持引用。 */
+  /** 每个脚本只维护一份绘图增量，仅替换变化项；未变化对象保留引用。 */
   const drawings = new Map<string, readonly DrawingObject[]>()
   const compiled = new Map<
     string,
@@ -44,7 +44,7 @@ export function createScriptWorker(
     }
   >()
 
-  /** 线程失效后拒绝全部请求，并阻止继续向已失效线程发送消息。 */
+  /** 线程失效后拒绝全部请求，并终止迟到的失效线程消息。 */
   function stop(error: Error): void {
     if (failure) return
     Object.assign(error, { workerFailure: true })
@@ -55,19 +55,17 @@ export function createScriptWorker(
     for (const lease of preparing) lease.release()
     compiled.clear()
     preparing.clear()
-    worker.removeEventListener('message', onMessage)
-    worker.removeEventListener('error', onError)
-    worker.removeEventListener('messageerror', onMessageError)
-    worker.terminate()
+    thread.terminate()
     for (const request of pending.values()) request.reject(error)
     pending.clear()
   }
 
-  /** 按请求 ID 完成调用，脚本自身错误不影响后续请求。 */
-  function onMessage(event: MessageEvent<ScriptWorkerResponse>): void {
-    const response = event.data
+  /** 按请求 ID 完成调用；脚本输出不影响主流程。 */
+  thread.onMessage((data) => {
+    if (failure) return
+    const response = data as ScriptWorkerResponse
     if (response.type === 'output') {
-      onOutput?.(response.id, response.events)
+      onOutput(response.id, response.events)
       return
     }
     const request = pending.get(response.requestId)
@@ -78,23 +76,15 @@ export function createScriptWorker(
     } else {
       request.resolve(response)
     }
-  }
+  })
 
-  /** 初始化或线程运行失败时结束客户端。 */
-  function onError(event: ErrorEvent): void {
-    stop(new Error(event.message))
-  }
+  /** 初始化失败时回传给客户端。 */
+  thread.onError((error) => stop(error))
 
-  /** 无法读取线程消息时结束客户端，避免调用永久等待。 */
-  function onMessageError(): void {
-    stop(new Error('无法读取 Script Worker 消息'))
-  }
+  /** 无法读取线程消息时回传给客户端，避免调用方永久等待。 */
+  thread.onMessageError(() => stop(new Error('无法读取 Script Worker 消息')))
 
-  worker.addEventListener('message', onMessage)
-  worker.addEventListener('error', onError)
-  worker.addEventListener('messageerror', onMessageError)
-
-  /** 登记后转移专用通信块；发送失败销毁端口，禁止继续使用已失配的增量基线。 */
+  /** 登记并转发专用通信块；发送失败立即端口，防止继续使用已失效线程。 */
   function request(
     message: ScriptWorkerRequest,
     transfer: ArrayBuffer[] = [],
@@ -103,7 +93,7 @@ export function createScriptWorker(
     return new Promise((resolve, reject) => {
       pending.set(message.requestId, { resolve, reject })
       try {
-        worker.postMessage(message, transfer)
+        thread.postMessage(message, transfer)
       } catch (error) {
         pending.delete(message.requestId)
         reject(error)
@@ -112,7 +102,7 @@ export function createScriptWorker(
     })
   }
 
-  /** 元数据读取只保留编译租约；首次请求计划或计算时才安装执行会话。 */
+  /** 元数据读取只依赖编译产物本身；破坏性安装执行会话只在首次运行时做。 */
   function ensureInstalled(id: string): Promise<void> {
     const operation = ready.then(async () => {
       if (failure) throw failure
@@ -138,11 +128,11 @@ export function createScriptWorker(
   }
 
   return {
-    /** 编译线程共用源码产物；安装成功后才替换旧租约，编译失败保留当前执行模块。 */
+    /** 编译在宿主线程完成；安装成功后才替换旧租约，失败保留当前执行模块。 */
     prepare(id, source, libraries, trusted = false, mode = 'execution') {
       const operation = ready.then(async () => {
         if (failure) throw failure
-        const lease = acquireCompilation(source, libraries)
+        const lease = compiler.acquire(source, libraries)
         preparing.add(lease)
         try {
           const module = await lease.module
@@ -173,7 +163,7 @@ export function createScriptWorker(
       )
       return operation
     },
-    /** 使用 Worker 内已有编译快照计算行情。 */
+    /** 使用 Worker 输入块传输区间数据。 */
     async run(id, bars, params, context, range, live) {
       await ensureInstalled(id)
       if (failure) throw failure
@@ -222,7 +212,7 @@ export function createScriptWorker(
       compiled.get(id)?.lease.release()
       compiled.delete(id)
     },
-    /** 终止线程并拒绝所有尚未完成的请求。 */
+    /** 终止线程并拒绝所有未完成的请求。 */
     dispose() {
       stop(new Error('Script Worker 已销毁'))
     },

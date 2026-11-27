@@ -1,5 +1,6 @@
 /** K 线图表快照适配器：接收缓存查询结果并发布数据、加载与错误状态。 */
-import type { KLineData, SymbolSpec } from '@/controllers/types.js'
+import type { KLineData } from '@/foundation/types/bar.js'
+import type { SymbolSpec } from '@/foundation/types/instrument.js'
 import {
   asReadonlySignal,
   batch,

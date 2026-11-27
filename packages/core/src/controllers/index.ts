@@ -98,7 +98,6 @@ export type {
   RangeWindow,
   SubPaneInfo,
   SymbolInfo,
-  SymbolSpec,
   UpdateDrawingPatch,
 } from './types.js'
 
@@ -148,6 +147,9 @@ export type {
   MarketDataErrorCode,
   MarketDataFailure,
   MarketDataProvider,
+  EventStream,
+  EventStreamFactory,
+  EventStreamHandlers,
   MarketDataSourceConfig,
   MarketDataSourceConfigPatch,
   MarketDataSourceStatus,

@@ -41,7 +41,6 @@ import {
   requireFolder,
 } from './scriptFolderStore.js'
 import { createScriptIndicatorStage } from './scriptIndicatorStage.js'
-import { createScriptPersistence } from './scriptPersistence.js'
 
 /**
  * 创建脚本服务。
@@ -50,10 +49,10 @@ import { createScriptPersistence } from './scriptPersistence.js'
  * @param options 持久化与内置源码选项
  */
 export async function createScriptService(
-  libraries: readonly QuickJSLibrary[] = [],
+  libraries: readonly QuickJSLibrary[],
   options: ScriptServiceOptions,
 ): Promise<ScriptService> {
-  const persistence = options.persistence ?? createScriptPersistence()
+  const persistence = options.persistence
   const log = createScriptLog()
   const store = createScriptDocumentStore(libraries, options.definitions)
   const executor = createScriptExecutor(store, log, options.createWorkerPool)
@@ -61,7 +60,7 @@ export async function createScriptService(
   const folders = restored.folders
   const report = await runIndicatorPipeline(options.definitions, [
     createScriptIndicatorStage({
-      builtinSources: options.builtinSources ?? [],
+      builtinSources: options.builtinSources,
       documents: restored.scripts,
       executor,
     }),
