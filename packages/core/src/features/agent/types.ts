@@ -5,9 +5,9 @@ import type {
   DrawingWorkspaceId,
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { IndicatorInputDef, IndicatorInstance, SymbolSpec } from '../../controllers/types.js'
-import type { MarketDataCache } from '../../data/buffer/impl/marketDataCache.js'
-import type { InstrumentSearchResult } from '../../data/provider/impl/instrumentSearch.js'
-import type { MarketDataProviderRegistry } from '../../data/provider/impl/registry.js'
+import type { MarketDataService } from '../../data/service/index.js'
+import type { InstrumentSearchResult } from '../../data/provider/instrumentSearch.js'
+import type { MarketDataProviderRegistry } from '../../data/provider/registry.js'
 import type {
   BarSeries,
   InstrumentDescriptor,
@@ -551,9 +551,9 @@ export interface ChartAgentMarketQueriesDependencies {
     readonly limit: number
     readonly signal?: AbortSignal
   }) => Promise<InstrumentSearchResult>
-  readonly cache: Pick<
-    MarketDataCache,
-    'queryBars' | 'queryBarsWindow' | 'queryTimeShare' | 'queryTimeShareRange'
+  readonly market: Pick<
+    MarketDataService,
+    'queryBarsWindow' | 'queryTimeShare' | 'queryTimeShareRange'
   >
   /** 当前时刻；缺省交易日的判定与测试都用它，不在实现里直接读时钟。 */
   readonly now: () => number

@@ -21,7 +21,7 @@ ChartRenderer：读取 active snapshot 并绘制
 
 ## 数据结构
 
-Repository 使用不可变 Map 快照维护低频拓扑，叶子 Buffer 使用各自的 signal 发布高频数据变化。类型定义在 `packages/core/src/data/buffer/impl/seriesRepository.ts`。
+Repository 使用不可变 Map 快照维护低频拓扑，叶子 Buffer 使用各自的 signal 发布高频数据变化。身份契约在 `packages/core/src/data/buffer/seriesSelection.ts`，仓库拓扑在 `packages/core/src/data/buffer/impl/seriesRepository.ts`。
 
 ```ts
 /** 图表实例内全部行情序列的只读拓扑。 */
@@ -169,9 +169,9 @@ custom source 绑定 Chart 实例，不注册到宿主级 `MarketDataProviderReg
 
 ## 当前实现
 
-- 仓库实现位于 `packages/core/src/data/buffer/impl/seriesRepository.ts`；身份函数 `instrumentKeyFromSpec` / `sourceFromSpec` / `seriesSelectionKey` 同文件导出，K 线叶子键 `barSeriesKey` 只在文件内部使用。
-- 图表实例级 `MarketDataCache` 拥有唯一的 `SeriesRepository`（`packages/core/src/data/buffer/impl/marketDataCache.ts` 中 `readonly repository = new SeriesRepository()`）；`ChartDataManager` 通过 `this.marketDataCache.repository` 引用同一实例，不再自建仓库，并对外暴露 `symbolCatalog` 等只读投影。
-- `ComparisonManager` 引用同一 Repository 的叶子 Buffer，不再自建 Map-shaped Buffer 管理。
+- 仓库实现位于 `packages/core/src/data/buffer/impl/seriesRepository.ts`；身份函数 `instrumentKeyFromSpec` / `sourceFromSpec` / `seriesSelectionKey` 在 `packages/core/src/data/buffer/seriesSelection.ts` 导出，K 线叶子键 `barSeriesKey` 只在仓库文件内部使用。
+- 图表实例级 `MarketDataCache` 拥有唯一的 `SeriesRepository`（`packages/core/src/data/buffer/impl/marketDataCache.ts` 中 `readonly repository = new SeriesRepository()`）；`MarketDataService` 持有这份缓存，图表数据管理器不再自建仓库。
+- `ComparisonManager` 通过行情服务订阅比较序列，不再直接引用 Repository 的叶子 Buffer。
 - 旧 `_klineBuffers` / `_tsBuffers` Map、`preCustomSpec` 和 custom mode 恢复分支已删除，实现中只剩一套 Buffer 所有权。
 
 ## 约束

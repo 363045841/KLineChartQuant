@@ -8,7 +8,7 @@ SVP与PVP只存在于`packages/script/scripts/`。分组、分箱、上涨/下�
 
 Chart持有的MarketSessionRegistry传到MarketRuntime，与图表几何和脚本共享同一份配置，支持宿主覆盖。中立时段结构由plot-contracts/time.ts定义，Core不维护第二份类型。内置JSON记录时区、常规时段、扩展时段、年度例外和来源；MT5的近似画像显式标注，不虚构经纪商日历。
 
-脚本Request编译器把请求声明与表达式分离；security和security_lower_tf共用这条链路。ScriptExecutor向原有MarketRuntime请求快照，复用Repository、游标分页和实时订阅。低周期模式加载最近的实际明细，默认上限十万根，calcBarsCount可降低预算。按主图时间区间分桶，每bar返回时间升序数组；元组表达式返回多列数组，编译器保留列数以保证完全没有数据时仍返回空列。缺口不延续上一根的明细。实时明细修订沿现有requestRevision失效链路重算。
+脚本Request编译器把请求声明与表达式分离；security和security_lower_tf共用这条链路。ScriptExecutor向会话级计算行情请求快照，由 `MarketDataService` 提供历史分页与实时尾部。低周期模式加载最近的实际明细，默认上限十万根，calcBarsCount可降低预算。按主图时间区间分桶，每bar返回时间升序数组；元组表达式返回多列数组，编译器保留列数以保证完全没有数据时仍返回空列。缺口不延续上一根的明细。实时明细修订沿现有requestRevision失效链路重算。
 
 时间上下文随快照进入Worker；原生与QuickJS后端及Core请求边界调用同一个中立timeApi，QuickJS不依赖Intl。time既可按历史偏移读取，也可查询周期/自定义时段边界；time_close、timeframe.change/in_seconds/period、time_tradingday与session的常规盘/盘前/盘后标记由这一层提供。自定义时段支持多段、星期过滤和隔夜，IANA时区承担DST规则。
 

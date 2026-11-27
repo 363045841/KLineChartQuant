@@ -1,3 +1,4 @@
+import { systemClock } from '@363045841yyt/klinechart-core'
 /** 验证宿主导航使用公开插槽接入工具栏，且不影响默认图表控件。 */
 
 import {
@@ -14,7 +15,7 @@ describe('KLineChart toolbar host slots', () => {
   let runtime: ReturnType<typeof createMarketRuntime>
 
   beforeEach(() => {
-    runtime = createMarketRuntime({
+    runtime = createMarketRuntime({ clock: systemClock,
       market: createMarketDataHost(),
       definitions: createDefinitionRegistry(),
     })

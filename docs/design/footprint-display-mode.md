@@ -10,7 +10,7 @@ FootPrint 是主序列内部成交分布的展示方式。`settings.klineShape =
 
 ## 数据与计算
 
-链路为 `显示模式需求 → ChartDataManager / MarketRuntime → DataState.trades → FootprintState.input → 足迹执行器 → FootprintState.renderState → Layer / 自动价格范围`。
+链路为 `显示模式需求 → ChartDataManager → MarketDataService（成交流） → DataState.trades → FootprintState.input → 足迹执行器 → FootprintState.renderState → Layer / 自动价格范围`。
 
 数据层拥有历史查询、实时连接、共享缓存、完整覆盖证明与取消请求。需求由足迹模式是否启用决定，切到其他 K 线形态或分时即释放成交使用权。切市场或周期时，活动行情快照与空成交在同一个 Action 中发布，旧成交不能与新 K 线混用。
 

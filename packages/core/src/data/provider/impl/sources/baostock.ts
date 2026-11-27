@@ -1,5 +1,5 @@
 /** BaoStock Provider 的实例装配；注册入口见 builtinProviders.ts。 */
-import type { MarketDataProviderRegistry } from '../registry.js'
+import type { MarketDataProviderRegistry } from '../../registry.js'
 import { dataSourceRegistry } from '../sourceRegistry.js'
 import { createHttpSource } from './createHttpSource.js'
 

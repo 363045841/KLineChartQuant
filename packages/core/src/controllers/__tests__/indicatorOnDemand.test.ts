@@ -3,7 +3,7 @@
 import 'fake-indexeddb/auto'
 import { ShapeSize } from '@363045841yyt/klinechart-plot-contracts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { MarketDataContext } from '@/data/management/impl/context.js'
+import { MarketDataContext } from '@/data/management/context.js'
 import { createDataSourceFixture } from '@/data/provider/__tests__/helpers/providerTestKit.js'
 import { installChartDomStubs, stubAnimationFrame } from '@/engine/__tests__/helpers/chartDomTestKit.js'
 import { createTestDefinitions } from '@/engine/indicators/__tests__/helpers/definitionsTestKit.js'

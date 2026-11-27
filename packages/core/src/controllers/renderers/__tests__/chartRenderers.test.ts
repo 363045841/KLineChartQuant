@@ -2,7 +2,7 @@
 /** 通过正式包入口验证第三方 Layer、指标和插件的实例生命周期。 */
 import { ShapeSize } from '@363045841yyt/klinechart-plot-contracts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { MarketDataContext } from '@/data/management/impl/context.js'
+import { MarketDataContext } from '@/data/management/context.js'
 import { createDataSourceFixture } from '@/data/provider/__tests__/helpers/providerTestKit.js'
 import {
   createChartDom,

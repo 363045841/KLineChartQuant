@@ -1,5 +1,5 @@
 /** 宿主可创建互相隔离的内置行情管理实例。 */
-import { MarketDataContext } from '../../../management/impl/context.js'
+import { MarketDataContext } from '../../../management/context.js'
 import type { MarketDataConfiguration } from '../../../management/types.js'
 import { installBuiltinProviders } from './builtinProviders.js'
 import { createMockDataSource } from './mock.js'

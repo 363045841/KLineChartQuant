@@ -13,7 +13,7 @@ import type {
 } from '@363045841yyt/klinechart-plot-contracts'
 
 import type { KLineData } from '@/foundation/types/price.js'
-import type { ReadyMarketSession } from '../data/marketRuntime/types.js'
+import type { ReadyMarketSession } from '../data/series/types.js'
 
 /** 一条行情序列的稳定身份；与图表实例、Pane、视口无关。 */
 export interface DataIdentity {

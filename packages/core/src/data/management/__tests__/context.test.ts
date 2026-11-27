@@ -3,12 +3,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { DataBuffer } from '../../buffer/impl/dataBuffer.js'
 import { MarketDataCache } from '../../buffer/impl/marketDataCache.js'
-import type { BarsSelection } from '../../buffer/impl/seriesRepository.js'
-import { searchInstruments } from '../../provider/impl/instrumentSearch.js'
+import type { BarsSelection } from '../../buffer/seriesSelection.js'
+import { searchInstruments } from '../../provider/instrumentSearch.js'
 import { createBuiltinMarketDataContext } from '../../provider/impl/sources/createBuiltinContext.js'
 import type { MarketDataProvider, SourceProbeResult } from '../../provider/types.js'
 import type { StreamFrame, StreamTransportHandlers } from '../../stream/types.js'
-import { MarketDataContext } from '../impl/context.js'
+import { MarketDataContext } from '../context.js'
 
 /** 最小协议 Provider，只模拟场景涉及的网络边界。 */
 function provider(

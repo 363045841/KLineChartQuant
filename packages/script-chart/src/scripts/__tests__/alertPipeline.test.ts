@@ -1,3 +1,4 @@
+import { systemClock } from '@363045841yyt/klinechart-core'
 /** 端到端：脚本 alert → Worker → CalculationHub → AlertService → 通知。 */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -57,7 +58,7 @@ describe('alert pipeline', () => {
     vi.stubGlobal('Worker', NodeScriptWorker)
     const definitions = createDefinitionRegistry()
     const market = createBuiltinMarketDataContext()
-    const runtime = createMarketRuntime({ market, definitions })
+    const runtime = createMarketRuntime({ clock: systemClock, market, definitions })
     const service = await createScriptService([], { definitions,
       persistence: { load: async () => null, save: async () => true },
       builtinSources: [SOURCE],

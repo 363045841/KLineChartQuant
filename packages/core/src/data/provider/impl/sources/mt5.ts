@@ -1,5 +1,5 @@
 /** MT5 Provider 的实例装配；实时连接由 `data/stream` 的连接注册表统一建立。注册入口见 builtinProviders.ts。 */
-import type { MarketDataProviderRegistry } from '../registry.js'
+import type { MarketDataProviderRegistry } from '../../registry.js'
 import { dataSourceRegistry } from '../sourceRegistry.js'
 import { createHttpSource } from './createHttpSource.js'
 

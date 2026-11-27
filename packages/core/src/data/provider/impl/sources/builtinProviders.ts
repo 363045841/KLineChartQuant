@@ -2,7 +2,7 @@
  * 内置 HTTP 源清单的单一事实来源：数组顺序即注册顺序，也是同优先级源在 auto 路由中的尝试顺序。
  * 默认宿主与独立宿主共用这一份清单，新增源只在这里追加一次。
  */
-import type { MarketDataProviderRegistry } from '../registry.js'
+import type { MarketDataProviderRegistry } from '../../registry.js'
 import { createBaostockMarketDataProvider } from './baostock.js'
 import { createBinanceMarketDataProvider } from './binance.js'
 import { createGotdxMarketDataProvider } from './gotdx.js'

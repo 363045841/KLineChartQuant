@@ -4,15 +4,15 @@
  * 只管理顺序、高度、可见性与边界拖拽，不承担指标实例语义；
  * 实例的创建、更新与删除走 ChartIndicatorFacade。
  */
-import type { ChartPaneLayout } from '../../../pane/index.js'
+import type { ChartPaneLayout } from '../../pane/index.js'
 import type {
   PaneBoundaryResizeSession,
   PaneLayoutCommands,
   PanePatch,
   PanePlacement,
   PaneSpec,
-} from '../../../pane/types.js'
-import type { ChartStateKernel } from '../../../state/chartStateKernel.js'
+} from '../../pane/types.js'
+import type { ChartStateKernel } from '../../state/chartStateKernel.js'
 
 /** Pane Facade 所需依赖。 */
 export interface ChartPaneFacadeDependencies {

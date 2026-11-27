@@ -1,53 +1,17 @@
 /** 图表实例级行情序列仓库：统一管理 K 线、分时和成交 Buffer 的身份、拓扑和生命周期。 */
-import type { SymbolSpec } from '@/controllers/types.js'
 import { asReadonlySignal, createSignal } from '@/foundation/reactivity/signal.js'
 import { immutableMap as mapSnapshot } from '@/foundation/utils/immutableMap.js'
-import type {
-  BarAggregation,
-  KLineAdjustment,
-  KLinePeriod,
-  TradingDate,
-} from '../../provider/types.js'
 import type { TradeBuffer } from '../../trades/types.js'
 import type { KLineBuffer, TimeShareBuffer } from '../types.js'
+import {
+  type BarsSelection,
+  SERIES_SELECTION_KIND,
+  type SeriesSelection,
+  type TimeShareSelection,
+  type TradesSelection,
+} from '../seriesSelection.js'
 
-export type InstrumentKey = string
-export type Source = string
 type BarSeriesKey = string
-export type TradingDateKey = TradingDate | typeof LATEST_TRADING_DATE
-
-export const LATEST_TRADING_DATE = 'latest'
-
-/** 序列选择判别字段字面量；判别种类时引用它，不在业务代码里散落字符串。 */
-export const SERIES_SELECTION_KIND = {
-  bars: 'bars',
-  timeShare: 'timeShare',
-  trades: 'trades',
-} as const
-
-/** 当前图表消费的强类型序列选择。 */
-export type SeriesSelection =
-  | {
-      readonly kind: typeof SERIES_SELECTION_KIND.bars
-      readonly instrumentKey: InstrumentKey
-      readonly source: Source
-      readonly period: KLinePeriod
-      readonly adjustment: KLineAdjustment
-      readonly barAggregation: BarAggregation
-    }
-  | {
-      readonly kind: typeof SERIES_SELECTION_KIND.timeShare
-      readonly instrumentKey: InstrumentKey
-      readonly source: Source
-      readonly tradingDate: TradingDateKey
-    }
-
-/** 原始成交按品种和来源复用，不绑定 K 线周期或足迹参数。 */
-export interface TradesSelection {
-  readonly kind: typeof SERIES_SELECTION_KIND.trades
-  readonly instrumentKey: InstrumentKey
-  readonly source: Source
-}
 
 /** 仓库管理的输入包括图表序列及指标所需的原始成交。 */
 type RepositorySelection = SeriesSelection | TradesSelection
@@ -58,84 +22,37 @@ type SeriesRegistration =
   | (TimeShareSelection & { readonly buffer: TimeShareBuffer })
   | (TradesSelection & { readonly buffer: TradeBuffer })
 
-/** 按判别字段收窄后的 K 线选择。 */
-export type BarsSelection = Extract<SeriesSelection, { kind: typeof SERIES_SELECTION_KIND.bars }>
-
-/** 按判别字段收窄后的分时选择。 */
-export type TimeShareSelection = Extract<
-  SeriesSelection,
-  { kind: typeof SERIES_SELECTION_KIND.timeShare }
->
-
 /** 单个来源提供的 K 线与分时序列。 */
 interface SourceSeriesNode {
   readonly bars: ReadonlyMap<BarSeriesKey, KLineBuffer>
-  readonly timeShare: ReadonlyMap<TradingDateKey, TimeShareBuffer>
+  readonly timeShare: ReadonlyMap<TradingDateSlot, TimeShareBuffer>
   readonly trades?: TradeBuffer
 }
 
+/** 分时缓冲按交易日槽位索引；与选择类型共享同一联合。 */
+type TradingDateSlot = TimeShareSelection['tradingDate']
+
 /** 同一市场品种按实际数据来源隔离的数据集合。 */
 interface InstrumentSeriesNode {
-  readonly sources: ReadonlyMap<Source, SourceSeriesNode>
+  readonly sources: ReadonlyMap<string, SourceSeriesNode>
 }
 
 /** 图表实例内全部行情序列的只读拓扑。 */
-type SeriesRepositorySnapshot = ReadonlyMap<InstrumentKey, InstrumentSeriesNode>
-
-/** 统一身份字段，去除首尾空白并避免分隔符碰撞。 */
-function identityPart(value: string | undefined): string {
-  return (value ?? '').trim().toUpperCase()
-}
-
-/** 从业务品种生成跨来源共享的市场身份。 */
-export function instrumentKeyFromSpec(spec: SymbolSpec): InstrumentKey {
-  const { instrument } = spec
-  return JSON.stringify([
-    identityPart(instrument.sessionId ?? instrument.exchange),
-    identityPart(instrument.exchange),
-    identityPart(instrument.symbol),
-  ])
-}
-
-/** 读取请求指定的来源；品种模型始终携带来源。 */
-export function sourceFromSpec(spec: SymbolSpec): Source {
-  return spec.instrument.source
-}
+type SeriesRepositorySnapshot = ReadonlyMap<string, InstrumentSeriesNode>
 
 /** 生成 K 线叶子键，周期、复权和聚合方式共同决定序列身份。 */
 function barSeriesKey(
-  period: KLinePeriod,
-  adjustment: KLineAdjustment,
-  barAggregation: BarAggregation,
+  period: BarsSelection['period'],
+  adjustment: BarsSelection['adjustment'],
+  barAggregation: BarsSelection['barAggregation'],
 ): BarSeriesKey {
   return `${period}:${adjustment}:${barAggregation}`
-}
-
-/** 生成可用于订阅表和兼容诊断字段的稳定选择键。 */
-export function seriesSelectionKey(selection: RepositorySelection): string {
-  if (selection.kind === SERIES_SELECTION_KIND.trades)
-    return JSON.stringify([selection.kind, selection.instrumentKey, selection.source])
-  return selection.kind === SERIES_SELECTION_KIND.bars
-    ? JSON.stringify([
-        selection.kind,
-        selection.instrumentKey,
-        selection.source,
-        selection.period,
-        selection.adjustment,
-        selection.barAggregation,
-      ])
-    : JSON.stringify([
-        selection.kind,
-        selection.instrumentKey,
-        selection.source,
-        selection.tradingDate,
-      ])
 }
 
 /** 空来源节点；注册与迁移共用同一个不可变空值。 */
 const EMPTY_SOURCE_NODE: SourceSeriesNode = Object.freeze({
   bars: new Map<BarSeriesKey, KLineBuffer>(),
-  timeShare: new Map<TradingDateKey, TimeShareBuffer>(),
+  timeShare: new Map<TradingDateSlot, TimeShareBuffer>(),
 })
 
 /** 来源节点是否已不持有任何序列；成交只占单个槽位。 */
@@ -146,7 +63,7 @@ function isEmptySourceNode(node: SourceSeriesNode): boolean {
 /** 构造来源节点；仅在有成交时携带该槽位，避免产生 undefined 字段。 */
 function sourceNode(
   bars: ReadonlyMap<BarSeriesKey, KLineBuffer>,
-  timeShare: ReadonlyMap<TradingDateKey, TimeShareBuffer>,
+  timeShare: ReadonlyMap<TradingDateSlot, TimeShareBuffer>,
   trades?: TradeBuffer,
 ): SourceSeriesNode {
   return Object.freeze({
@@ -277,7 +194,7 @@ export class SeriesRepository {
   }
 
   /** 释放一个品种在旧连接上的全部快照，其他来源保持可用。 */
-  deleteSource(instrumentKey: InstrumentKey, sourceKey: Source): boolean {
+  deleteSource(instrumentKey: string, sourceKey: string): boolean {
     const current = this._snapshot.peek()
     const instrument = current.get(instrumentKey)
     const node = instrument?.sources.get(sourceKey)
@@ -295,7 +212,7 @@ export class SeriesRepository {
   }
 
   /** 删除一个市场品种下的全部来源和序列。 */
-  deleteInstrument(instrumentKey: InstrumentKey): boolean {
+  deleteInstrument(instrumentKey: string): boolean {
     const instrument = this._snapshot.peek().get(instrumentKey)
     if (!instrument) return false
     for (const source of instrument.sources.values()) {

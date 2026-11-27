@@ -605,7 +605,7 @@ export function createChartAgentMarketQueries(
     scope: { readonly symbol: string; readonly source?: string; readonly signal?: AbortSignal },
     requested: TradingDate,
   ): Promise<TradingDate | null> {
-    const bars = await deps.cache.queryBarsWindow({
+    const bars = await deps.market.queryBarsWindow({
       ...scope,
       period: KLinePeriod.Daily,
       adjustment: KLineAdjustment.None,
@@ -685,7 +685,7 @@ export function createChartAgentMarketQueries(
           `from '${input.from}' must not be later than to '${input.to}'.`,
         )
       }
-      const result = await deps.cache.queryBarsWindow({
+      const result = await deps.market.queryBarsWindow({
         symbol: input.symbol,
         period: input.period,
         adjustment: input.adjustment,
@@ -720,7 +720,7 @@ export function createChartAgentMarketQueries(
         ...(context?.signal === undefined ? {} : { signal: context.signal }),
       }
       // 交易日以该品种日线为准：日线最后一根就是最近一个已完成的交易日。
-      const daily = await deps.cache.queryBarsWindow({
+      const daily = await deps.market.queryBarsWindow({
         ...scope,
         period: KLinePeriod.Daily,
         adjustment: KLineAdjustment.None,
@@ -741,11 +741,11 @@ export function createChartAgentMarketQueries(
 
       // 缺省日期优先今天：盘中当日分时已经存在，节假日与开盘前自然回退到日线最后一根。
       let endDate = requestedDate ?? latestDate
-      let todayResult: Awaited<ReturnType<typeof deps.cache.queryTimeShare>> | null = null
+      let todayResult: Awaited<ReturnType<typeof deps.market.queryTimeShare>> | null = null
       if (requestedDate === null) {
         const today = toTradingDate(formatDateInTimeZone(deps.now(), daily.series.timezone))
         if (today !== latestDate) {
-          const probe = await deps.cache.queryTimeShare({ ...scope, tradingDate: today })
+          const probe = await deps.market.queryTimeShare({ ...scope, tradingDate: today })
           if (probe.series.data.length > 0) {
             todayResult = probe
             endDate = today
@@ -754,7 +754,7 @@ export function createChartAgentMarketQueries(
       }
 
       if (input.days > 1) {
-        const range = await deps.cache.queryTimeShareRange({
+        const range = await deps.market.queryTimeShareRange({
           ...scope,
           endTradingDate: endDate,
           days: input.days,
@@ -774,7 +774,7 @@ export function createChartAgentMarketQueries(
       }
 
       const single =
-        todayResult ?? (await deps.cache.queryTimeShare({ ...scope, tradingDate: endDate }))
+        todayResult ?? (await deps.market.queryTimeShare({ ...scope, tradingDate: endDate }))
       if (single.series.data.length === 0) await rejectTradingDay(scope, input.symbol, endDate)
       return {
         content: deps.formatter.formatTimeShareDays({

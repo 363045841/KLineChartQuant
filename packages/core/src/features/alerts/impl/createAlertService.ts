@@ -33,7 +33,7 @@ import type {
 import { ALERT_DOCUMENT_VERSION, type AlertFiresDocument, type AlertRulesDocument } from './alertCodec.js'
 import { alertStatus } from './alertStatus.js'
 import { alertFeedIdentity } from './alertSymbol.js'
-import type { AlertFeedLease } from './createAlertFeedSource.js'
+import type { AlertFeedLease } from './createAlertFeeds.js'
 
 const DEFAULT_LIMITS: AlertLimits = { maxAlerts: 200, maxFires: 1000, maxFiresPerAlert: 200 }
 

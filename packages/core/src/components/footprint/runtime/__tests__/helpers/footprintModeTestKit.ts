@@ -1,9 +1,9 @@
 /** 模式链路测试复用真实内核和执行核心，统一管理市场切换与资源释放。 */
 import { onTestFinished } from 'vitest'
-import { type BarsSelection, SERIES_SELECTION_KIND } from '@/data/buffer/impl/seriesRepository.js'
+import { type BarsSelection, SERIES_SELECTION_KIND } from '@/data/buffer/seriesSelection.js'
 import type { SourceCapabilities } from '@/data/provider/types.js'
 import { tradeInstrument } from '@/data/trades/__tests__/helpers/tradeTestKit.js'
-import type { ReadyMarketSession } from '@/engine/data/marketRuntime/types.js'
+import type { ReadyMarketSession } from '@/engine/data/series/types.js'
 import { createTestChartStateKernel } from '@/engine/state/__tests__/helpers/createTestChartStateKernel.js'
 import { ACTIVE_BUFFER_KIND } from '@/engine/state/dataState.js'
 import { data } from '../../../__tests__/helpers/footprintTestKit.js'

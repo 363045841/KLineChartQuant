@@ -36,12 +36,12 @@ import {
 } from '../../../controllers/renderers/index.js'
 import type { ChartFrameCaptureContext } from '../../../controllers/screenshot/types.js'
 import { isTimeSharePeriod, type SymbolInfo, type SymbolSpec } from '../../../controllers/types.js'
-import type { MarketDataCache } from '../../../data/buffer/impl/marketDataCache.js'
+import type { MarketDataService } from '../../../data/service/index.js'
 import { resolveMarketDataCacheMaxBytes } from '../../../data/buffer/impl/marketDataPolicy.js'
 import type { CoverageResult } from '../../../data/buffer/types.js'
-import { type MarketDataContext } from '../../../data/management/impl/context.js'
-import { lookupInstrumentsBySymbol } from '../../../data/provider/impl/instrumentSearch.js'
-import type { MarketDataProviderRegistry } from '../../../data/provider/impl/registry.js'
+import { type MarketDataContext } from '../../../data/management/context.js'
+import { lookupInstrumentsBySymbol } from '../../../data/provider/instrumentSearch.js'
+import type { MarketDataProviderRegistry } from '../../../data/provider/registry.js'
 import {
   AUTO_SOURCE,
   DEFAULT_KLINE_ADJUSTMENT,
@@ -153,11 +153,11 @@ import type {
   Viewport,
   ViewportState,
 } from '../types.js'
-import { ChartDrawingFacade } from './facade/chartDrawingFacade.js'
-import { ChartIndicatorFacade } from './facade/chartIndicatorFacade.js'
-import { ChartPaneFacade } from './facade/chartPaneFacade.js'
-import { ChartThemeFacade } from './facade/chartThemeFacade.js'
-import { ChartZoomFacade } from './facade/chartZoomFacade.js'
+import { ChartDrawingFacade } from '../facade/chartDrawingFacade.js'
+import { ChartIndicatorFacade } from '../facade/chartIndicatorFacade.js'
+import { ChartPaneFacade } from '../facade/chartPaneFacade.js'
+import { ChartThemeFacade } from '../facade/chartThemeFacade.js'
+import { ChartZoomFacade } from '../facade/chartZoomFacade.js'
 
 export type { InteractionSnapshot }
 
@@ -190,6 +190,8 @@ interface ChartRuntime {
   /** 指标与警报定义注册表；图表只读取已提交定义。 */
   readonly definitions: DefinitionRegistry
   readonly marketDataContext: MarketDataContext
+  /** 唯一取数服务；数据加载与实时订阅都从这里来。 */
+  readonly data: import('../../../data/service/index.js').MarketDataService
   /** 帧时间源，测试或宿主可注入 Unix 毫秒时钟。 */
   clock?: import('../../../foundation/utils/clock.js').Clock
 }
@@ -435,8 +437,7 @@ export class Chart {
 
     this.dataManager = new ChartDataManager(
       {
-        marketDataProviderRegistry: this.marketDataProviderRegistry,
-        streamHub: resolveMarketDataContext(runtime).stream,
+        data: runtime.data,
         marketSessions: this.marketSessions,
         getOption: () => this.getRenderOptions(),
         getDom: () => this.dom,
@@ -465,14 +466,13 @@ export class Chart {
             live,
           )
         },
-        isPointerDown: () => this.interaction.isPointerDown(),
         publishSymbols: (symbols) => this.kernel.actions.setSymbols(symbols),
       },
       this.kernel.data,
       this.kernel.dataManager,
     )
     this._activeRangePreset = computed(() => this.computeActiveRangePreset())
-    this.dataManager.marketDataCache.setMaxBytes(
+    this.dataManager.setCacheMaxBytes(
       resolveMarketDataCacheMaxBytes(
         this.kernel.settings.readonly.settings.peek().marketDataCacheMaxMiB,
       ),
@@ -1173,7 +1173,7 @@ export class Chart {
     this.unlockAxisWidth()
     if (prev.tooltipPosition !== next.tooltipPosition) this.interaction.resetTooltipPlacement()
     if (prev.marketDataCacheMaxMiB !== next.marketDataCacheMaxMiB) {
-      this.dataManager.marketDataCache.setMaxBytes(
+      this.dataManager.setCacheMaxBytes(
         resolveMarketDataCacheMaxBytes(next.marketDataCacheMaxMiB),
       )
     }
@@ -1280,8 +1280,8 @@ export class Chart {
   }
 
   /** 返回图表与 Agent 共用的实例级行情缓存。 */
-  getMarketDataCache(): MarketDataCache {
-    return this.dataManager.marketDataCache
+  getMarketData(): MarketDataService {
+    return this.dataManager.marketData
   }
 
   /** 对当前行情快照执行一次计算，不注册指标或创建 Pane。 */

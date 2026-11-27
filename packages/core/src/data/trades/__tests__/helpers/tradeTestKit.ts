@@ -4,8 +4,8 @@ import { MarketDataCache } from '../../../buffer/impl/marketDataCache.js'
 import {
   SERIES_SELECTION_KIND,
   type TradesSelection,
-} from '../../../buffer/impl/seriesRepository.js'
-import { MarketDataProviderRegistry } from '../../../provider/impl/registry.js'
+} from '../../../buffer/seriesSelection.js'
+import { MarketDataProviderRegistry } from '../../../provider/registry.js'
 import type { InstrumentDescriptor } from '../../../provider/types.js'
 import type { MarketTrade, TradeDataSource } from '../../types.js'
 

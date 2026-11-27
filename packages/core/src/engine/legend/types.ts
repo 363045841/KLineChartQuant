@@ -7,8 +7,8 @@
 
 import type { TimeframeVisibility } from '@363045841yyt/klinechart-plot-contracts'
 import type { SymbolSpec } from '@/controllers/types.js'
-import type { ChartIndicatorFacade } from '@/engine/chart/impl/facade/chartIndicatorFacade.js'
-import type { ChartPaneFacade } from '@/engine/chart/impl/facade/chartPaneFacade.js'
+import type { ChartIndicatorFacade } from '@/engine/chart/facade/chartIndicatorFacade.js'
+import type { ChartPaneFacade } from '@/engine/chart/facade/chartPaneFacade.js'
 import type { ComparisonCommandsApi } from '@/engine/data/comparisonCommands.js'
 import type { TitleValueItem } from '@/engine/indicators/indicatorMetadata.js'
 import type { DefinitionRegistry } from '@/engine/indicators/registry/index.js'

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { MarketDataContext } from '@/data/management/impl/context.js'
+import { MarketDataContext } from '@/data/management/context.js'
 import { createDataSourceFixture } from '@/data/provider/__tests__/helpers/providerTestKit.js'
 import {
   createCanvasGetContextMock,

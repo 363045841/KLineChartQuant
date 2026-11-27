@@ -1,5 +1,5 @@
 /** Binance Provider 的实例装配，K 线与成交共享连接配置；实时连接由 `data/stream` 的连接注册表统一建立。 */
-import type { MarketDataProviderRegistry } from '../registry.js'
+import type { MarketDataProviderRegistry } from '../../registry.js'
 import { dataSourceRegistry } from '../sourceRegistry.js'
 import { createHttpSource } from './createHttpSource.js'
 

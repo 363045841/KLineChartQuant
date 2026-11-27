@@ -62,9 +62,8 @@ import {
   type ChartToolDescriptor,
 } from '../protocol.js'
 import type { AgentClientSender, AgentHostOptions, AgentRuntimeSessions } from '../types.js'
+import type { AgentSettings, AgentSettingsDocument } from '../settings.js'
 import {
-  type AgentSettingsDocument,
-  AgentSettingsStore,
   activeProfile,
   normalizeProfileName,
   normalizeProviderHeaders,
@@ -92,7 +91,7 @@ interface PendingClientCall {
 
 /** 宿主实现；所有页面能力只经协议调用，页面不直接触达内部状态。 */
 export class AgentHost {
-  private readonly settings: AgentSettingsStore
+  private readonly settings: AgentSettings
   private readonly createSessions: () => Promise<AgentRuntimeSessions>
   private readonly fetchImplementation: typeof globalThis.fetch
   private readonly createId: () => string

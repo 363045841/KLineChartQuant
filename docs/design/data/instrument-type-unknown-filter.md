@@ -42,7 +42,7 @@ export function isFilterableInstrumentType(value: InstrumentType | undefined): v
 
 | 位置 | 原行为 | 现行为 |
 |------|--------|--------|
-| `data/provider/impl/registry.ts` `supportsCapability` | `unknown` 参与源级 `instrumentTypes` 匹配 | `unknown` 视为无条件，不排除源 |
+| `data/provider/registry.ts` `supportsCapability` | `unknown` 参与源级 `instrumentTypes` 匹配 | `unknown` 视为无条件，不排除源 |
 | `data/provider/impl/router.ts` `resolveInstrument` | 目录搜索透传 `instrumentTypes:[unknown]` | `unknown` 时不传 `instrumentTypes` |
 | `data/provider/protocol/impl/provider.ts` `catalog.search` | 目录结果按 `[unknown]` 过滤 | 过滤前剔除 `unknown`，集合为空即返回全部 |
 

@@ -18,55 +18,17 @@ import {
 } from '../../contracts/provider.js'
 import type { OpenAiCompatibleProviderSettings } from '../../provider-openai-compatible/types.js'
 import { PROVIDER_SETTINGS_VERSION } from '../../provider-openai-compatible/types.js'
+import type {
+  AgentSettings,
+  AgentProviderConnection,
+  AgentProviderModel,
+  AgentProviderProfile,
+  AgentSettingsDocument,
+  AgentSettingsStorage,
+} from '../settings.js'
 
 /** 当前设置文档版本；结构变化必须递增并给出迁移。 */
 const AGENT_SETTINGS_VERSION = 3
-
-/** 一份已保存的 Provider 连接。 */
-export interface AgentProviderConnection {
-  baseUrl: string
-  headers: Record<string, string>
-  protocol: ProviderApiProtocol
-}
-
-/** 模型池中的一条记录；元数据在加入时由宿主校验并固化。 */
-export interface AgentProviderModel {
-  id: string
-  name: string
-  contextWindow?: number
-  maxOutputTokens: number
-  reasoningEfforts: ProviderReasoningEffort[]
-  defaultReasoningEffort?: ProviderReasoningEffort
-}
-
-/** 一个已保存的 Provider 配置；模型池随配置存储，不再有跨表外键。 */
-export interface AgentProviderProfile {
-  id: string
-  name: string
-  apiKey: string
-  active: boolean
-  connectionRevision: number
-  connection?: AgentProviderConnection
-  models: AgentProviderModel[]
-  selectedModelId?: string
-  reasoningEffort?: ProviderReasoningEffort
-}
-
-/** 宿主设置文档；唯一事实来源。 */
-export interface AgentSettingsDocument {
-  version: typeof AGENT_SETTINGS_VERSION
-  /** 每次写入递增；跨线程快照用它丢弃过期应答。 */
-  revision: number
-  profiles: AgentProviderProfile[]
-  disabledTools: string[]
-  exaApiKey?: string
-}
-
-/** 设置文档的持久化端口；`read` 在从未写入时返回 null。 */
-export interface AgentSettingsStorage {
-  read(): Promise<unknown>
-  write(document: unknown): Promise<void>
-}
 
 /** 新装用户的空文档。 */
 export function createEmptyAgentSettingsDocument(): AgentSettingsDocument {
@@ -444,7 +406,7 @@ function toModelView(model: AgentProviderModel): ProviderModelView {
  * 写入只允许通过 `update`：变更函数拿到的是隔离副本，提交就是一次完整文档替换，
  * 不会出现半个更新；版本号与写入版本由这里统一维护。
  */
-export class AgentSettingsStore {
+export class AgentSettingsStore implements AgentSettings {
   private document: AgentSettingsDocument | undefined
 
   constructor(

@@ -2,14 +2,14 @@
 import { describe, expect, it, vi } from 'vitest'
 import { makeSymbolSpec } from '@/engine/data/__tests__/helpers/symbolSpecFixture'
 import { DataBuffer } from '../buffer/impl/dataBuffer'
+import { SeriesRepository } from '../buffer/impl/seriesRepository'
 import {
   type BarsSelection,
   instrumentKeyFromSpec,
   SERIES_SELECTION_KIND,
-  SeriesRepository,
   sourceFromSpec,
   type TimeShareSelection,
-} from '../buffer/impl/seriesRepository'
+} from '../buffer/seriesSelection'
 import { TimeShareBuffer } from '../buffer/impl/timeShareBuffer'
 import { OLDER_DATA_STATUS } from '../provider/types'
 

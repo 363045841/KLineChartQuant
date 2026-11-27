@@ -1,11 +1,12 @@
 /** 控制器测试夹具：用例显式注入定义注册表与行情宿主，夹具只负责装配 runtime。 */
-import { createMarketDataHost } from '@/data/management/impl/context.js'
+import { createMarketDataHost } from '@/data/management/context.js'
 import { createTestDefinitions } from '@/engine/indicators/__tests__/helpers/definitionsTestKit.js'
 import type { DefinitionRegistry } from '@/engine/indicators/registry/index.js'
 import { createMarketRuntime } from '@/engine/runtime/index.js'
+import { systemClock } from '@/foundation/utils/clock.js'
 import { createChartController } from '../../chart/index.js'
 import type { ChartController, ChartMountOptions } from '../../types.js'
-import type { MarketDataContext } from '@/data/management/impl/context.js'
+import type { MarketDataContext } from '@/data/management/context.js'
 
 /** 测试挂载参数：与生产选项一致，额外要求调用方自持 runtime 的两个依赖。 */
 export type TestMountOptions = Omit<ChartMountOptions, 'runtime'> & {
@@ -29,6 +30,6 @@ export function createTestChartController(options: TestMountOptions): Promise<Ch
   } = options
   return createChartController({
     ...rest,
-    runtime: createMarketRuntime({ market, definitions }),
+    runtime: createMarketRuntime({ market, definitions, clock: systemClock }),
   })
 }

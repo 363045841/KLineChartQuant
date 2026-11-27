@@ -473,7 +473,7 @@ export interface ChartController
   readonly dataError: ReadonlySignal<string | null>
   /** 图表实例缓存的近似内存使用量与配置上限。 */
   readonly marketDataCacheStats: ReadonlySignal<
-    import('../data/buffer/impl/marketDataCache.js').MarketDataCacheStats
+    import('../data/buffer/types.js').MarketDataCacheStats
   >
   readonly symbols: ReadonlySignal<ReadonlyArray<SymbolSpec>>
   readonly theme: ReadonlySignal<'light' | 'dark'>

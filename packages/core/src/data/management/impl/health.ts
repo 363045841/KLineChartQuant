@@ -1,6 +1,6 @@
 /** 实例级 Provider 拨测：逐目标复用、超时与配置身份失效。 */
 import { asReadonlySignal, createSignal } from '@/foundation/reactivity/signal.js'
-import type { MarketDataProviderRegistry } from '../../provider/impl/registry.js'
+import type { MarketDataProviderRegistry } from '../../provider/registry.js'
 import type { MarketDataProvider, SourceProbeResult } from '../../provider/types.js'
 import type { MarketHealthOptions, MarketProviderHealth } from '../types.js'
 

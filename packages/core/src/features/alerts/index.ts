@@ -3,8 +3,8 @@
  */
 export { ALERT_DOCUMENT_VERSION, decodeFires, decodeRules } from './impl/alertCodec.js'
 export type { AlertFiresDocument, AlertRulesDocument } from './impl/alertCodec.js'
-export { createAlertFeedSource } from './impl/createAlertFeedSource.js'
-export type { AlertFeedLease } from './impl/createAlertFeedSource.js'
+export { createAlertFeeds } from './impl/createAlertFeeds.js'
+export type { AlertFeedLease } from './impl/createAlertFeeds.js'
 export { createAlertRuntime } from './impl/createAlertRuntime.js'
 export type { AlertRuntime, AlertRuntimeOptions } from './impl/createAlertRuntime.js'
 export { createAlertStores } from './impl/alertPersistence.js'

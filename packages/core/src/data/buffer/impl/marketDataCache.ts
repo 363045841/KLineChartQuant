@@ -1,9 +1,21 @@
 /** 图表实例级行情内存缓存：按领域请求补齐数据覆盖范围并复用 Provider 请求结果。 */
 import type { KLineData } from '@/controllers/types.js'
+import type {
+  BarsCacheQuery,
+  BarsCacheResult,
+  BarsWindowCacheQuery,
+  BarsWindowCacheResult,
+  MarketDataCacheStats,
+  TimeShareCacheQuery,
+  TimeShareCacheResult,
+  TimeShareRangeCacheQuery,
+  TimeShareRangeCacheResult,
+  TradesCacheQuery,
+} from '../types.js'
 import { ERROR_CODES, KLineChartError } from '@/errors.js'
 import { asReadonlySignal, createSignal, type ReadonlySignal } from '@/foundation/reactivity/signal.js'
 import { formatDateInTimeZone } from '@/foundation/time/index.js'
-import type { MarketDataProviderRegistry } from '../../provider/impl/registry.js'
+import type { MarketDataProviderRegistry } from '../../provider/registry.js'
 import { SourceRouter } from '../../provider/impl/router.js'
 import type {
   BarAggregation,
@@ -45,90 +57,15 @@ import {
 } from './marketDataPolicy.js'
 import {
   LATEST_TRADING_DATE,
-  SeriesRepository,
   seriesSelectionKey,
   type TradesSelection,
-} from './seriesRepository.js'
+} from '../seriesSelection.js'
+import { SeriesRepository } from './seriesRepository.js'
 
 /** Agent 日期窗口查询最多向前翻的页数；用尽仍未覆盖 `from` 时如实标记截断。 */
 const BARS_WINDOW_PAGE_BUDGET = 12
 
-/** 成交查询沿用公共请求生命周期，范围由成交完整性记录决定。 */export interface TradesCacheQuery {
-  readonly selection: TradesSelection
-  readonly instrument: InstrumentDescriptor
-  readonly range: TradeRange
-  readonly signal?: AbortSignal
-}
-
-export interface BarsCacheQuery {
-  readonly symbol: string
-  readonly period: KLinePeriod
-  readonly adjustment: KLineAdjustment
-  readonly barAggregation: BarAggregation
-  readonly source?: string
-  readonly instrument?: InstrumentDescriptor
-  readonly exchange?: string
-  readonly instrumentType?: InstrumentType
-  /** 请求的根数；拉多少就请求多少，不按时间范围外推。 */
-  readonly limit: number
-  /** 排他上界时间戳；省略表示从数据源最新一根开始。 */
-  readonly beforeTimestamp?: number
-  readonly signal?: AbortSignal
-}
-
-export interface BarsCacheResult {
-  readonly source: string
-  readonly instrument: InstrumentDescriptor
-  readonly series: BarSeries
-}
-
-/** Agent 的日期窗口查询：`from` / `to` 为该品种时区下的交易日或 RFC 3339。 */
-export interface BarsWindowCacheQuery extends BarsCacheQuery {
-  readonly from?: string
-  readonly to?: string
-}
-
-/** 窗口查询结果；truncated 表示 limit 用尽仍未覆盖到 from。 */
-export interface BarsWindowCacheResult extends BarsCacheResult {
-  readonly truncated: boolean
-}
-
-export interface TimeShareCacheQuery {
-  readonly symbol: string
-  readonly instrument?: InstrumentDescriptor
-  readonly tradingDate?: TradingDate
-  readonly resolveTradingDate?: (instrument: InstrumentDescriptor) => TradingDate
-  readonly source?: string
-  readonly exchange?: string
-  readonly instrumentType?: InstrumentType
-  readonly signal?: AbortSignal
-}
-
-export interface TimeShareRangeCacheQuery {
-  readonly symbol: string
-  readonly instrument?: InstrumentDescriptor
-  readonly endTradingDate?: TradingDate
-  readonly resolveEndTradingDate?: (instrument: InstrumentDescriptor) => TradingDate
-  readonly days: number
-  readonly source?: string
-  readonly exchange?: string
-  readonly instrumentType?: InstrumentType
-  readonly signal?: AbortSignal
-}
-
-export interface TimeShareCacheResult {
-  readonly source: string
-  readonly instrument: InstrumentDescriptor
-  readonly series: TimeShareSeries
-}
-
-export interface TimeShareRangeCacheResult {
-  readonly source: string
-  readonly instrument: InstrumentDescriptor
-  readonly range: TimeShareRange
-}
-
-interface CacheEntry {
+/** 成交查询沿用公共请求生命周期，范围由成交完整性记录决定。 */interface CacheEntry {
   source: string
   instrument: InstrumentDescriptor
   series: Omit<BarSeries, 'data' | 'olderData'>
@@ -154,13 +91,6 @@ interface QueryState {
 /** 领域规则每次提供一个请求步骤，分页循环由公共协调器执行。 */
 interface QueryPlan {
   next(): (() => Promise<void>) | null
-}
-
-/** 图表实例缓存的近似内存统计；字节数基于可序列化数据的保守估算。 */
-export interface MarketDataCacheStats {
-  readonly usedBytes: number
-  readonly maxBytes: number
-  readonly entryCount: number
 }
 
 /** 将单页上游结果规范为时间升序且时间戳唯一的数据，保留同时间戳的最后一条修正值。 */
@@ -546,7 +476,7 @@ export class MarketDataCache {
 
   /** 实时帧回写所有指向同一事实序列的查询条目，后续历史查询不会覆盖最新尾部。 */
   acceptBars(
-    selection: import('./seriesRepository.js').BarsSelection,
+    selection: import('../seriesSelection.js').BarsSelection,
     instrument: InstrumentDescriptor,
     bars: readonly KLineData[],
   ): void {

@@ -4,15 +4,15 @@
 
 ## 所有权
 
-- `MarketRuntime` 持有行情、实例级定义注册表、`CalculationHub` 与市场时段；Worker 池由脚本执行服务持有。图表和警报只持有自己的 client 与 feed。
+- `MarketRuntime` 持有行情宿主、实例级定义注册表、`MarketDataService`、`CalculationHub` 与市场时段；Worker 池由脚本执行服务持有。图表和警报只持有自己的 client 与 feed。
 - 图表与警报是平级消费者：图表用 `onCommit` 取最新完整结果，警报用 `onResult` 逐次消费。任何一方销毁都不释放中枢。
 - 定义注册表随运行时创建，不再有全局注册表。定义替换时注册表写入新的元数据对象，计算层据此换掉旧计算器并让中枢丢弃旧结果。
 - 警报规则身份是 `(脚本, 品种, 参数)`；同一脚本可以在多个品种上各有一条规则，选择器按当前品种投影规则。
-- 运行时由 `createMarketRuntime({ market, definitions })` 创建；图表与警报分别通过 `createChartController({ runtime })` 与 `createAlertRuntime({ runtime, rules, fires })` 接入，没有图表的警报同样按自己的行情源运行。
+- 运行时由 `createMarketRuntime({ market, definitions, clock })` 创建；图表与警报分别通过 `createChartController({ runtime })` 与 `createAlertRuntime({ runtime, rules, fires })` 接入。两者都从 `runtime.data` 取数，没有图表时警报仍按同一服务运行。
 
 ## 行情与计算
 
-- 图表与警报分别维护自己的行情修订。警报行情源按启用规则订阅任意品种，历史数据与已收到的实时尾部合并，收盘以行情流的 `closed` 帧为准。
+- 图表与警报共享同一份行情修订：两者都订阅 `MarketDataService` 的序列，历史分页、实时合并与收线标记由服务统一维护；警报的 `closedBarTime` 来自序列的 `lastBarClosed`。
 - 视图读取最新完整结果。警报按顺序接收每次计算结果，因此中间的上穿或收盘帧不会被更新的快照替代。
 - `barstate.prevPrice` 读取同一根 K 线上一次实时更新价。实时首笔与历史计算返回 `undefined`。`close[0]` 是当前 K 线的最新价格。
 - 指标和警报共用计算输出。警报事件随 `alerts` 返回，只有本次更新的实时末根可以产出事件。

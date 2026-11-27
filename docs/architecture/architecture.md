@@ -314,10 +314,12 @@ Vite 开发代理 `/api/public` → `:8080`、
 
 **数据层**
 
+- `packages/core/src/data/buffer/seriesSelection.ts`
 - `packages/core/src/data/buffer/impl/seriesRepository.ts`
 - `packages/core/src/data/buffer/impl/dataBuffer.ts`
 - `packages/core/src/data/buffer/impl/marketDataCache.ts`
-- `packages/core/src/data/provider/impl/registry.ts`
+- `packages/core/src/data/service/impl/createMarketDataService.ts`
+- `packages/core/src/data/provider/registry.ts`
 
 **渲染**
 

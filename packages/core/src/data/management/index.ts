@@ -1,6 +1,6 @@
 /** 行情管理的公共入口。 */
 
-export { MarketDataContext } from './impl/context.js'
+export { MarketDataContext } from './context.js'
 export type {
   MarketConnection,
   MarketDataConfiguration,

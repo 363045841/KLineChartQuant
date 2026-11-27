@@ -1,3 +1,4 @@
+import { systemClock } from '@363045841yyt/klinechart-core'
 // @vitest-environment node
 /** 验证直接挂载 Core 的适配器可在无 DOM 的服务端渲染，且不触发 Core 加载。 */
 
@@ -12,7 +13,7 @@ import { KLineChart } from '../index'
 
 describe('KLineChart SSR', () => {
   it('renders only the container on the server', () => {
-    const runtime = createMarketRuntime({
+    const runtime = createMarketRuntime({ clock: systemClock,
       market: createMarketDataHost(),
       definitions: createDefinitionRegistry(),
     })

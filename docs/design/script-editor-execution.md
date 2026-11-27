@@ -2,7 +2,7 @@
 
 编辑器的运行操作把当前草稿交给原有 ScriptService，不保存文档、不注册指标。临时编译句柄由同一个 Worker 准备、执行和释放；图表计算与调试共用 compute 的 Request 准备流程。
 
-ChartController.withIndicatorData 捕获当前行情快照，并通过现有 MarketRuntime 为临时计算分配行情使用权。临时使用者与指标计算计划的使用者共同参与 retain，避免图表重算取消调试中的跨周期请求；完成或失败后释放使用权。Bar 转换由正式指标与临时计算共用。
+ChartController.withIndicatorData 捕获当前行情快照，并通过 `MarketRuntime.data` 按需读取脚本所需历史。临时计算与图表指标共用同一份行情缓存，完成或失败后不保留额外租约。Bar 转换由正式指标与临时计算共用。
 
 输出仍由 ScriptService.output 管理。草稿调试使用标签身份，图表指标使用定义身份；会话订阅当前操作对应的输出。独立窗口只传送草稿和命令，执行始终归图表宿主所有。
 

@@ -5,7 +5,7 @@
  */
 import type { ScriptTimeContext } from '@363045841yyt/klinechart-plot-contracts'
 import type { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry.js'
-import type { ReadyMarketSession } from '../types.js'
+import type { ScriptMarketSession } from './types.js'
 
 /**
  * 把就绪行情换算成脚本可读的时间上下文。
@@ -15,7 +15,7 @@ import type { ReadyMarketSession } from '../types.js'
  * @returns 已声明时段配置时返回周期与时段；未声明时返回 undefined
  */
 export function createScriptTimeContext(
-  session: ReadyMarketSession,
+  session: ScriptMarketSession,
   sessions: MarketSessionRegistry,
 ): ScriptTimeContext | undefined {
   const { sessionId, exchange } = session.instrument

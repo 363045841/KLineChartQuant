@@ -9,7 +9,8 @@ import {
 } from '@/foundation/reactivity/signal.js'
 import { OLDER_DATA_STATUS, type OlderDataStatus } from '../../provider/types.js'
 import type { DataChange, KLineBuffer, LoadedTimeRange } from '../types.js'
-import { KLineDataStore, type UpdateBarsResult } from './kLineDataStore.js'
+import { KLineDataStore } from './kLineDataStore.js'
+import type { UpdateBarsResult } from '../types.js'
 
 /** 图表消费的 K 线快照；不负责 Provider 请求、重试或分页策略。 */
 export class DataBuffer implements KLineBuffer {

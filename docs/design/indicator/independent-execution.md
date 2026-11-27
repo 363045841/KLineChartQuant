@@ -6,7 +6,7 @@
 
 执行链路现分为四个职责明确的模块：
 
-1. `IndicatorBarsRepository`维护行情需求、共享历史准备和快照读取。`MarketRuntime`协调公共实时订阅，仓库通过bind端口登记需求，不管理线程或指标结果。
+1. 会话级计算行情通过 `readIndicatorBars` 按需调用 `MarketDataService.read` / `readSymbol` 补历史并投影脚本 Bar，不持有缓存或实时订阅；计算身份的运行任务由 `CalculationHub` 持有。
 2. `CalculationHub` 拥有计算身份的运行任务与最新待执行输入。执行端口一次只接收一个任务、一个输入和一个生命周期信号，不再使用全局 setData 加整批 execute。
 3. `createScriptWorkerPool`维护固定上限的线程、FIFO队列和每线程编译缓存。它不了解行情版本、指标轻重或实例关系。`prepareScriptMarketData`在池外异步准备快照，网络等待不持有线程。
 4. `CalculationHub` 同时是已发布结果的唯一仓库。它按数据身份与计算身份保存结果并保留每份结果自己的时间轴；图表通过 `onCommit` 取当前计划的完整结果，警报通过 `onResult` 逐次消费。预览计算与图表、警报共用这一份仓库，但不进入任何消费者的提交快照。

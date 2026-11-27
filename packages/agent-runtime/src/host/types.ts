@@ -5,7 +5,7 @@
  */
 
 import type { AgentSessionService } from '../sessions/session-service.js'
-import type { AgentSettingsStore } from './impl/agent-settings.js'
+import type { AgentSettings } from './settings.js'
 import type {
   AgentClientRequest,
   AgentClientResponse,
@@ -26,7 +26,7 @@ export type AgentClientSender = (
 /** 创建宿主所需的依赖。 */
 export interface AgentHostOptions {
   /** 设置文档的唯一来源。 */
-  readonly settings: AgentSettingsStore
+  readonly settings: AgentSettings
   /** 打开持久化会话服务；由宿主环境决定底层存储。 */
   readonly createSessions: () => Promise<AgentRuntimeSessions>
   /** 可替换的 fetch，测试与诊断用。 */

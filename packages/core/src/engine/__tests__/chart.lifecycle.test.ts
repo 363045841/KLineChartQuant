@@ -379,9 +379,9 @@ describe('Chart lifecycle without a market selection', () => {
         },
       })
       expect(switchBackend).toHaveBeenCalledWith(originalBackend === 'canvas' ? 'webgl' : 'canvas')
-      expect(chart.getMarketDataCache().stats.peek().maxBytes).toBe(200 * 1024 * 1024)
+      expect(chart.getMarketData().stats.peek().maxBytes).toBe(200 * 1024 * 1024)
       chart.kernel.applyLayout({ ...document, settings: {} })
-      expect(chart.getMarketDataCache().stats.peek().maxBytes).toBe(50 * 1024 * 1024)
+      expect(chart.getMarketData().stats.peek().maxBytes).toBe(50 * 1024 * 1024)
       expect(chart.kernel.settings.readonly.settings.peek().rendererBackend).toBe(originalBackend)
     } finally {
       await chart.destroy()

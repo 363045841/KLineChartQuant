@@ -2,11 +2,11 @@
  * ChartDrawingFacade —— 绘图状态、查询与工具操作。
  */
 
-import type { ReadonlySignal } from '../../../../foundation/reactivity/signal.js'
-import { computed } from '../../../../foundation/reactivity/signal.js'
-import { resolveChartWorkspaceId } from '../../../chartModel/index.js'
-import type { ChartDataManager } from '../../../data/chartDataManager.js'
-import { symbolSpecIdentityKey } from '../../../data/symbolIdentity.js'
+import type { ReadonlySignal } from '../../../foundation/reactivity/signal.js'
+import { computed } from '../../../foundation/reactivity/signal.js'
+import { resolveChartWorkspaceId } from '../../chartModel/index.js'
+import type { ChartDataManager } from '../../data/chartDataManager.js'
+import { symbolSpecIdentityKey } from '../../data/symbolIdentity.js'
 import {
   CURSOR_DRAWING_TOOL_ID,
   type DrawingCommands,
@@ -14,10 +14,10 @@ import {
   type DrawingObject,
   type DrawingToolId,
   type DrawingWorkspaceId,
-} from '../../../drawing/index.js'
-import { filterDrawingsInScope } from '../../../drawing/model/impl/drawingScope.js'
-import type { ChartRenderer } from '../../../frame/index.js'
-import type { ChartStateKernel } from '../../../state/chartStateKernel.js'
+} from '../../drawing/index.js'
+import { filterDrawingsInScope } from '../../drawing/model/impl/drawingScope.js'
+import type { ChartRenderer } from '../../frame/index.js'
+import type { ChartStateKernel } from '../../state/chartStateKernel.js'
 
 /** Drawing Facade 所需依赖。 */
 export interface ChartDrawingFacadeDependencies {

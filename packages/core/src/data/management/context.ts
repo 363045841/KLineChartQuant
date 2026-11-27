@@ -1,16 +1,16 @@
 /** 宿主持有的行情管理实例：统一配置入口，Core 不选择持久化介质。 */
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { batch, type ReadonlySignal } from '@/foundation/reactivity/signal.js'
-import { createRegisteredDataSource } from '../../provider/impl/registeredDataSource.js'
-import { MarketDataProviderRegistry } from '../../provider/impl/registry.js'
-import type { MarketDataSource } from '../../provider/types.js'
-import { createStreamHub } from '../../stream/impl/hub.js'
-import { createSseTransport } from '../../stream/impl/sseTransport.js'
-import type { StreamHub } from '../../stream/types.js'
-import type { MarketDataConfiguration } from '../types.js'
-import { normalizeConnectionUrl } from './connection.js'
-import { MarketDataHealth } from './health.js'
-import { participatesInSearch } from './policy.js'
+import { createRegisteredDataSource } from '../provider/impl/registeredDataSource.js'
+import { MarketDataProviderRegistry } from '../provider/registry.js'
+import type { MarketDataSource } from '../provider/types.js'
+import { createStreamHub } from '../stream/impl/hub.js'
+import { createSseTransport } from '../stream/impl/sseTransport.js'
+import type { StreamHub } from '../stream/types.js'
+import type { MarketDataConfiguration } from './types.js'
+import { normalizeConnectionUrl } from './impl/connection.js'
+import { MarketDataHealth } from './impl/health.js'
+import { participatesInSearch } from './impl/policy.js'
 
 /**
  * 把页面恢复事件统一成一次“立即重试退避中的连接”。

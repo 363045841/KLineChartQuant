@@ -91,8 +91,20 @@ export * from './foundation/reactivity/index.js'
 export * from './foundation/time/index.js'
 export * from './foundation/tokens/index.js'
 export * from './foundation/utils/rendererCapability.js'
+export {
+  createMarketDataService,
+  resolveBarsSelection,
+  type BarsOptions,
+  type BarsPage,
+  type BarsPageRequest,
+  type BarsSeries,
+  type MarketDataService,
+  type TimeShareOptions,
+  type TradesSeries,
+} from './data/service/index.js'
 export type { MarketSessionConfig, OpenTimeRange } from './foundation/utils/sessionTimeLabels.js'
 export { generateUUID } from './foundation/utils/uuid.js'
+export { systemClock, type Clock } from './foundation/utils/clock.js'
 export type * from './rendering/render/index.js'
 // ── Batch 3: Scene abstraction (depends on render) ────────────────────────
 export * from './rendering/scene/index.js'

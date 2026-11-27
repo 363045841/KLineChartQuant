@@ -2,17 +2,17 @@
 import { GENERIC_ERROR_CODES, KLineChartError } from '@/errors.js'
 import { asReadonlySignal, createSignal } from '@/foundation/reactivity/signal.js'
 import { immutableMap } from '@/foundation/utils/immutableMap.js'
-import { normalizeConnectionUrl } from '../../management/impl/connection.js'
-import { participatesInSearch } from '../../management/impl/policy.js'
-import type { MarketConnection, MarketRegistryState } from '../../management/types.js'
+import { normalizeConnectionUrl } from '../management/impl/connection.js'
+import { participatesInSearch } from '../management/impl/policy.js'
+import type { MarketConnection, MarketRegistryState } from '../management/types.js'
 import type {
   MarketDataProvider,
   MarketDataSourceConfig,
   MarketDataSourceConfigPatch,
   SourceCapabilities,
   SourceCapabilityQuery,
-} from '../types.js'
-import { isFilterableInstrumentType } from '../types.js'
+} from './types.js'
+import { isFilterableInstrumentType } from './types.js'
 
 const EMPTY_STATE = Object.freeze<MarketRegistryState>({
   providers: immutableMap(),

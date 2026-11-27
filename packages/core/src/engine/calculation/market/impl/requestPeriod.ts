@@ -1,12 +1,7 @@
-/** Request 周期写法映射到 Provider 的标准周期；未支持的值直接拒绝。 */
+/** 脚本请求周期写法映射到标准周期；未支持的写法直接拒绝。 */
 import { isKLinePeriod, KLINE_PERIODS, KLinePeriod } from '@/data/provider/types.js'
 
-/**
- * 对外短写法与标准周期名不一致的部分。
- *
- * 标准周期名（如 '60min'、'daily'）由 isKLinePeriod 恒等放行，不在这里重复登记；
- * 别名只做显式映射，不对错误周期做近似替代。
- */
+/** 对外短写法与标准周期名不一致的部分；标准名由校验恒等放行。 */
 const REQUEST_PERIOD_ALIASES: Readonly<Record<string, KLinePeriod>> = {
   '1': KLinePeriod.Min1,
   '5': KLinePeriod.Min5,
@@ -21,10 +16,11 @@ const REQUEST_PERIOD_ALIASES: Readonly<Record<string, KLinePeriod>> = {
   '12M': KLinePeriod.Yearly,
 }
 
-/** security 第一版只接受同周期或高周期，低周期数组属于独立接口。 */
+/** security 只接受同周期或更高周期；低周期走 lower_tf。 */
 export function assertSecurityPeriod(target: KLinePeriod, primary: KLinePeriod): void {
-  if (KLINE_PERIODS.indexOf(target) < KLINE_PERIODS.indexOf(primary))
+  if (KLINE_PERIODS.indexOf(target) < KLINE_PERIODS.indexOf(primary)) {
     throw new TypeError('request.security 暂不支持低于主图的周期')
+  }
 }
 
 /** 先解析别名，再恒等放行标准周期名，其余一律拒绝。 */

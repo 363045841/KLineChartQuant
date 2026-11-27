@@ -1,4 +1,4 @@
-/** 指标行情投影器：把共享 Buffer 的有效范围转换成脚本只读 Bar。 */
+/** 脚本行情投影：把已加载的 K 线转换成脚本只读 Bar 数组。 */
 import {
   type Bar,
   DEFAULT_INTRABAR_LIMIT,
@@ -6,13 +6,13 @@ import {
   type ScriptTimeContext,
   timeValue,
 } from '@363045841yyt/klinechart-plot-contracts'
-import type { KLineBuffer } from '@/data/buffer/types.js'
 import type { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry.js'
-import type { ReadyMarketSession } from '../types.js'
+import type { KLineData } from '@/foundation/types/price.js'
+import type { ScriptMarketSession } from '../../../data/series/types.js'
 
-/** 根据主图会话取得统一的市场时间上下文。 */
+/** 从就绪行情取得脚本可读的市场时间上下文。 */
 export function marketClock(
-  session: ReadyMarketSession,
+  session: ScriptMarketSession,
   sessions: MarketSessionRegistry,
 ): ScriptTimeContext | undefined {
   const id = session.instrument.sessionId
@@ -21,16 +21,16 @@ export function marketClock(
     : { period: session.selection.period, session: sessions.getRequired(id) }
 }
 
-/** 截取请求范围并转换成脚本契约，避免脚本接触宿主 Buffer。 */
+/** 把已加载序列投影成脚本 Bar；时间上界由市场时段决定。 */
 export function projectIndicatorBars(
-  buffer: KLineBuffer,
+  bars: readonly KLineData[],
   request: IndicatorBarsRequest,
-  session: ReadyMarketSession,
+  session: ScriptMarketSession,
   clock: ScriptTimeContext | undefined,
   to: number,
 ): readonly Bar[] {
   const end = clock ? timeValue(clock, 'close', session.selection.period, to) : Infinity
-  const available = buffer.getRawData().filter((bar) => bar.timestamp < end)
+  const available = bars.filter((bar) => bar.timestamp < end)
   const snapshot =
     request.mode === 'lower_tf'
       ? available.slice(-Math.min(request.calcBarsCount, DEFAULT_INTRABAR_LIMIT))

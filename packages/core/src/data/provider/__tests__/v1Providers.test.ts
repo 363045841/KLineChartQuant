@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { BarSeries, MarketDataProvider } from '../types'
-import { MarketDataProviderRegistry } from '../impl/registry'
+import { MarketDataProviderRegistry } from '../registry'
 import { installBuiltinProviders } from '../impl/sources/index'
 import { DataSource } from '@363045841yyt/klinechart-plot-contracts'
 

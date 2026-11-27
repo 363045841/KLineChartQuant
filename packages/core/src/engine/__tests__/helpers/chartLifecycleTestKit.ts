@@ -4,7 +4,7 @@
  */
 import { afterEach, beforeEach, vi } from 'vitest'
 import { Chart, type ChartOptions } from '@/core/chart/index'
-import { MarketDataContext } from '@/data/management/impl/context'
+import { MarketDataContext } from '@/data/management/context'
 import { createTestDefinitions } from '@/core/indicators/__tests__/helpers/definitionsTestKit'
 import { testProviderRegistry } from '@/engine/data/__tests__/helpers/chartDataManagerTestKit'
 import { MAIN_PANE_ID } from '@/core/pane/types'
@@ -12,6 +12,8 @@ import { createCalculationHub } from '@/engine/calculation/index'
 import { toCalculationDefinition } from '@/engine/indicators/instances/assembly/toCalculationDefinition'
 import type { DefinitionRegistry } from '@/engine/indicators/registry/index'
 import { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry'
+import { systemClock } from '@/foundation/utils/clock'
+import { createMarketDataService } from '@/data/service/index'
 import { createChartDom, installChartDomStubs } from './chartDomTestKit'
 
 /** Chart 构造函数的 runtime 参数。 */
@@ -25,6 +27,16 @@ type ChartRuntime = ConstructorParameters<typeof Chart>[2]
  */
 export function createTestChartRuntime(overrides: Partial<ChartRuntime> = {}): ChartRuntime {
   const definitions = overrides.definitions ?? createTestDefinitions()
+  const marketSessionRegistry = overrides.marketSessionRegistry ?? new MarketSessionRegistry()
+  const marketDataContext = overrides.marketDataContext ?? new MarketDataContext(testProviderRegistry)
+  const data =
+    overrides.data ??
+    createMarketDataService({
+      registry: marketDataContext.registry,
+      stream: marketDataContext.stream,
+      marketSessions: marketSessionRegistry,
+      clock: systemClock,
+    })
   return {
     calculationHub: createCalculationHub({
       resolveDefinition: (definitionId) => {
@@ -32,8 +44,9 @@ export function createTestChartRuntime(overrides: Partial<ChartRuntime> = {}): C
         return metadata === undefined ? undefined : toCalculationDefinition(metadata)
       },
     }),
-    marketSessionRegistry: new MarketSessionRegistry(),
-    marketDataContext: new MarketDataContext(testProviderRegistry),
+    marketSessionRegistry,
+    marketDataContext,
+    data,
     definitions,
     ...overrides,
   }

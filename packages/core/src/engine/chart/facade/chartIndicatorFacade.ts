@@ -5,15 +5,15 @@
  * Pane 只是实例的布局容器，不再是调用方的入口。图例、宿主与 Agent 共用
  * 同一组命令，绘图历史失效等宿主副作用也只在这里处理一次。
  */
-import type { Computed } from '../../../../foundation/reactivity/signal.js'
-import type { IndicatorInstance, SubPaneInfo } from '../../../chart/index.js'
-import type { ChartIndicatorManager } from '../../../indicators/chartIndicatorManager.js'
+import type { Computed } from '../../../foundation/reactivity/signal.js'
+import type { IndicatorInstance, SubPaneInfo } from '../../chart/index.js'
+import type { ChartIndicatorManager } from '../../indicators/chartIndicatorManager.js'
 import type {
   IndicatorInstanceCommands,
   IndicatorPlacement,
   InstanceMoveTarget,
-} from '../../../pane/types.js'
-import type { IndicatorInstancePatch } from '../../../state/indicatorState.js'
+} from '../../pane/types.js'
+import type { IndicatorInstancePatch } from '../../state/indicatorState.js'
 
 /** Indicator Facade 所需依赖。 */
 export interface ChartIndicatorFacadeDependencies {
@@ -61,7 +61,7 @@ export class ChartIndicatorFacade {
       readonly inputs?: Readonly<Record<string, unknown>>
     },
     signal: AbortSignal,
-  ): Promise<import('../../../indicators/instances/domain/indicatorModel.js').IndicatorResult> {
+  ): Promise<import('../../indicators/instances/domain/indicatorModel.js').IndicatorResult> {
     return this.deps.manager.readSeries(request, signal)
   }
 

@@ -75,7 +75,7 @@ const unregister = host.registerDataSource(source)
 
 ## 职责与验收
 
-公开类型集中在 `data/provider/types.ts`。`registeredDataSource.ts` 只做 Provider 接口翻译、取消和回调资格管理，不缓存行情、不操作 Buffer。`MarketDataContext` 注册和释放，`MarketDataCache` 管历史分页及重查，`MarketRuntime` 管订阅使用权、增量写入和重查期间的事件顺序。Buffer 只保存事实和发布变更。
+公开类型集中在 `data/provider/types.ts`。`registeredDataSource.ts` 只做 Provider 接口翻译、取消和回调资格管理，不缓存行情、不操作 Buffer。`MarketDataContext` 注册和释放；`MarketDataService` 统一持有历史分页、重查、订阅与增量写入，`MarketDataCache` 只作为其中的分页缓存实现。Buffer 只保存事实和发布变更。
 
 隔离消费验收也注册数据源，实际验证历史查询、末根更新、新根追加、脚本运行和卸载释放，不使用旁路数组注入。
 

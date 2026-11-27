@@ -3,7 +3,7 @@
  */
 import type { MarketRuntime } from '@/engine/runtime/index.js'
 import type { AlertRulesDocument, AlertFiresDocument } from './alertCodec.js'
-import { createAlertFeedSource } from './createAlertFeedSource.js'
+import { createAlertFeeds } from './createAlertFeeds.js'
 import { createAlertService } from './createAlertService.js'
 import type { AlertService } from '../types.js'
 import type { DocumentStore } from '@/foundation/persistence/index.js'
@@ -22,10 +22,10 @@ export interface AlertRuntime {
 
 /** 创建独立警报运行时；调用方只依赖本对象，不直接接触 feed/store。 */
 export async function createAlertRuntime(options: AlertRuntimeOptions): Promise<AlertRuntime> {
-  const feeds = createAlertFeedSource({
+  const feeds = createAlertFeeds({
+    data: options.runtime.data,
     hub: options.runtime.calculation,
     registry: options.runtime.market.registry,
-    stream: options.runtime.market.stream,
     onError: (_symbol, error) => options.onError?.(error),
   })
   const service = await createAlertService({

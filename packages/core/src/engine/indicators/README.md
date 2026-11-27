@@ -89,7 +89,7 @@ indicators/
 4. 结果按 `dataRevision + marketRevision` 判断有效性，提交给该行情上的全部消费者。
 5. 失败作为带 `error` 的结果提交，不切换执行链路。
 
-`request.*` 取数由会话级计算行情（`IndicatorBarsRepository`）按需补历史，并在需求释放后回收 Buffer。
+`request.*` 取数由会话级计算行情按需调用 `MarketDataService.read` / `readSymbol` 补历史并投影，不再持有自己的缓存或 Buffer。
 
 Agent 的 `indicator_series_query` 通过 `CalculationHub.submit` 提交预览计算：同一身份复用已发布结果或
 正在运行的任务，结果不进入任何图表的提交快照。

@@ -7,7 +7,7 @@ import {
   makeKLine,
 } from '../../../engine/data/__tests__/helpers/chartDataManagerTestKit.js'
 import type { StreamFrame, StreamTransportHandlers } from '../../stream/types.js'
-import { MarketDataContext } from '../../management/impl/context.js'
+import { MarketDataContext } from '../../management/context.js'
 import { createDataSourceFixture } from './helpers/providerTestKit.js'
 
 /** 当前打开的流；用例直接驱动传输的打开、帧与关闭。 */

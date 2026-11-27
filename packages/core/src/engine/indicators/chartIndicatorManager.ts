@@ -39,7 +39,7 @@ import {
   type DataIdentity,
   type FeedSnapshot,
 } from '../calculation/index.js'
-import type { ReadyMarketSession } from '../data/marketRuntime/types.js'
+import type { ReadyMarketSession } from '../data/series/types.js'
 import type { ChartOptions, IndicatorInstance, SubPaneInfo } from '../chart/index.js'
 import { type PaneAxisSpec, resolveObjectAxisMap } from '../pane/axisResolver.js'
 import { UpdateLevel } from '../pane/index.js'

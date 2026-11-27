@@ -1,5 +1,5 @@
-import { lookupInstrumentsBySymbol, searchInstruments } from '@/data/provider/impl/instrumentSearch.js'
-import type { MarketDataProviderRegistry } from '@/data/provider/impl/registry.js'
+import { lookupInstrumentsBySymbol, searchInstruments } from '@/data/provider/instrumentSearch.js'
+import type { MarketDataProviderRegistry } from '@/data/provider/registry.js'
 import type { ChartOptions, ViewportState as EngineViewportState } from '@/engine/chart/index.js'
 import { Chart } from '@/engine/chart/index.js'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins.js'
@@ -147,6 +147,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
           marketSessionRegistry: runtime.marketSessions,
           definitions: runtime.definitions,
           marketDataContext: runtime.market,
+        data: runtime.data,
         },
       )
       return { mounted, chart }
@@ -299,7 +300,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
           ...(input.sources === undefined ? {} : { sources: input.sources }),
           ...(input.signal === undefined ? {} : { signal: input.signal }),
         }),
-      cache: chart.getMarketDataCache(),
+      market: chart.getMarketData(),
       now: Date.now,
       formatter: marketFormatter,
     }),
@@ -381,7 +382,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     withIndicatorData: (compute) => chart.withIndicatorData(compute),
     dataLoading: chart.loading,
     dataError: chart.dataError,
-    marketDataCacheStats: chart.getMarketDataCache().stats,
+    marketDataCacheStats: chart.getMarketData().stats,
     symbols: chart.symbols,
     theme: themeSignal,
     settings: chart.kernel.settings.readonly.settings,

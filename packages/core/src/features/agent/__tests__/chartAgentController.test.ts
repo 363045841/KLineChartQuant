@@ -3,7 +3,7 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 import type { IndicatorInstance, SymbolSpec } from '@/controllers/types'
-import { SERIES_SELECTION_KIND } from '@/data/buffer/impl/seriesRepository'
+import { SERIES_SELECTION_KIND } from '@/data/buffer/seriesSelection'
 import { makeSymbolSpec } from '@/engine/data/__tests__/helpers/symbolSpecFixture'
 import type { DrawingObject } from '@/engine/drawing/index'
 import { ACTIVE_BUFFER_KIND, createDataState } from '@/engine/state/dataState'

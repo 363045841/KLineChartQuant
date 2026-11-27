@@ -1,12 +1,12 @@
 /**
  * 计算行情契约：由会话持有，只服务于计算结果，不承载图表状态。
- */
-import type { MarketDataProviderRegistry } from '@/data/provider/impl/registry.js'
+ */import type { MarketDataService } from '@/data/service/index.js'
 import type { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry.js'
 import type { CalculationMarketData } from '../types.js'
 
 export interface CalculationMarketOptions {
-  readonly registry: MarketDataProviderRegistry
+  /** 唯一行情服务；计算不再创建自己的缓存或订阅。 */
+  readonly data: MarketDataService
   readonly marketSessions: MarketSessionRegistry
 }
 

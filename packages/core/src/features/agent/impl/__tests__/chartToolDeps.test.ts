@@ -11,7 +11,7 @@ import type {
   TimeShareCacheQuery,
   TimeShareCacheResult,
   TimeShareRangeCacheResult,
-} from '@/data/buffer/impl/marketDataCache'
+} from '@/data/buffer/types'
 import type { InstrumentDescriptor, InstrumentRef, TradingDate } from '@/data/provider/types'
 import type { IndicatorInstance } from '@/engine/chart/types'
 import type { ComparisonCommandsApi, ComparisonSnapshot } from '@/engine/data/comparisonCommands'
@@ -888,10 +888,7 @@ describe('market queries', () => {
     } = {},
   ) {
     const availableDays = new Set<TradingDate>(input.availableDays ?? ['2026-11-17'])
-    const cache: ChartAgentMarketQueriesDependencies['cache'] = {
-      queryBars: async () => {
-        throw new Error('bars window must use queryBarsWindow')
-      },
+    const market: ChartAgentMarketQueriesDependencies['market'] = {
       queryBarsWindow: vi.fn(
         async (query: BarsWindowCacheQuery): Promise<BarsWindowCacheResult> =>
           input.window ?? dailyWindow(),
@@ -926,7 +923,7 @@ describe('market queries', () => {
         failedSources: input.failedSources ?? [],
       }),
       search,
-      cache,
+      market,
       now: () => NOW,
       formatter: {
         formatInstrumentLookup: () => 'lookup',
@@ -935,7 +932,7 @@ describe('market queries', () => {
         formatTimeShareDays: (result) => `timeshare:${result.days.length}:${result.resolvedDate}`,
       },
     })
-    return { queries, cache, search }
+    return { queries, market, search }
   }
 
   it('精确命中后不再走关键字搜索', async () => {
@@ -973,7 +970,7 @@ describe('market queries', () => {
   })
 
   it('K 线把日期窗口与根数上限交给缓存，并回显截断状态', async () => {
-    const { queries, cache } = fixture({
+    const { queries, market } = fixture({
       window: dailyWindow({ truncated: true }),
     })
     const result = await queries.bars({
@@ -984,7 +981,7 @@ describe('market queries', () => {
       from: '2026-08-01',
       to: '2026-10-31',
     })
-    expect(cache.queryBarsWindow).toHaveBeenCalledWith(
+    expect(market.queryBarsWindow).toHaveBeenCalledWith(
       expect.objectContaining({
         from: '2026-08-01',
         to: '2026-10-31',
@@ -1015,15 +1012,15 @@ describe('market queries', () => {
       },
     },
   ] as const)('$name', async ({ input }) => {
-    const { queries, cache } = fixture()
+    const { queries, market } = fixture()
     await expect(queries.bars({ symbol: '600519', ...input })).rejects.toThrow(
       ToolInputValidationError,
     )
-    expect(cache.queryBarsWindow).not.toHaveBeenCalled()
+    expect(market.queryBarsWindow).not.toHaveBeenCalled()
   })
 
   it('source 必须能服务当前能力，错误里给出可用值', async () => {
-    const { queries, cache } = fixture()
+    const { queries, market } = fixture()
     await expect(
       queries.bars({
         symbol: '600519',
@@ -1033,7 +1030,7 @@ describe('market queries', () => {
         source: 'ths',
       }),
     ).rejects.toThrow(/source 'ths' cannot serve bars\. Available sources: tdx/)
-    expect(cache.queryBarsWindow).not.toHaveBeenCalled()
+    expect(market.queryBarsWindow).not.toHaveBeenCalled()
   })
 
   it('缺省日期优先今天，今日无数据时回退到日线最后一根', async () => {
@@ -1047,9 +1044,9 @@ describe('market queries', () => {
   })
 
   it('多日分时以解析出的交易日为区间终点', async () => {
-    const { queries, cache } = fixture({ availableDays: ['2026-11-17', '2026-11-18'] })
+    const { queries, market } = fixture({ availableDays: ['2026-11-17', '2026-11-18'] })
     await queries.timeShare({ symbol: '600519', days: 2 })
-    expect(cache.queryTimeShareRange).toHaveBeenCalledWith(
+    expect(market.queryTimeShareRange).toHaveBeenCalledWith(
       expect.objectContaining({ endTradingDate: '2026-11-18', days: 2 }),
     )
   })

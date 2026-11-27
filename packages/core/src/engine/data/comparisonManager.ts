@@ -1,151 +1,102 @@
-/** 比较叠加数据投影：订阅 Repository 叶子 Buffer，向主图提供折线数据和加载状态。 */
+/** 比较叠加数据投影：订阅统一行情服务的序列，向主图提供折线数据。 */
 import type { KLineData, SymbolSpec } from '../../controllers/types.js'
-import {
-  type BarsSelection,
-  SeriesRepository,
-  seriesSelectionKey,
-} from '../../data/buffer/impl/seriesRepository.js'
-import type { KLineBuffer } from '../../data/buffer/types.js'
+import { DEFAULT_BAR_PAGE_LIMIT } from '../../data/buffer/impl/marketDataPolicy.js'
+import type { BarsSeries } from '../../data/service/index.js'
 import { OLDER_DATA_STATUS } from '../../data/provider/types.js'
 
 import { symbolSpecIdentityKey } from './symbolIdentity.js'
 
-/** 比较投影所需的协调器能力，不暴露 Repository 内部拓扑。 */
+/** 比较投影所需能力；不暴露行情服务的内部结构。 */
 export interface ComparisonHooks {
-  selectionForSpec(spec: SymbolSpec): BarsSelection
-  createBuffer(spec: SymbolSpec, selection: BarsSelection): KLineBuffer
-  loadBuffer(spec: SymbolSpec, selection: BarsSelection, buffer: KLineBuffer): void
-  loadRange(
-    spec: SymbolSpec,
-    selection: BarsSelection,
-    buffer: KLineBuffer,
-    beforeTimestamp: number,
-  ): void
-  releaseSelection(selection: BarsSelection): void
+  acquire(spec: SymbolSpec): BarsSeries
   scheduleDraw(): void
-  getSpecs(): ReadonlyArray<SymbolSpec>
+  getSpecs(): readonly SymbolSpec[]
   setLoading(loading: boolean): void
 }
 
-type BufferSubscriptions = {
-  data: () => void
-  loading: () => void
-  selection: BarsSelection
-  buffer: KLineBuffer
+interface Mounted {
+  readonly series: BarsSeries
+  readonly data: () => void
+  readonly loading: () => void
 }
 
-/** Comparison Buffer 的 runtime projection，不持有行情数据和业务选择。 */
+/** 比较序列的运行时投影，不持有行情数据本身。 */
 export class ComparisonManager {
-  private readonly subscriptions = new Map<string, BufferSubscriptions>()
+  private readonly mounted = new Map<string, Mounted>()
 
-  /** 按比较序列捕获原始快照身份，避免 get data 每帧生成新数组。 */
+  constructor(private readonly hooks: ComparisonHooks) {}
+
+  /** 按比较序列捕获快照身份，避免每帧生成新数组。 */
   getContentInputs(): readonly unknown[] {
-    return [...this.subscriptions.entries()].flatMap(([key, entry]) => [
-      key,
-      entry.buffer.data.peek(),
-    ])
+    return [...this.mounted.entries()].flatMap(([key, entry]) => [key, entry.series.data.peek()])
   }
 
-  /** 创建只引用统一 Repository 的比较投影。 */
-  constructor(
-    private readonly repository: SeriesRepository,
-    private readonly hooks: ComparisonHooks,
-  ) {}
-
-  /** 返回 Kernel 中的比较选择副本。 */
+  /** 返回当前比较选择副本。 */
   get specs(): SymbolSpec[] {
     return this.hooks.getSpecs().map((spec) => ({ ...spec }))
   }
 
-  /** 从 Repository 读取当前比较序列数据。 */
+  /** 从序列读取当前比较数据。 */
   get data(): Map<string, KLineData[]> {
     const result = new Map<string, KLineData[]>()
     for (const spec of this.hooks.getSpecs()) {
-      const buffer = this.repository.getBars(this.hooks.selectionForSpec(spec))
-      if (buffer) result.set(symbolSpecIdentityKey(spec), [...buffer.getRawData()])
+      const mounted = this.mounted.get(symbolSpecIdentityKey(spec))
+      if (mounted) result.set(symbolSpecIdentityKey(spec), [...mounted.series.getRawData()])
     }
     return result
   }
 
-  /** 按当前比较选择安装或移除订阅，并启动尚未加载的 Buffer。 */
+  /** 按当前选择安装或移除订阅。 */
   reconcile(): void {
-    const specs = this.hooks.getSpecs()
     const desired = new Map(
-      specs.map((spec) => {
-        const selection = this.hooks.selectionForSpec(spec)
-        return [seriesSelectionKey(selection), { spec, selection }] as const
-      }),
+      this.hooks.getSpecs().map((spec) => [symbolSpecIdentityKey(spec), spec] as const),
     )
-
-    for (const key of this.subscriptions.keys()) {
-      if (!desired.has(key)) this.removeSubscriptions(key, true)
+    for (const key of [...this.mounted.keys()]) {
+      if (desired.has(key)) continue
+      this.remove(key)
     }
-
-    for (const [key, { spec, selection }] of desired) {
-      const buffer = this.repository.getOrCreateBars(selection, () =>
-        this.hooks.createBuffer(spec, selection),
-      )
-      const mounted = this.subscriptions.get(key)
-      if (mounted?.buffer !== buffer) {
-        if (mounted) this.removeSubscriptions(key, false)
-        this.mountSubscriptions(key, selection, buffer)
-      }
-      if (!buffer.currentSpec) this.hooks.loadBuffer(spec, selection, buffer)
+    for (const [key, spec] of desired) {
+      if (this.mounted.has(key)) continue
+      const series = this.hooks.acquire(spec)
+      const data = series.data.subscribe(() => this.hooks.scheduleDraw())
+      const loading = series.loading.subscribe(() => this.recomputeLoading())
+      this.mounted.set(key, { series, data, loading })
     }
-
     this.recomputeLoading()
   }
 
-  /** 清理全部运行时订阅；Buffer 生命周期仍由 Repository 负责。 */
+  /** 清理全部订阅与序列。 */
   clearAll(): void {
-    for (const key of [...this.subscriptions.keys()]) this.removeSubscriptions(key, true)
+    for (const key of [...this.mounted.keys()]) this.remove(key)
     this.hooks.setLoading(false)
   }
 
-  /** 请求所有当前比较序列覆盖主图可见区左缘；每次只向前拉取一页。 */
+  /** 请求所有比较序列覆盖主图可见区左缘；每次只向前拉一页。 */
   ensureRange(firstVisibleTs: number): void {
-    for (const spec of this.hooks.getSpecs()) {
-      const selection = this.hooks.selectionForSpec(spec)
-      const buffer = this.repository.getBars(selection)
-      if (
-        buffer &&
-        buffer.loadedTimeRange &&
-        !buffer.loading.peek() &&
-        buffer.olderData !== OLDER_DATA_STATUS.EXHAUSTED &&
-        buffer.currentSpec?.incremental !== false &&
-        firstVisibleTs < buffer.loadedTimeRange.earliestTs
-      ) {
-        this.hooks.loadRange(spec, selection, buffer, buffer.loadedTimeRange.earliestTs)
-      }
+    for (const mounted of this.mounted.values()) {
+      const { series } = mounted
+      const loaded = series.loadedTimeRange
+      if (!loaded || series.loading.peek()) continue
+      if (series.olderData === OLDER_DATA_STATUS.EXHAUSTED) continue
+      if (firstVisibleTs >= loaded.earliestTs) continue
+      void series.loadOlder(DEFAULT_BAR_PAGE_LIMIT).catch(() => {})
     }
   }
 
-  /** 订阅单个比较 Buffer 的数据与加载状态。 */
-  private mountSubscriptions(key: string, selection: BarsSelection, buffer: KLineBuffer): void {
-    const data = buffer.data.subscribe(() => {
-      this.hooks.scheduleDraw()
-    })
-    const loading = buffer.loading.subscribe(() => this.recomputeLoading())
-    this.subscriptions.set(key, { data, loading, selection, buffer })
+  /** 移除一个比较序列。 */
+  private remove(key: string): void {
+    const mounted = this.mounted.get(key)
+    if (!mounted) return
+    mounted.data()
+    mounted.loading()
+    mounted.series.dispose()
+    this.mounted.delete(key)
   }
 
-  /** 移除单个比较 Buffer 的运行时订阅。 */
-  private removeSubscriptions(key: string, release: boolean): void {
-    const subscriptions = this.subscriptions.get(key)
-    subscriptions?.data()
-    subscriptions?.loading()
-    this.subscriptions.delete(key)
-    if (release && subscriptions) this.hooks.releaseSelection(subscriptions.selection)
-  }
-
-  /** 汇总当前比较选择对应 Buffer 的加载状态。 */
+  /** 汇总当前比较序列的加载状态。 */
   private recomputeLoading(): void {
-    const anyLoading = this.hooks
-      .getSpecs()
-      .some(
-        (spec) =>
-          this.repository.getBars(this.hooks.selectionForSpec(spec))?.loading.peek() === true,
-      )
-    this.hooks.setLoading(anyLoading)
+    this.hooks.setLoading(
+      [...this.mounted.values()].some((entry) => entry.series.loading.peek()),
+    )
   }
 }

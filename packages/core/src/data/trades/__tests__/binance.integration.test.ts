@@ -2,7 +2,7 @@
 import { expect, it } from 'vitest'
 import { createFootprintExecution } from '../../../components/footprint/runtime/impl/footprintExecution.js'
 import { FOOTPRINT_METRICS } from '../../../components/footprint/types.js'
-import { MarketDataProviderRegistry } from '../../provider/impl/registry.js'
+import { MarketDataProviderRegistry } from '../../provider/registry.js'
 import { installBuiltinProviders } from '../../provider/impl/sources/index.js'
 import { DataSource } from '@363045841yyt/klinechart-plot-contracts'
 import { TRADE_STATUS } from '../types.js'

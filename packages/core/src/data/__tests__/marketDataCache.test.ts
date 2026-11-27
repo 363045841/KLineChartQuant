@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { MarketDataCache } from '../buffer/impl/marketDataCache'
-import { MarketDataProviderRegistry } from '../provider/impl/registry'
+import { MarketDataProviderRegistry } from '../provider/registry'
 
 function bar(timestamp: number) {
   return { timestamp, open: 1, high: 2, low: 0, close: 1, volume: 1 }

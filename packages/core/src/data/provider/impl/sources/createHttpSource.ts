@@ -2,7 +2,7 @@
 import { createTradeDataSource } from '@/data/trades/impl/tradeSource.js'
 import type { MarketDataProviderOptions } from '../../protocol/index.js'
 import { createHttpMarketDataTransport, createMarketDataProvider } from '../../protocol/index.js'
-import type { MarketDataProviderRegistry } from '../registry.js'
+import type { MarketDataProviderRegistry } from '../../registry.js'
 import type { DataSourceRegistration } from '../sourceRegistry.js'
 
 /** 内置源装配的唯一 HTTP 接入实现；实时连接统一由 `data/stream` 的连接注册表建立。 */

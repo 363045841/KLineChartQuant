@@ -1,6 +1,7 @@
 /**
- * 共享运行时工厂：组合行情、定义与计算，不创建任何消费者。
+ * 共享运行时工厂：组合行情、定义、计算与取数服务，不创建任何消费者。
  */
+import { createMarketDataService } from '@/data/service/index.js'
 import { applyMarketSessions } from '@/foundation/config/marketSession/applyMarketSessions.js'
 import { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry.js'
 import { createCalculationHub } from '../../calculation/index.js'
@@ -20,8 +21,14 @@ export function createMarketRuntime(options: MarketRuntimeOptions): MarketRuntim
   applySessions()
   const unsubscribeSessions = options.market.registry.state.subscribe(applySessions)
 
-  const calculationMarket = createCalculationMarket({
+  const data = createMarketDataService({
     registry: options.market.registry,
+    stream: options.market.stream,
+    marketSessions,
+    clock: options.clock,
+  })
+  const calculationMarket = createCalculationMarket({
+    data,
     marketSessions,
   })
   const calculation = createCalculationHub({
@@ -45,11 +52,13 @@ export function createMarketRuntime(options: MarketRuntimeOptions): MarketRuntim
     definitions: options.definitions,
     calculation,
     marketSessions,
+    data,
     dispose() {
       if (disposed) return
       disposed = true
       unsubscribeDefinitions()
       unsubscribeSessions()
+      data.dispose()
       calculation.dispose()
       calculationMarket.dispose()
     },

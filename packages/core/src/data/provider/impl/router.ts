@@ -25,8 +25,8 @@ import type {
   TimeShareSeries,
 } from '../types.js'
 import { AUTO_SOURCE, isFilterableInstrumentType } from '../types.js'
-import { INSTRUMENT_LOOKUP_CANDIDATE_LIMIT, pickExactInstrument } from './instrumentSearch.js'
-import type { MarketDataProviderRegistry } from './registry.js'
+import { INSTRUMENT_LOOKUP_CANDIDATE_LIMIT, pickExactInstrument } from '../instrumentSearch.js'
+import type { MarketDataProviderRegistry } from '../registry.js'
 
 /** 所有候选源都明确拒绝请求时抛出的错误。 */
 export class SourceRoutingError extends KLineChartError {

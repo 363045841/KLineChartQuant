@@ -1,3 +1,4 @@
+import { systemClock } from '@363045841yyt/klinechart-core'
 /** 验证直接挂载 Core 的 React 适配器：挂载、释放、增量同步与 Signal 桥接。 */
 
 import type {
@@ -87,7 +88,7 @@ describe('KLineChart', () => {
   let runtime: ReturnType<typeof createMarketRuntime>
 
   beforeEach(() => {
-    runtime = createMarketRuntime({
+    runtime = createMarketRuntime({ clock: systemClock,
       market: createMarketDataHost(),
       definitions: createDefinitionRegistry(),
     })

@@ -11,7 +11,10 @@ import { vi } from 'vitest'
 
 import type { KLineData, SymbolSpec } from '@/controllers/types'
 import type { StreamHub } from '@/data/stream/types.js'
-import { MarketDataProviderRegistry } from '@/data/provider/impl/registry'
+import { MarketDataProviderRegistry } from '@/data/provider/registry'
+import { createMarketDataService } from '@/data/service/index'
+import { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry'
+import { systemClock } from '@/foundation/utils/clock'
 import type {
   BarAggregation,
   BarSeries,
@@ -111,7 +114,9 @@ export const testProviderRegistry = new MarketDataProviderRegistry()
 export interface MockDataDependenciesOptions {
   /** 实时连接注册表；缺省用拒绝订阅的替身。 */
   streamHub?: StreamHub
-  marketDataProviderRegistry?: DataDependencies['marketDataProviderRegistry']
+  marketDataProviderRegistry?: MarketDataProviderRegistry
+  /** 直接注入的行情服务；缺省按注册表与替身连接创建。 */
+  data?: DataDependencies['data']
   /** 透传给 createMockViewport 的差异项。 */
   viewport?: MockViewportOptions
   /** 加载完成后的重绘回调。 */
@@ -136,8 +141,15 @@ function createMockDataDependencies(
     resetInteraction = () => {},
   } = options
   return {
-    marketDataProviderRegistry: options.marketDataProviderRegistry ?? testProviderRegistry,
-    streamHub: options.streamHub === undefined ? inactiveStreamHub : options.streamHub,
+    data:
+      options.data ??
+      createMarketDataService({
+        registry: options.marketDataProviderRegistry ?? testProviderRegistry,
+        stream: options.streamHub ?? inactiveStreamHub,
+        marketSessions: new MarketSessionRegistry(),
+        clock: systemClock,
+      }),
+    marketSessions: new MarketSessionRegistry(),
     getOption: () => ({ kWidth: 8, kGap: 2 }),
     getDom: () => dom,
     viewport: createMockViewport(viewport).viewport,
@@ -148,7 +160,6 @@ function createMockDataDependencies(
     needsTrades: options.needsTrades ?? (() => false),
     updateTradeInput: options.updateTradeInput ?? (() => {}),
     updateIndicatorData: () => {},
-    isPointerDown: () => false,
     publishSymbols,
   }
 }

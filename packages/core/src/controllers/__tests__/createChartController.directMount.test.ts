@@ -2,7 +2,7 @@
 /** 非 Vue 宿主的直接挂载：自建 DOM 骨架、首帧 pane 布局、挂载数据与布局恢复的先后。 */
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { MarketDataContext } from '@/data/management/impl/context.js'
+import { MarketDataContext } from '@/data/management/context.js'
 import { createDataSourceFixture } from '@/data/provider/__tests__/helpers/providerTestKit.js'
 import {
   createCanvasGetContextMock,

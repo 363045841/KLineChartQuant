@@ -1,27 +1,75 @@
-/** ComparisonManager 单元测试：验证比较视图只投影 Repository 中的共享序列。 */
+/** ComparisonManager 单元测试：只投影行情服务提供的比较序列。 */
 import { describe, expect, it, vi } from 'vitest'
 
 import type { SymbolSpec } from '@/controllers/types'
-import { DataBuffer } from '@/data/buffer/impl/dataBuffer'
-import {
-  type BarsSelection,
-  instrumentKeyFromSpec,
-  SERIES_SELECTION_KIND,
-  SeriesRepository,
-  sourceFromSpec,
-} from '@/data/buffer/impl/seriesRepository'
+import type { DataChange } from '@/data/buffer/types'
+import { DATA_CHANGE_KINDS } from '@/data/buffer/types'
+import type { BarsSeries } from '@/data/service/index'
+import { OLDER_DATA_STATUS } from '@/data/provider/types'
+import { createSignal } from '@/foundation/reactivity/signal'
+import type { KLineData } from '@/foundation/types/price'
 import { ComparisonManager } from '../comparisonManager'
 import { makeSymbolSpec } from './helpers/symbolSpecFixture'
 
-/** 将测试品种转换为日 K 选择。 */
-function selectionForSpec(spec: SymbolSpec): BarsSelection {
+/** 构造一个只读序列替身；用例只关心订阅与释放。 */
+function createSeries(spec: SymbolSpec): BarsSeries {
+  const data = createSignal<DataChange<KLineData>>({
+    data: [],
+    origin: 0,
+    kind: DATA_CHANGE_KINDS.replace,
+    start: 0,
+    end: 0,
+  })
   return {
-    kind: SERIES_SELECTION_KIND.bars,
-    instrumentKey: instrumentKeyFromSpec(spec),
-    source: sourceFromSpec(spec),
-    period: (spec.period ?? 'daily') as BarsSelection['period'],
-    adjustment: (spec.adjust ?? 'none') as BarsSelection['adjustment'],
-    barAggregation: 'original',
+    data,
+    loading: createSignal(false),
+    lastError: createSignal<string | null>(null),
+    loadedTimeRange: null,
+    olderData: OLDER_DATA_STATUS.UNKNOWN,
+    timezone: 'UTC',
+    instrument: spec.instrument,
+    capabilities: null,
+    lastBarClosed: createSignal(false),
+    getRawData: () => [],
+    loadOlder: async () => 'exhausted',
+    dispose: () => {},
+  }
+}
+
+/** 构造只记录差异的比较环境。 */
+function createHarness() {
+  let specs: ReadonlyArray<SymbolSpec> = []
+  const acquired = new Map<string, BarsSeries>()
+  const acquire = vi.fn((spec: SymbolSpec) => {
+    const id = spec.instrument.id
+    const existing = acquired.get(id)
+    if (existing) return existing
+    const base = createSeries(spec)
+    const series: BarsSeries = {
+      ...base,
+      dispose: () => {
+        acquired.delete(id)
+        base.dispose()
+      },
+    }
+    acquired.set(id, series)
+    return series
+  })
+  const setLoading = vi.fn()
+  const manager = new ComparisonManager({
+    acquire,
+    scheduleDraw: vi.fn(),
+    getSpecs: () => specs,
+    setLoading,
+  })
+  return {
+    manager,
+    acquire,
+    setLoading,
+    acquired,
+    setSpecs(next: ReadonlyArray<SymbolSpec>) {
+      specs = next
+    },
   }
 }
 
@@ -33,43 +81,8 @@ function spec(
   return makeSymbolSpec({ symbol, ...options })
 }
 
-/** 创建使用真实 Repository 和 Buffer 的测试环境。 */
-function createHarness() {
-  let specs: ReadonlyArray<SymbolSpec> = []
-  const repository = new SeriesRepository()
-  const createBuffer = vi.fn(() => new DataBuffer())
-  const loadBuffer = vi.fn((_spec: SymbolSpec, _selection: BarsSelection, buffer: DataBuffer) => {
-    buffer.setSymbol(_spec)
-  })
-  const loadRange = vi.fn()
-  const setLoading = vi.fn()
-  const releaseSelection = vi.fn((selection: BarsSelection) => repository.delete(selection))
-  const manager = new ComparisonManager(repository, {
-    selectionForSpec,
-    createBuffer,
-    loadBuffer,
-    loadRange,
-    releaseSelection,
-    scheduleDraw: vi.fn(),
-    getSpecs: () => specs,
-    setLoading,
-  })
-  return {
-    manager,
-    repository,
-    createBuffer,
-    loadBuffer,
-    loadRange,
-    setLoading,
-    releaseSelection,
-    setSpecs(next: ReadonlyArray<SymbolSpec>) {
-      specs = next
-    },
-  }
-}
-
 describe('ComparisonManager runtime projection', () => {
-  it('reads specs from the injected kernel reader without a local shadow', () => {
+  it('reads specs from the injected reader without a local shadow', () => {
     const harness = createHarness()
     const first = spec('A', { source: 'custom' })
     harness.setSpecs([first])
@@ -79,36 +92,31 @@ describe('ComparisonManager runtime projection', () => {
     expect(harness.manager.specs[0]?.instrument.symbol).toBe('B')
   })
 
-  it('reuses the Repository leaf when reconciliation runs repeatedly', () => {
+  it('acquires one series per comparison across repeated reconciles', () => {
     const harness = createHarness()
-    const comparison = spec('A', { source: 'custom' })
-    harness.setSpecs([comparison])
+    harness.setSpecs([spec('A', { source: 'custom' })])
 
     harness.manager.reconcile()
     harness.manager.reconcile()
 
-    expect(harness.createBuffer).toHaveBeenCalledTimes(1)
-    expect(harness.repository.getBars(selectionForSpec(comparison))).toBeDefined()
+    expect(harness.acquire).toHaveBeenCalledTimes(1)
   })
 
   it('keeps the same symbol isolated by market, source and period', () => {
     const harness = createHarness()
-    const specs: SymbolSpec[] = [
+    harness.setSpecs([
       spec('000001', { market: 'CN', exchange: 'SH', source: 'gotdx' }),
       spec('000001', { market: 'CN', exchange: 'SH', source: 'baostock' }),
       spec('000001', { market: 'HK', exchange: 'HKEX', source: 'gotdx', period: 'weekly' }),
-    ]
-    harness.setSpecs(specs)
+    ])
 
     harness.manager.reconcile()
 
-    expect(harness.createBuffer).toHaveBeenCalledTimes(3)
-    expect(
-      new Set(specs.map((item) => harness.repository.getBars(selectionForSpec(item)))).size,
-    ).toBe(3)
+    expect(harness.acquire).toHaveBeenCalledTimes(3)
+    expect(harness.acquired.size).toBe(3)
   })
 
-  it('releases obsolete comparison leaves through the owner hook', () => {
+  it('disposes removed comparison series', () => {
     const harness = createHarness()
     const removed = spec('A', { source: 'custom' })
     const retained = spec('B', { source: 'custom' })
@@ -118,21 +126,19 @@ describe('ComparisonManager runtime projection', () => {
     harness.setSpecs([retained])
     harness.manager.reconcile()
 
-    expect(harness.repository.getBars(selectionForSpec(removed))).toBeUndefined()
-    expect(harness.repository.getBars(selectionForSpec(retained))).toBeDefined()
-    expect(harness.releaseSelection).toHaveBeenCalledWith(selectionForSpec(removed))
+    expect(harness.acquired.has(removed.instrument.id)).toBe(false)
+    expect(harness.acquired.has(retained.instrument.id)).toBe(true)
   })
 
-  it('clearAll releases runtime selections and clears loading', () => {
+  it('clearAll disposes every series and clears loading', () => {
     const harness = createHarness()
-    const comparison = spec('A', { source: 'custom' })
-    harness.setSpecs([comparison])
+    harness.setSpecs([spec('A', { source: 'custom' })])
     harness.manager.reconcile()
 
     harness.manager.clearAll()
 
-    expect(harness.repository.getBars(selectionForSpec(comparison))).toBeUndefined()
-    expect(harness.manager.specs).toEqual([comparison])
+    expect(harness.acquired.size).toBe(0)
+    expect(harness.manager.specs).toEqual([spec('A', { source: 'custom' })])
     expect(harness.setLoading).toHaveBeenLastCalledWith(false)
   })
 })

@@ -11,7 +11,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { MarketDataProviderRegistry } from '../impl/registry'
+import { MarketDataProviderRegistry } from '../registry'
 import { SourceRouter } from '../impl/router'
 import { createMockMarketDataProvider } from './helpers/providerTestKit'
 

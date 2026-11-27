@@ -2,9 +2,21 @@
 import type { KLineData, SymbolSpec } from '../../controllers/types.js'
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { TimeShareData } from '../../foundation/types/price.js'
-import type { OlderDataStatus, TimeShareRange } from '../provider/types.js'
+import type {
+  BarAggregation,
+  BarSeries,
+  InstrumentDescriptor,
+  InstrumentType,
+  KLineAdjustment,
+  KLinePeriod,
+  OlderDataStatus,
+  TimeShareRange,
+  TimeShareSeries,
+  TradingDate,
+} from '../provider/types.js'
+import type { TradeRange } from '../trades/types.js'
 
-import type { UpdateBarsResult } from './impl/kLineDataStore.js'
+import type { TradesSelection } from './seriesSelection.js'
 
 /** 已加载行情数据覆盖的时间范围。 */
 export interface LoadedTimeRange {
@@ -111,4 +123,100 @@ export interface TimeShareBuffer extends DataBufferLike<TimeShareData> {
   setLoading(loading: boolean): void
   /** 缓存查询失败时发布错误状态。 */
   setError(error: string | null): void
+}
+
+/** 一次实时提交的统计结果；被拒绝的帧不进入序列。 */
+export interface UpdateBarsResult {
+  readonly appendedCount: number
+  readonly replacedCount: number
+  readonly rejected: ReadonlyArray<KLineData>
+}
+
+/** 成交查询沿用公共请求生命周期，范围由成交完整性记录决定。 */
+export interface TradesCacheQuery {
+  readonly selection: TradesSelection
+  readonly instrument: InstrumentDescriptor
+  readonly range: TradeRange
+  readonly signal?: AbortSignal
+}
+
+/** K 线分页查询：按根数与排他上界读取。 */
+export interface BarsCacheQuery {
+  readonly symbol: string
+  readonly period: KLinePeriod
+  readonly adjustment: KLineAdjustment
+  readonly barAggregation: BarAggregation
+  readonly source?: string
+  readonly instrument?: InstrumentDescriptor
+  readonly exchange?: string
+  readonly instrumentType?: InstrumentType
+  /** 请求的根数；拉多少就请求多少，不按时间范围外推。 */
+  readonly limit: number
+  /** 排他上界时间戳；省略表示从数据源最新一根开始。 */
+  readonly beforeTimestamp?: number
+  readonly signal?: AbortSignal
+}
+
+/** 一页 K 线结果。 */
+export interface BarsCacheResult {
+  readonly source: string
+  readonly instrument: InstrumentDescriptor
+  readonly series: BarSeries
+}
+
+/** 日期窗口查询：from / to 为该品种时区下的交易日或 RFC 3339。 */
+export interface BarsWindowCacheQuery extends BarsCacheQuery {
+  readonly from?: string
+  readonly to?: string
+}
+
+/** 窗口结果；truncated 表示 limit 用尽仍未覆盖到 from。 */
+export interface BarsWindowCacheResult extends BarsCacheResult {
+  readonly truncated: boolean
+}
+
+/** 单日分时查询。 */
+export interface TimeShareCacheQuery {
+  readonly symbol: string
+  readonly instrument?: InstrumentDescriptor
+  readonly tradingDate?: TradingDate
+  readonly resolveTradingDate?: (instrument: InstrumentDescriptor) => TradingDate
+  readonly source?: string
+  readonly exchange?: string
+  readonly instrumentType?: InstrumentType
+  readonly signal?: AbortSignal
+}
+
+/** 多日分时查询。 */
+export interface TimeShareRangeCacheQuery {
+  readonly symbol: string
+  readonly instrument?: InstrumentDescriptor
+  readonly endTradingDate?: TradingDate
+  readonly resolveEndTradingDate?: (instrument: InstrumentDescriptor) => TradingDate
+  readonly days: number
+  readonly source?: string
+  readonly exchange?: string
+  readonly instrumentType?: InstrumentType
+  readonly signal?: AbortSignal
+}
+
+/** 单日分时结果。 */
+export interface TimeShareCacheResult {
+  readonly source: string
+  readonly instrument: InstrumentDescriptor
+  readonly series: TimeShareSeries
+}
+
+/** 多日分时结果。 */
+export interface TimeShareRangeCacheResult {
+  readonly source: string
+  readonly instrument: InstrumentDescriptor
+  readonly range: TimeShareRange
+}
+
+/** 行情缓存的近似内存统计。 */
+export interface MarketDataCacheStats {
+  readonly usedBytes: number
+  readonly maxBytes: number
+  readonly entryCount: number
 }

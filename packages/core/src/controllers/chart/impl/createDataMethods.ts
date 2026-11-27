@@ -51,7 +51,7 @@ export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
 
   function clearMarketDataCache(): void {
     if (isDisposed()) return
-    chart.getMarketDataCache().clear()
+    chart.getMarketData().clear()
   }
 
   /** 让数据池覆盖到给定时间；返回值表明已覆盖、耗尽或序列已切换。 */

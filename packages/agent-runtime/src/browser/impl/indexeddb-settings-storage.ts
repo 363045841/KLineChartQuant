@@ -6,7 +6,7 @@
  */
 
 import { AgentRuntimeError } from '../../contracts/errors.js'
-import type { AgentSettingsStorage } from '../../host/impl/agent-settings.js'
+import type { AgentSettingsStorage } from '../../host/settings.js'
 
 /** 设置库与对象仓库的默认名字。 */
 const DEFAULT_DATABASE = 'kq-agent-settings'

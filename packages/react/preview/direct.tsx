@@ -1,3 +1,4 @@
+import { systemClock } from '@363045841yyt/klinechart-core'
 /** React 内部适配器预览与正式工作台使用相同的注册数据源，不保留数组注入示例。 */
 import type { ChartController, SymbolSpec } from '@363045841yyt/klinechart-core'
 import { createDefinitionRegistry, createMarketRuntime } from '@363045841yyt/klinechart-core'
@@ -11,7 +12,7 @@ import { KLineChart } from '../src/direct'
 function App() {
   const host = useMemo(() => createMarketDataHost(), [])
   const runtime = useMemo(
-    () => createMarketRuntime({ market: host, definitions: createDefinitionRegistry() }),
+    () => createMarketRuntime({ clock: systemClock, market: host, definitions: createDefinitionRegistry() }),
     [host],
   )
   const [symbols, setSymbols] = useState<readonly SymbolSpec[]>([])

@@ -1,3 +1,4 @@
+import { systemClock } from '@363045841yyt/klinechart-core'
 // @vitest-environment jsdom
 /**
  * Contract test for @363045841yyt/klinechart-angular.
@@ -107,7 +108,7 @@ describe('createChart()', () => {
   let runtime: ReturnType<typeof createMarketRuntime>
 
   beforeEach(() => {
-    runtime = createMarketRuntime({
+    runtime = createMarketRuntime({ clock: systemClock,
       market: createMarketDataHost(),
       definitions: createDefinitionRegistry(),
     })

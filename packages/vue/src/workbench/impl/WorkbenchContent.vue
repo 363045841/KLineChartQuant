@@ -62,6 +62,7 @@
     createAlertStores,
     createDefinitionRegistry,
     createMarketRuntime,
+    systemClock,
   } from '@363045841yyt/klinechart-core'
   import AlertPanel from '@vue-src/components/alert/AlertPanel.vue'
   import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
@@ -142,7 +143,7 @@
   // 图表与侧栏面板共享同一个行情实例：面板不是图表的子节点，不能依赖图表内部注入。
   provideMarketDataContext(market.context)
   const definitions = createDefinitionRegistry()
-  const marketRuntime = createMarketRuntime({ market: market.context, definitions })
+  const marketRuntime = createMarketRuntime({ market: market.context, definitions, clock: systemClock })
   const alerts = shallowRef<import('@363045841yyt/klinechart-core').AlertService | null>(null)
   provideAppRuntime({ market: marketRuntime, definitions, alerts })
   const { initialize } = useWorkbenchServices(

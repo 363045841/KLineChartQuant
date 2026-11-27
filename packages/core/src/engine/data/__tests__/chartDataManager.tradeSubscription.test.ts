@@ -1,6 +1,6 @@
 /** 验证成交订阅等待正式行情来源，并在重复视口协调时保持唯一连接。 */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { BarsCacheResult } from '@/data/buffer/impl/marketDataCache.js'
+import type { BarsCacheResult } from '@/data/buffer/types.js'
 import type { InstrumentDescriptor } from '@/data/provider/types.js'
 import type { TradeDataSource } from '@/data/trades/types.js'
 import {
@@ -61,7 +61,7 @@ describe('ChartDataManager trade subscription', () => {
         updateTradeInput: () => {},
       })
       let finishLoad: ((result: BarsCacheResult) => void) | undefined
-      vi.spyOn(manager.marketDataCache, 'queryBars').mockImplementation(
+      vi.spyOn(manager.marketData, 'queryBars').mockImplementation(
         () =>
           new Promise<BarsCacheResult>((resolve) => {
             finishLoad = resolve
