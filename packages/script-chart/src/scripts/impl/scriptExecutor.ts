@@ -3,7 +3,7 @@
  *
  * 只依赖文档读模型和 Worker，不接触持久化、目录与注册表；注册由调用方完成。
  */
-import { createPlotIndicatorDefinition, generateUUID } from '@363045841yyt/klinechart-core'
+import { createPlotIndicatorDefinition, generateUUID, type IndicatorMetadata } from '@363045841yyt/klinechart-core/node'
 import {
   type Bar,
   type ComputeRange,
@@ -61,6 +61,9 @@ export function createScriptExecutor(
   documents: ScriptDocumentStore,
   log: ReturnType<typeof createScriptLog>,
   createWorkerPool: ScriptWorkerPoolFactory,
+  bindRendering:
+    | ((metadata: IndicatorMetadata, displayName: string) => IndicatorMetadata)
+    | null,
 ) {
   /** 编译句柄 → 源码与日志频道；一张表同时承担源码快照与输出路由。 */
   const compiled = new Map<string, CompiledEntry>()
@@ -207,7 +210,9 @@ export function createScriptExecutor(
     definitions.set(identity.id, script.handle)
     entry.logId = identity.id
     if (previous) await releaseHandle(previous)
-    return definition
+    return bindRendering === null
+      ? definition
+      : bindRendering(definition, script.definition.name)
   }
 
   /** 直接执行一份草稿，不注册也不持久化定义。 */

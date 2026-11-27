@@ -10,10 +10,8 @@ import type {
   IndicatorSourceDocument,
   ScriptDefinitionKind,
 } from '@363045841yyt/klinechart-plot-contracts'
-import type { IndicatorRenderStateReader, RenderContext } from '../../foundation/plugin/types.js'
 import type { ColorTokens } from '../../foundation/tokens/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
-import type { Layer } from '../../rendering/scene/types.js'
 import type { ChartDataView } from '../../foundation/types/chartView.js'
 import type { IndicatorPlotDefinition } from '../plots/types.js'
 import type { CalculationCompute } from '../calculation/types.js'
@@ -25,27 +23,10 @@ export type IndicatorId = string
 /** 指标定义来源，与均线、动量等业务分类独立；由定义契约统一给出。 */
 export type { IndicatorSource }
 
-export interface IndicatorRendererOptions {
-  paneId: string
-  indicatorId: IndicatorId
-  /** 渲染器绑定的实例身份；结果与投影都按该 ID 寻址。 */
-  instanceId: string
-  /** 框架派生的轴身份；渲染器据此把值映射到自己的轴。 */
-  axisId: string
-  /** 框架分配的稳定 Layer ID；渲染器不得自行推导。 */
-  layerId: string
-  params?: Record<string, unknown>
-}
-
 /**
  * 指标分类：主图/副图
  */
 export type IndicatorCategory = 'main' | 'sub' | 'oscillator' | 'volume'
-
-/**
- * 渲染器工厂函数
- */
-export type RendererFactory = (options: IndicatorRendererOptions) => Layer<RenderContext>
 
 /** 解析 renderer plugin 名称所需的稳定上下文，不创建 renderer 实例。 */
 export interface IndicatorRendererNameOptions {
@@ -78,19 +59,6 @@ export interface TitleInfo {
   params?: (number | string)[]
   values?: TitleValueItem[]
 }
-
-/**
- * 获取标题信息的回调类型
- */
-export type GetTitleInfoFn = (
-  data: readonly KLineData[],
-  index: number | null,
-  params: Record<string, number | boolean | string>,
-  stateReader: IndicatorRenderStateReader,
-  instanceId: string,
-  paneId: string,
-  colors: ColorTokens,
-) => TitleInfo | null
 
 /** 下拉选项：值即参数取值，label 为面板显示名。 */
 export type IndicatorInputOption = import('@363045841yyt/klinechart-plot-contracts').InputOption
@@ -179,12 +147,6 @@ export type IndicatorMetadata<_T = unknown> = ScriptDefinitionKind & {
    */
   paneIdField?: string
 
-  /**
-   * 渲染器工厂函数
-   * 调用时创建该指标的渲染器实例
-   */
-  rendererFactory: RendererFactory
-
   /** 指标选择器 UI 元数据：内置指标来自静态 uiMeta 表；外部指标随定义携带。 */
   ui?: { name?: string; description?: string; params?: readonly unknown[] }
 
@@ -231,10 +193,4 @@ export type IndicatorMetadata<_T = unknown> = ScriptDefinitionKind & {
 
   /** renderer 投影使用的展示配置。 */
   presentation?: IndicatorPresentationDescriptor
-
-  /**
-   * 标题信息获取回调（决定 pane 标题栏显示内容）
-   * 主副图统一由图例管理器调用。
-   */
-  getTitleInfo?: GetTitleInfoFn
 }

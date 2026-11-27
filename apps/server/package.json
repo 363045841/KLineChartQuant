@@ -1,0 +1,31 @@
+{
+  "name": "@363045841yyt/klinechart-server",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Node host for market data, definitions, calculation and alerts.",
+  "main": "./dist/main.js",
+  "exports": {
+    ".": "./dist/main.js"
+  },
+  "bin": {
+    "kline-server": "./dist/main.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "type-check": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@363045841yyt/klinechart-core": "workspace:*",
+    "@363045841yyt/klinechart-script": "workspace:*",
+    "@363045841yyt/klinechart-script-chart": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "~6.0.3"
+  },
+  "engines": {
+    "node": ">=26.0.0"
+  }
+}

@@ -1,6 +1,4 @@
 /** 分时图表模式：固定整物理网格柱宽，自动价格范围覆盖可见行情与昨收。 */
-import type { MarketSessionConfig } from '@/foundation/utils/sessionTimeLabels.js'
-import { ASHARE_MARKET_SESSION } from '@/foundation/utils/timeShareAxisLabels.js'
 import type { ChartDataManager } from '../../../data/chartDataManager.js'
 import type { VisibleRange } from '../../../viewport/viewport.js'
 import { computeTimeSharePriceRange, resolveTimeShareBaseline } from './timeShareMath.js'
@@ -17,17 +15,6 @@ export class TimeShareMode implements ChartModeHandler {
   readonly useIndicatorScheduler = false
 
   readonly fitsPriceBars = false
-
-  /** 市场 session；默认 A 股，可 setMarketSession 切换 */
-  private _marketSession: MarketSessionConfig = ASHARE_MARKET_SESSION
-
-  get marketSession(): MarketSessionConfig {
-    return this._marketSession
-  }
-
-  setMarketSession(config: MarketSessionConfig): void {
-    this._marketSession = config
-  }
 
   /**
    * 可见 price/average 与昨收共同生成带留白范围，百分比轴与基准线共用同一个昨收。

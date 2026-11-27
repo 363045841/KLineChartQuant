@@ -11,7 +11,7 @@
   - `chartModelState.ts`：`createChartModel()` 保存 `dataView` / `lastBarPeriod` / `primaryRendererByView`，派生 `effectivePrimaryRenderer` 与 `interactionCapabilities`。
 - `impl/modes/`：视图的**行为实现**。
   - `types.ts`：`ChartModeHandler` 契约（`computePaneRange` / `onActivate` / `onDeactivate` / `useIndicatorScheduler`）。
-  - `kLineMode.ts` / `timeShareMode.ts`：各视图逐帧价格范围计算；分时实现持有运行时 `marketSession`。
+  - `kLineMode.ts` / `timeShareMode.ts`：各视图逐帧价格范围计算；分时市场 session 由 `ChartStateKernel` 的 `marketSession$` 统一解析，模式本身不持有会话状态。
   - `timeShareMath.ts` / `timeShareGeometry.ts`：分时数学与单日/五日共享几何。
 - `impl/comparison/`：视图上的**比较叠加**。
   - `types.ts`：`ComparisonProjection` / `ComparisonData` / `ComparisonSeriesProjection` 一帧投影契约。

@@ -24,7 +24,6 @@ import type {
   InstrumentType,
   OlderDataStatus,
   TimeShareRange,
-  TimeShareSeries,
   TradingDate,
 } from '../../provider/types.js'
 import {
@@ -471,28 +470,6 @@ export class MarketDataCache {
       instrument: page.instrument,
       series: { ...page.series, data, olderData },
       truncated: !covered && olderData !== OLDER_DATA_STATUS.EXHAUSTED,
-    }
-  }
-
-  /** 实时帧回写所有指向同一事实序列的查询条目，后续历史查询不会覆盖最新尾部。 */
-  acceptBars(
-    selection: import('../seriesSelection.js').BarsSelection,
-    instrument: InstrumentDescriptor,
-    bars: readonly KLineData[],
-  ): void {
-    this.throwIfDestroyed()
-    for (const [key, entry] of this.bars) {
-      if (
-        entry.source !== selection.source ||
-        entry.instrument.id !== instrument.id ||
-        entry.series.period !== selection.period ||
-        entry.series.adjustment !== selection.adjustment ||
-        entry.series.barAggregation !== selection.barAggregation
-      )
-        continue
-      const value = { ...entry, data: mergeBars(entry.data, bars) }
-      this.bars.set(key, value)
-      this.recordEntry({ kind: 'bars', key, bytes: estimateBytes(value) })
     }
   }
 

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createTestRendererLayer } from '../../__tests__/helpers/metadataTestKit'
 import { createIndicatorLayerId } from '../../indicatorLayerNaming'
 import type { IndicatorMetadata } from '../../indicatorMetadata'
+import type { RenderableIndicator } from '../../../renderers/Indicator/types.js'
 import type { DefinitionRegistry } from '../../registry/index'
 import { createTestDefinitions } from '../../__tests__/helpers/definitionsTestKit'
 import { runIndicatorPipeline } from '../impl/runIndicatorPipeline'
@@ -45,7 +46,7 @@ function declareDefinition(
     scale: { indicatorKey: name },
     rendererFactory: () => createTestRendererLayer(name),
     getRendererName: ({ paneId }: { paneId: string }) => `${name}_${paneId}`,
-  } satisfies IndicatorMetadata
+  } satisfies RenderableIndicator
 }
 
 /** 构造一个第三方来源的可注册定义。 */

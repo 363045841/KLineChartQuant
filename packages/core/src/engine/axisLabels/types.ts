@@ -33,11 +33,10 @@ export const TIME_AXIS = 'time'
  * - tag：带底色的自由标签（指标输出、参考线、选中图元），按锚点排序参与避让；
  * - marker：钉在真实锚点上的标签（最新价、十字线），不参与避让。
  */
-import type { AxisLabel, AxisLabelRole } from '../../foundation/types/axisLabel.js'
+import type { AxisLabel } from '../../foundation/types/axisLabel.js'
 
 export type {
   AxisLabel,
-  AxisLabelRole,
   TimeAxisLabel,
   ValueAxisLabel,
 } from '../../foundation/types/axisLabel.js'

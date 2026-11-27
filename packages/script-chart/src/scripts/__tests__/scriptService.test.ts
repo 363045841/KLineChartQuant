@@ -17,13 +17,17 @@ import { testScriptPool } from './helpers/scriptTestPool.js'
 /** 用例只声明差异：线程与内置源码由替身补齐。 */
 function createScriptService(
   libraries: readonly QuickJSLibrary[],
-  options: Omit<ScriptServiceOptions, 'builtinSources' | 'createWorkerPool' | 'persistence'> &
+  options: Omit<
+    ScriptServiceOptions,
+    'builtinSources' | 'createWorkerPool' | 'persistence' | 'bindRendering'
+  > &
     Partial<Pick<ScriptServiceOptions, 'builtinSources' | 'createWorkerPool' | 'persistence'>>,
 ): Promise<ScriptService> {
   return createService(libraries, {
     builtinSources: [],
     createWorkerPool: testScriptPool,
     persistence: createIndexedDbScriptPersistence(),
+    bindRendering: null,
     ...options,
   })
 }

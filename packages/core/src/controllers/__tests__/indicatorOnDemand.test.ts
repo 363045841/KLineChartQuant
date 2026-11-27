@@ -10,6 +10,7 @@ import { createTestDefinitions } from '@/engine/indicators/__tests__/helpers/def
 import { createTestData } from '@/engine/indicators/__tests__/helpers/instanceTestKit.js'
 import type { IndicatorMetadata } from '@/engine/indicators/indicatorMetadata.js'
 import { createPlotIndicatorDefinition } from '@/engine/indicators/pipeline/impl/createPlotDefinition.js'
+import { bindPlotRendering } from '@/engine/renderers/Indicator/plotBinding.js'
 import type { DefinitionRegistry } from '@/engine/indicators/registry/index.js'
 import type { IndicatorSeries } from '@/engine/plots/types.js'
 import { batch } from '@/foundation/reactivity/signal.js'
@@ -84,18 +85,21 @@ function plot(name: string, position: 'main' | 'sub', value: number) {
     fills: [],
   }))
   const sourceDefinition = { kind: 'indicator' as const, name, position, inputs: {} }
-  const definition = createPlotIndicatorDefinition({
-    ...sourceDefinition,
-    source: 'script',
-    document: {
-      identity: 'user',
-      revision: 1,
-      source: `// ${name}`,
-      folder: '',
-      definition: sourceDefinition,
-    },
-    compute: () => ({ series: compute() }),
-  })
+  const definition = bindPlotRendering(
+    createPlotIndicatorDefinition({
+      ...sourceDefinition,
+      source: 'script',
+      document: {
+        identity: 'user',
+        revision: 1,
+        source: `// ${name}`,
+        folder: '',
+        definition: sourceDefinition,
+      },
+      compute: () => ({ series: compute() }),
+    }),
+    name,
+  )
   return { definition, compute }
 }
 

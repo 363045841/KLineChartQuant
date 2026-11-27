@@ -71,6 +71,7 @@ describe('alert pipeline', () => {
       persistence: { load: async () => null, save: async () => true },
       builtinSources: [SOURCE],
       createWorkerPool: testScriptPool,
+      bindRendering: null,
     })
     // 运行时是唯一所有者：警报与图表都只是它的消费者。
     const hub = runtime.calculation

@@ -354,10 +354,6 @@ export class ChartPaneLayout {
     return this.paneSpecs.some((spec) => spec.id === paneId)
   }
 
-  resizePaneBoundary(upperPaneId: string, deltaY: number): boolean {
-    return this.beginBoundaryResize(upperPaneId)?.resize(deltaY) ?? false
-  }
-
   /** 捕获相邻 pane 的起始几何；总位移夹在两侧最小高度之间，不向其它 pane 借空间。 */
   beginBoundaryResize(upperPaneId: string): PaneBoundaryResizeSession | null {
     const vp = this.peekViewport()

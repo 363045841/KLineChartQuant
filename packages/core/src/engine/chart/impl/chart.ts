@@ -658,7 +658,6 @@ export class Chart {
     this.drawing = new ChartDrawingFacade({
       kernel: this.kernel,
       dataManager: this.dataManager,
-      renderer: this.renderer,
       getSession: () => this.drawingSession,
       scheduleDraw: () => this.scheduleDraw(),
       getCommands: () => this.drawingCommands,
@@ -1823,10 +1822,8 @@ export class Chart {
     const commitData = this.dataManager.preparePrimarySelection(primary, date)
     const dataView = resolveChartDataView(primary?.period)
     const timeShare = isTimeShareDataView(dataView)
-    const session =
-      timeShare && primary
-        ? resolveSymbolMarketSession(primary.instrument, this.marketSessions)
-        : null
+    // 未知 session 必须在任何状态写入之前抛错；解析结果由 kernel 的 marketSession$ 消费。
+    if (timeShare && primary) resolveSymbolMarketSession(primary.instrument, this.marketSessions)
     const nextDrawingSymbol = primary ? symbolSpecIdentityKey(primary) : undefined
     const previousPeriod = this.dataManager.symbols.peek()[0]?.period
     this.captureViewportSnapshot()
@@ -1839,7 +1836,6 @@ export class Chart {
       this.interaction.stopInertia()
       this.zoomController.stopAnimation()
       this.unlockAxisWidth()
-      if (session) this._timeShareMode.setMarketSession(session)
       this.setActiveMode(timeShare ? this._timeShareMode : this._kLineMode, dataView)
       commitData()
       if (primary && !timeShare) {

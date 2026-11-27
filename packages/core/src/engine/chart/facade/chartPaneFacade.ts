@@ -69,11 +69,6 @@ export class ChartPaneFacade implements PaneLayoutCommands {
     return this.deps.layoutManager.getPaneLayoutSpecs()
   }
 
-  /** 调整相邻 Pane 的边界。 */
-  resizeBoundary(upperPaneId: string, deltaY: number): boolean {
-    return this.deps.layoutManager.resizePaneBoundary(upperPaneId, deltaY)
-  }
-
   /** 指针按下时创建会话，后续移动提交相对起点的总位移。 */
   beginBoundaryResize(upperPaneId: string): PaneBoundaryResizeSession | null {
     return this.deps.layoutManager.beginBoundaryResize(upperPaneId)

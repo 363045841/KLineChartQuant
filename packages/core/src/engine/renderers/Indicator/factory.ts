@@ -11,12 +11,12 @@ import type { Layer, RenderObjectDescriptor } from '@/rendering/scene/types.js'
 import { createIndicatorLayerId } from '../../indicators/indicatorLayerNaming.js'
 import type { IndicatorMetadata } from '../../indicators/indicatorMetadata.js'
 import { isIndicatorVisibleOnPeriod } from '../../indicators/indicatorPeriodVisibility.js'
-import type { IndicatorRendererOptions } from './index.js'
+import type { IndicatorRendererOptions, RenderableIndicator } from './types.js'
 import { bindIndicatorAxis } from './shared/indicatorRendererLayer.js'
 
 /** createIndicatorLayer 选项：指标渲染器参数 + 目标 role。 */
 export interface IndicatorLayerOptions extends Omit<IndicatorRendererOptions, 'layerId'> {
-  definition: IndicatorMetadata
+  definition: RenderableIndicator
   timeframeVisibility?: TimeframeVisibility | undefined
   /** 显式 Layer role；缺省沿用渲染器按 pane 推导的结果（main → primary）。 */
   role?: Layer['role']

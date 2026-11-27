@@ -48,6 +48,7 @@ import { updatePlotRange } from '../plots/impl/projectPlots.js'
 import { isPlotRenderState } from '../plots/impl/readPlotState.js'
 import type { PlotRenderState } from '../plots/types.js'
 import { createIndicatorLayer } from '../renderers/Indicator/factory.js'
+import { isRenderableIndicator } from '../renderers/Indicator/types.js'
 import type { IndicatorInstanceSpec, IndicatorStateModule } from '../state/indicatorState.js'
 import type { VisibleRange } from '../viewport/viewport.js'
 import type { IndicatorMetadata } from './indicatorMetadata.js'
@@ -331,6 +332,9 @@ export class ChartIndicatorManager {
     const instanceAxes = resolveObjectAxisMap(this.paneAxes)
     this.releaseLayerResources()
     for (const { spec, metadata } of this.planned) {
+      // 注册表只保证计算描述；图表要建 Layer 必须先有渲染绑定。
+      if (!isRenderableIndicator(metadata))
+        throw new Error(`[Indicator] definition '${spec.indicatorId}' has no renderer binding`)
       const layer = createIndicatorLayer({
         definition: metadata,
         paneId: spec.paneId,

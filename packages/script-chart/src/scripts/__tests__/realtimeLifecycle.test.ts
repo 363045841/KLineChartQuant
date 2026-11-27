@@ -86,6 +86,7 @@ describe('realtime script lifecycle', () => {
       definitions: registry,
       persistence: { load: async () => null, save: async () => true },
       createWorkerPool: pool,
+      bindRendering: null,
       builtinSources: [
         `defineIndicator({ version: 2,name:'LifetimeSlow',position:Position.main,onBar(){
         const values=request.securityLowerTf(syminfo.tickerId,Timeframe.minute1,()=>volume);

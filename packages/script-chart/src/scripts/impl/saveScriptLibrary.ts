@@ -3,7 +3,7 @@
  *
  * 任何一步失败都不会替换已提交版本，也不会改变内存中的库快照。
  */
-import type { DefinitionRegistry, RegistrableIndicator } from '@363045841yyt/klinechart-core'
+import type { DefinitionRegistry, RegistrableIndicator } from '@363045841yyt/klinechart-core/node'
 import { resolveScriptLibraries } from '@363045841yyt/klinechart-script'
 import type { ScriptDocument } from '../types.js'
 import { validateLibrary } from './libraryValidation.js'

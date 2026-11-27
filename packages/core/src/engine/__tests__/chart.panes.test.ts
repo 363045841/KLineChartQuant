@@ -390,7 +390,7 @@ describe('Chart pane layout', () => {
       const next = chart.paneRatios.peek()
       expect(next.main! / next[paneId]!).toBeCloseTo(previous.main! / previous[paneId]!)
       chart.draw()
-      expect(chart.panes.resizeBoundary('main', -40)).toBe(true)
+      expect(chart.panes.beginBoundaryResize('main')!.resize(-40)).toBe(true)
       const resized = chart.kernel.exportLayout().workspaces
       expect(resized.kline.paneSpecs).not.toEqual(
         chart.kernel.createLayout().workspaces.kline.paneSpecs,

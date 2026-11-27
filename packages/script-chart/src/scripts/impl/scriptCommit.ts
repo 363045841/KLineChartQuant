@@ -7,7 +7,7 @@ import {
   type DefinitionRegistry,
   type IndicatorCandidate,
   type RegistrableIndicator,
-} from '@363045841yyt/klinechart-core'
+} from '@363045841yyt/klinechart-core/node'
 import type { SavedScript, ScriptDocument } from '../types.js'
 import type { CompiledScript, CompiledScriptIdentity } from './scriptExecutor.js'
 

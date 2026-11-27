@@ -12,6 +12,15 @@ export const COMPILER_WORKER_URL = new URL(
   './compiler/impl/compiler.worker.js',
   import.meta.url,
 )
+
+/** Node 计算线程入口；由 worker_threads 加载。 */
+export const SCRIPT_NODE_WORKER_URL = new URL('./impl/scriptWorker.node.js', import.meta.url)
+
+/** Node 编译线程入口；由 worker_threads 加载。 */
+export const COMPILER_NODE_WORKER_URL = new URL(
+  './compiler/impl/compilerWorker.node.js',
+  import.meta.url,
+)
 export type {
   ScriptRunResult,
   ScriptThread,

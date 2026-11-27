@@ -65,7 +65,7 @@
     "build:demo": "vite build --config packages/vue/preview/vite.config.ts",
     "preview": "pnpm --filter @363045841yyt/klinechart preview",
     "preview:demo": "vite preview --config packages/vue/preview/vite.config.ts",
-    "type-check": "pnpm type-check:src && pnpm type-check:tests",
+    "type-check": "pnpm type-check:src && pnpm type-check:tests && pnpm type-check:node",
     "type-check:node": "vue-tsc --noEmit -p packages/core/tsconfig.node.json",
     "type-check:src": "vue-tsc --noEmit -p packages/script/tsconfig.runtime.json && vue-tsc --noEmit -p tsconfig.app.json && vue-tsc --noEmit -p tsconfig.node.json",
     "type-check:tests": "vue-tsc --noEmit -p tsconfig.vitest.json",

@@ -54,14 +54,6 @@ export class IncrementalLoadHint {
     }, 900)
   }
 
-  hide(): void {
-    const entry = this._activeHint
-    if (!entry) return
-    this._cancelFadeOut(entry)
-    this._removeElement(entry)
-    this._activeHint = null
-  }
-
   destroy(): void {
     const entry = this._activeHint
     if (!entry) return

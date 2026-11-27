@@ -4,6 +4,7 @@ import { symbolSpecIdentityKey } from '@/engine/data/symbolIdentity.js'
 import type { TitleInfo } from '@/engine/indicators/indicatorMetadata.js'
 import type { IndicatorInstanceDescriptor } from '@/engine/indicators/instances/api/indicatorRenderBinding.js'
 import type { DefinitionRegistry } from '@/engine/indicators/registry/index.js'
+import { isRenderableIndicator } from '@/engine/renderers/Indicator/types.js'
 import { PANE_HEADER_INSET_PX } from '@/engine/pane/types.js'
 import type { PluginHost, RenderContext } from '@/foundation/plugin/index.js'
 import type { ColorTokens } from '@/foundation/tokens/index.js'
@@ -143,7 +144,7 @@ export function projectIndicator(
       params[key] = value
   }
   const titleInfo: TitleInfo | null =
-    !error && meta.getTitleInfo && stateReader
+    !error && isRenderableIndicator(meta) && meta.getTitleInfo && stateReader
       ? meta.getTitleInfo(
           data,
           index,

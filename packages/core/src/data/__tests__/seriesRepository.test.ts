@@ -54,20 +54,24 @@ describe('SeriesRepository', () => {
     expect(sourceFromSpec(right)).toBe('baostock')
   })
 
-  it('returns one Buffer for the same identity and isolates source, period and adjustment', () => {
+  it('returns one Buffer for the same identity', () => {
     const repository = new SeriesRepository()
     const daily = repository.getOrCreateBars(barsSelection(), () => new DataBuffer())
 
     expect(repository.getOrCreateBars(barsSelection(), () => new DataBuffer())).toBe(daily)
-    expect(
-      repository.getOrCreateBars(barsSelection({ source: 'baostock' }), () => new DataBuffer()),
-    ).not.toBe(daily)
-    expect(
-      repository.getOrCreateBars(barsSelection({ period: 'weekly' }), () => new DataBuffer()),
-    ).not.toBe(daily)
-    expect(
-      repository.getOrCreateBars(barsSelection({ adjustment: 'qfq' }), () => new DataBuffer()),
-    ).not.toBe(daily)
+  })
+
+  it.each<[string, Partial<BarsSelection>]>([
+    ['source', { source: 'baostock' }],
+    ['period', { period: 'weekly' }],
+    ['adjustment', { adjustment: 'qfq' }],
+  ])('isolates Buffers by %s', (_field, override) => {
+    const repository = new SeriesRepository()
+    const daily = repository.getOrCreateBars(barsSelection(), () => new DataBuffer())
+
+    expect(repository.getOrCreateBars(barsSelection(override), () => new DataBuffer())).not.toBe(
+      daily,
+    )
   })
 
   it('isolates time-share data by trading date', () => {

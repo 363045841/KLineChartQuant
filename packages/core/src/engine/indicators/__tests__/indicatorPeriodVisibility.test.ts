@@ -5,6 +5,7 @@ import { createIndicatorLayer } from '@/engine/renderers/Indicator/factory.js'
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import type { IndicatorMetadata } from '../indicatorMetadata.js'
+import type { RenderableIndicator } from '../../renderers/Indicator/types.js'
 import { isIndicatorVisibleOnPeriod, parseIndicatorPeriod } from '../indicatorPeriodVisibility.js'
 
 describe('parseIndicatorPeriod', () => {
@@ -56,8 +57,8 @@ function fakeLayer(): Layer<RenderContext> {
 /** 构造携带指定 Layer 与可见范围的最小指标定义。 */
 function fakeDefinition(
   layer: Layer<RenderContext>,
-  visiblePeriods?: IndicatorMetadata['visiblePeriods'],
-): IndicatorMetadata {
+  visiblePeriods?: RenderableIndicator['visiblePeriods'],
+): RenderableIndicator {
   return {
     kind: 'indicator',
     name: 'fake',

@@ -14,8 +14,8 @@ import {
   fromEventTarget,
   SCRIPT_WORKER_URL,
 } from '@363045841yyt/klinechart-script/worker'
+import { createIndexedDbScriptPersistence } from '@363045841yyt/klinechart-script-chart/browser'
 import {
-  createIndexedDbScriptPersistence,
   createScriptService as createService,
   type ScriptService,
   type ScriptServiceOptions,
@@ -34,12 +34,16 @@ vi.stubGlobal('Worker', NodeScriptWorker)
 /** 用例只声明差异：线程与存储由浏览器默认实现补齐。 */
 function createScriptService(
   libraries: readonly QuickJSLibrary[],
-  options: Omit<ScriptServiceOptions, 'builtinSources' | 'createWorkerPool' | 'persistence'> &
+  options: Omit<
+    ScriptServiceOptions,
+    'builtinSources' | 'createWorkerPool' | 'persistence' | 'bindRendering'
+  > &
     Partial<Pick<ScriptServiceOptions, 'builtinSources' | 'createWorkerPool' | 'persistence'>>,
 ): Promise<ScriptService> {
   return createService(libraries, {
     builtinSources: [],
     persistence: createIndexedDbScriptPersistence(),
+    bindRendering: null,
     createWorkerPool: (runtime) =>
       createScriptWorkerPool({
         ...runtime,

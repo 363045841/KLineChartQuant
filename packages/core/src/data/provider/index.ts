@@ -123,7 +123,7 @@ export type {
   TimeShareRangeCapability,
   TimeShareRangeDataSource,
   TimeShareRangeQuery,
-  TimeShareSeries,
+  ProviderTimeShareSeries,
   TradingCalendar,
   TradingCalendarDataSource,
   TradingCalendarQuery,

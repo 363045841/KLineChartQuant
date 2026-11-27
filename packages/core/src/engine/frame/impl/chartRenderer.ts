@@ -589,10 +589,6 @@ export class ChartRenderer {
     return renderer.getPane().axisLayout
   }
 
-  getDrawingStore(): DrawingStore {
-    return this.drawingStore
-  }
-
   /**
    * 已提交层图元的线段（Pane 局部坐标），供磁吸候选。
    * 会话覆盖不进入候选：拖拽中的图元吸自己会形成反馈回路。

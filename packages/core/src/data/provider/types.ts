@@ -322,7 +322,7 @@ export interface TimeShareQuery {
 }
 
 /** 分时序列及昨收、时区和成交量单位。 */
-export interface TimeShareSeries {
+export interface ProviderTimeShareSeries {
   instrumentId: string
   tradingDate: TradingDate
   timezone: string
@@ -372,7 +372,7 @@ export interface BarDataSource {
 /** 历史或当日分时能力。 */
 export interface TimeShareDataSource {
   /** 拉取指定品种在单个交易日内的分时序列。 */
-  fetch(query: TimeShareQuery): Promise<TimeShareSeries>
+  fetch(query: TimeShareQuery): Promise<ProviderTimeShareSeries>
 }
 
 /** 多日分时数据能力。 */

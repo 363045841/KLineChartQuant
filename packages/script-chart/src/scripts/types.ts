@@ -1,5 +1,5 @@
 /** 脚本服务公开契约；源码版本、定义和执行端口属于同一提交。 */
-import type { IndicatorFailure, ReadonlySignal } from '@363045841yyt/klinechart-core'
+import type { IndicatorFailure, ReadonlySignal } from '@363045841yyt/klinechart-core/node'
 import type {
   IndicatorSourceDefinition,
   IndicatorSourceDocument,
@@ -90,12 +90,21 @@ export interface ScriptPersistence {
 /** 内置源码只参与启动注册，不进入用户持久化。 */
 export interface ScriptServiceOptions {
   /** 共享定义注册表；脚本服务只向它写入，不创建第二份目录。 */
-  readonly definitions: import('@363045841yyt/klinechart-core').DefinitionRegistry
+  readonly definitions: import('@363045841yyt/klinechart-core/node').DefinitionRegistry
   readonly builtinSources: readonly string[]
   /** Worker 池工厂；浏览器传 Web Worker，Node 传 worker_threads。 */
   readonly createWorkerPool: import('@363045841yyt/klinechart-script/worker').ScriptWorkerPoolFactory
   /** 用户脚本工作区持久化。 */
   readonly persistence: ScriptPersistence
+  /**
+   * 注册时附加渲染绑定；浏览器传 `bindPlotRendering`，Node 传 `null` 只注册计算描述。
+   */
+  readonly bindRendering:
+    | ((
+        metadata: import('@363045841yyt/klinechart-core/node').IndicatorMetadata,
+        displayName: string,
+      ) => import('@363045841yyt/klinechart-core/node').IndicatorMetadata)
+    | null
   /** 定义是否仍被宿主引用（例如警报规则）；为 true 时拒绝删除。 */
   readonly isDefinitionReferenced?: (definitionId: string) => boolean | Promise<boolean>
 }

@@ -16,14 +16,12 @@ import {
   type DrawingWorkspaceId,
 } from '../../drawing/index.js'
 import { filterDrawingsInScope } from '../../drawing/model/impl/drawingScope.js'
-import type { ChartRenderer } from '../../frame/index.js'
 import type { ChartStateKernel } from '../../state/chartStateKernel.js'
 
 /** Drawing Facade 所需依赖。 */
 export interface ChartDrawingFacadeDependencies {
   kernel: ChartStateKernel
   dataManager: ChartDataManager
-  renderer: ChartRenderer
   getSession: () => DrawingInteractionController | null
   scheduleDraw: () => void
   getCommands: () => DrawingCommands
@@ -80,11 +78,6 @@ export class ChartDrawingFacade {
     this.deps.scheduleDraw()
   }
 
-  /** 返回绘图只读投影。 */
-  getStore() {
-    return this.deps.renderer.getDrawingStore()
-  }
-
   /** 返回当前活动数据视图的绘图锚点点列。 */
   getData(): ReadonlyArray<{ timestamp: number }> {
     return this.deps.dataManager.getRenderData()
@@ -114,11 +107,6 @@ export class ChartDrawingFacade {
     // 悬停目标只对 cursor/box-select 有效；换工具后由下一个 hover flush 重算
     this.deps.kernel.interaction.actions.setDrawingHover(null)
     this.deps.scheduleDraw()
-  }
-
-  /** 删除单个已确认图元，统一经过可撤回的命令入口。 */
-  remove(drawingId: string): void {
-    this.deps.getCommands().remove(drawingId)
   }
 
   /** 清除全部已确认图元。 */

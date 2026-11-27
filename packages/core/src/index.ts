@@ -10,10 +10,15 @@ export { createIndicatorLayerId } from './engine/indicators/indicatorLayerNaming
 export {
   type IndicatorInputDisplay,
   type IndicatorMetadata,
-  type IndicatorRendererOptions,
   type IndicatorRuntimeDescriptor,
-  type RendererFactory,
 } from './engine/indicators/indicatorMetadata.js'
+export {
+  type GetTitleInfoFn,
+  type IndicatorRendererOptions,
+  type RenderableIndicator,
+  type RendererFactory,
+} from './engine/renderers/Indicator/types.js'
+export { bindPlotRendering } from './engine/renderers/Indicator/plotBinding.js'
 export {
   createPlotIndicatorDefinition,
   type IndicatorCandidate,

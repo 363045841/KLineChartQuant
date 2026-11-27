@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 /** 图元对象与系统对象的投影、命令路由、撤销重做与绘图会话回归。 */
-import { describe, expect, it, vi } from 'vitest'
-import { createDrawingAdapter, createTrendLine } from '../drawing/__tests__/helpers/drawingTestKit'
-import { DrawingInteractionController } from '../drawing/index'
+import { describe, expect, it } from 'vitest'
+import { createTrendLine } from '../drawing/__tests__/helpers/drawingTestKit'
 import { indicatorLayerId, registerPlotDefinition } from '../indicators/__tests__/helpers/plotIndicatorTestKit'
 import { MAIN_PANE_ID } from '../pane/types'
 import { PRICE_SERIES_AXIS_ID } from '../renderers/rendererIds.js'
@@ -10,27 +9,6 @@ import { installChartTestHooks, mountChart } from './helpers/chartLifecycleTestK
 
 describe('Chart drawing and system objects', () => {
   installChartTestHooks()
-
-  it('routes drawings through kernel for store projection', async () => {
-    const { chart } = mountChart()
-    try {
-      const store = chart.drawing.getStore()
-      const schedule = vi.spyOn(chart, 'scheduleDraw')
-      chart.drawing.setDrawings([createTrendLine('d1')])
-      expect(chart.drawing.drawings.peek().map((drawing) => drawing.id)).toEqual(['d1'])
-      expect(store.getAll().map((drawing) => drawing.id)).toEqual(['d1'])
-      expect(schedule).toHaveBeenCalled()
-      chart.drawing.setSelectedIds(['d1'])
-      expect(store.getSelectedIds()).toEqual(['d1'])
-      schedule.mockClear()
-      chart.drawing.setDrawings([])
-      expect(store.getAll()).toEqual([])
-      expect(store.getSelectedIds()).toEqual([])
-      expect(schedule).toHaveBeenCalled()
-    } finally {
-      await chart.destroy()
-    }
-  })
 
   it('setDrawingTool writes DrawingToolId to kernel', async () => {
     const { chart } = mountChart()
@@ -144,12 +122,12 @@ describe('Chart drawing and system objects', () => {
     }
   })
 
-  it('removeDrawing drops id from kernel and clears selection, with undo and redo', async () => {
+  it('drawingCommands.remove drops id from kernel and clears selection, with undo and redo', async () => {
     const { chart } = mountChart()
     try {
       chart.drawing.setDrawings([createTrendLine('d1'), createTrendLine('d2')])
       chart.drawing.setSelectedIds(['d1'])
-      chart.drawing.remove('d1')
+      chart.drawingCommands.remove('d1')
       expect(chart.kernel.drawing.readonly.drawings.peek().map((drawing) => drawing.id)).toEqual([
         'd2',
       ])
@@ -159,48 +137,6 @@ describe('Chart drawing and system objects', () => {
       expect(chart.drawing.selectedIds.peek()).toEqual(['d1'])
       expect(chart.redoDrawing()).toBe(true)
       expect(chart.drawing.drawings.peek().map((drawing) => drawing.id)).toEqual(['d2'])
-    } finally {
-      await chart.destroy()
-    }
-  })
-
-  it('removeDrawing with registered session updates kernel only', async () => {
-    const { chart } = mountChart()
-    try {
-      const first = createTrendLine('d1')
-      chart.drawing.setDrawings([first, createTrendLine('d2')])
-      const adapter = createDrawingAdapter({
-        document: {
-          replaceDrawings: (list) => chart.drawing.setDrawings([...list]),
-          getFullDrawings: () => [...chart.kernel.drawing.readonly.drawings.peek()],
-          createDrawing: () => first,
-          removeDrawing: (id) => chart.drawingCommands.remove(id),
-          clearDrawings: () => chart.drawing.clear(),
-          setSelectedDrawingIds: (ids) => chart.drawing.setSelectedIds(ids),
-          getSelectedDrawingIds: () => chart.kernel.drawing.readonly.selectedDrawingIds.peek(),
-          setDrawingToolId: (id) => chart.drawing.setTool(id),
-          getDrawingToolId: () => chart.kernel.drawing.readonly.drawingTool.peek(),
-        },
-        viewport: {
-          getViewport: () => null,
-          getKWidthKGap: () => ({ kWidth: 6, kGap: 2 }),
-          getCurrentDpr: () => 1,
-          getData: () => [],
-          getLogicalIndexAtX: () => null,
-          priceToY: () => 0,
-          yToPrice: () => 0,
-          getPaneInfo: () => undefined,
-        },
-        session: { requestDraw: () => chart.scheduleDraw() },
-      })
-      chart.registerDrawingSession(new DrawingInteractionController(adapter))
-      chart.drawing.setSelectedIds(['d1'])
-      chart.drawing.remove('d1')
-      expect(chart.kernel.drawing.readonly.drawings.peek().map((drawing) => drawing.id)).toEqual([
-        'd2',
-      ])
-      expect(chart.kernel.drawing.readonly.selectedDrawingIds.peek()).toEqual([])
-      chart.registerDrawingSession(null)
     } finally {
       await chart.destroy()
     }

@@ -15,7 +15,6 @@ import type {
   MarketDataProvider,
   TimeShareQuery,
   TimeShareRangeQuery,
-  TimeShareSeries,
   VolumeUnit,
 } from '../../types.js'
 import { InstrumentType, isFilterableInstrumentType } from '../../types.js'

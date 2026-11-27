@@ -22,7 +22,7 @@ import type {
   SourceRouterTimeShareRangeRequest,
   SourceRouterTimeShareRequest,
   TimeShareRange,
-  TimeShareSeries,
+  ProviderTimeShareSeries,
 } from '../types.js'
 import { AUTO_SOURCE, isFilterableInstrumentType } from '../types.js'
 import { INSTRUMENT_LOOKUP_CANDIDATE_LIMIT, pickExactInstrument } from '../instrumentSearch.js'
@@ -325,7 +325,7 @@ export class SourceRouter {
   /** 请求分时并在确定性源拒绝时自动流转。 */
   async timeShare(
     request: SourceRouterTimeShareRequest,
-  ): Promise<RoutedMarketData<TimeShareSeries>> {
+  ): Promise<RoutedMarketData<ProviderTimeShareSeries>> {
     return this.route(
       { capability: 'timeShare', instrumentType: request.instrumentType },
       request,

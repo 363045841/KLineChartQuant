@@ -14,7 +14,6 @@ export type {
   AxisColumnPalette,
   AxisColumnProjection,
   AxisLabel,
-  AxisLabelRole,
   AxisLabelScope,
   AxisLabelSource,
   AxisLabelsFrame,

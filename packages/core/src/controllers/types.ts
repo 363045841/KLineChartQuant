@@ -11,9 +11,9 @@
 import type { Bar, IndicatorMarketContext } from '@363045841yyt/klinechart-plot-contracts'
 import type { InstrumentCapabilities, InstrumentType } from '../data/provider/types.js'
 import type { SymbolSpec } from '../foundation/types/instrument.js'
-import type { KLineData, TimeShareData } from '../foundation/types/bar.js'
+import type { KLineData } from '../foundation/types/bar.js'
 
-export type { KLineData, TimeShareData }
+export type { KLineData }
 import type {
   IndicatorInstance,
   IndicatorRole,

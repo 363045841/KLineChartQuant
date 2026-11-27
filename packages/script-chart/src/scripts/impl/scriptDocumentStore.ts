@@ -1,5 +1,5 @@
 /** 脚本文档读模型：指标来自 core 注册表，库由本服务持有；不维护第二份源码状态。 */
-import type { DefinitionRegistry, IndicatorMetadata } from '@363045841yyt/klinechart-core'
+import type { DefinitionRegistry, IndicatorMetadata } from '@363045841yyt/klinechart-core/node'
 import {
   builtinLibraries,
   type QuickJSLibrary,

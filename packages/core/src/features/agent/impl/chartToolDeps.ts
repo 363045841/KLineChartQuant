@@ -8,7 +8,7 @@ import type {
   InstrumentDescriptor,
   InstrumentRef,
   TimeShareDay,
-  TimeShareSeries,
+  ProviderTimeShareSeries,
   TradingDate,
 } from '../../../data/provider/types.js'
 import {
@@ -792,7 +792,7 @@ export function createChartAgentMarketQueries(
 }
 
 /** 单日分时序列投影为按日结构，和 range 共用同一形状。 */
-function toTimeShareDay(series: TimeShareSeries): TimeShareDay {
+function toTimeShareDay(series: ProviderTimeShareSeries): TimeShareDay {
   return { tradingDate: series.tradingDate, preClose: series.preClose, data: series.data }
 }
 

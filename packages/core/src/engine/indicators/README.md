@@ -134,7 +134,7 @@ interface IndicatorRenderStateReader {
 
 1. 指标统一写在 Script 包：在 `packages/script/scripts/` 新增 `defineIndicator` 文件，数值测试也放在 Script 包。
 2. 中立定义经 Core 适配器补齐计算、Plot 渲染与标题能力，直接产出定义对象交给注册表，不再经过装饰器或定义类。
-3. 定义声明 `category`、`defaultPaneId`、`rendererFactory`、`dataViews`；需要计算时再补 `runtime` 与 `plots`。
+3. 定义声明 `category`、`defaultPaneId`、`dataViews`；需要计算时再补 `runtime` 与 `plots`。`rendererFactory` 与 `getTitleInfo` 属于图表侧渲染绑定，不进入注册契约。
 4. 在 `engine/renderers/` 实现绘制；通过注入的 `instanceId` 读取帧级投影，不持有计算缓存。
 5. 覆盖注册、计算提交、结果投影和渲染投影测试。
 

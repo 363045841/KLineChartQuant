@@ -23,6 +23,7 @@ export type { KLineData, TimeShareData } from './foundation/types/bar.js'
 export { createAlertRuntime } from './features/alerts/impl/createAlertRuntime.js'
 export type { AlertRuntime, AlertRuntimeOptions } from './features/alerts/impl/createAlertRuntime.js'
 export { createAlertService } from './features/alerts/impl/createAlertService.js'
+export { decodeFires, decodeRules } from './features/alerts/impl/alertCodec.js'
 export { DEFAULT_ALERT_LIMITS } from './features/alerts/types.js'
 export type {
   AlertFiresDocument,
@@ -53,3 +54,24 @@ export type {
 
 export { systemClock } from './foundation/utils/clock.js'
 export type { Clock } from './foundation/utils/clock.js'
+
+export { createPlotIndicatorDefinition } from './engine/indicators/pipeline/impl/createPlotDefinition.js'
+export { logIndicatorFailure, runIndicatorPipeline } from './engine/indicators/pipeline/index.js'
+export type {
+  IndicatorCandidate,
+  IndicatorCollector,
+  IndicatorCompiler,
+  IndicatorDescriptor,
+  IndicatorFailure,
+  IndicatorPipelineReport,
+  IndicatorStage,
+  RegistrableIndicator,
+  StageResult,
+} from './engine/indicators/pipeline/index.js'
+export type {
+  IndicatorMetadata,
+  IndicatorRuntimeDescriptor,
+  TitleInfo,
+} from './engine/indicators/indicatorMetadata.js'
+export { generateUUID } from './foundation/utils/uuid.js'
+export type { ReadonlySignal } from './foundation/reactivity/signal.js'

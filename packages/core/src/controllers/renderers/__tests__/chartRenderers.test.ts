@@ -17,7 +17,7 @@ import {
   type ChartController,
   type ChartRendererAccess,
   getChartRenderers,
-  type IndicatorMetadata,
+  type RenderableIndicator,
   type IndicatorRendererOptions,
   type Layer,
   makePluginLayerId,
@@ -53,7 +53,7 @@ const ExternalIndicator = {
   rendererFactory: vi.fn((options?: IndicatorRendererOptions) =>
     createExternalLayer(indicatorLayerId, options?.paneId),
   ),
-} satisfies IndicatorMetadata
+} satisfies RenderableIndicator
 
 /** 远价位主图指标：用于验证自动口径与 K 线口径对轴范围的取舍。 */
 const FAR_PRICE = 300

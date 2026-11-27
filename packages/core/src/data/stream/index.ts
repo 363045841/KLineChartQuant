@@ -7,9 +7,6 @@
  */
 
 export type {
-  EventStream,
-  EventStreamFactory,
-  EventStreamHandlers,
   StreamBar,
   StreamChannel,
   StreamClose,

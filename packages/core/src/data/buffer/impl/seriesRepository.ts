@@ -141,13 +141,6 @@ export class SeriesRepository {
     return this.getSource(selection)?.timeShare.get(selection.tradingDate)
   }
 
-  /** 查询任意判别选择对应的 Buffer。 */
-  get(selection: SeriesSelection): KLineBuffer | TimeShareBuffer | undefined {
-    return selection.kind === SERIES_SELECTION_KIND.bars
-      ? this.getBars(selection)
-      : this.getTimeShare(selection)
-  }
-
   /** 查询同一来源品种唯一的成交快照。 */
   getTrades(selection: TradesSelection): TradeBuffer | undefined {
     return this.getSource(selection)?.trades

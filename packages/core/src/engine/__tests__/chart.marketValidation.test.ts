@@ -1,4 +1,4 @@
-/** 使用真实 Chart 验证主品种整体替换的市场会话与写入前校验。 */
+/** 使用真实 Chart 验证主品种整体替换的数据视图切换与写入前校验。 */
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -6,7 +6,6 @@ import {
   TIME_SHARE_PERIOD,
 } from '../../controllers/types'
 import type { SymbolSpec } from '@/foundation/types/instrument.js'
-import { HK_MARKET_SESSION } from '../../foundation/utils/sessionTimeLabels'
 import { Chart, type ChartOptions } from '../chart/index'
 import { ChartDataViewId } from '../chartModel/index'
 import { MAIN_PANE_ID } from '../pane/types'
@@ -79,20 +78,9 @@ describe('Chart market validation boundaries', () => {
         target.setPrimaryMarket(withSelection({ period: TIME_SHARE_PERIOD }), { date: 20260728 }),
       view: ChartDataViewId.TimeShare,
     },
-  ])('configures HK session through $name', ({ run, view }) => {
+  ])('switches to $view through $name', ({ run, view }) => {
     run(chart)
-    expect(chart['_timeShareMode'].marketSession).toEqual(HK_MARKET_SESSION)
     expect(chart.kernel.mode.readonly.dataView.peek()).toBe(view)
-  })
-
-  it('does not resolve a session for a non-timeshare selection', () => {
-    const session = vi.spyOn(chart['_timeShareMode'], 'setMarketSession')
-    chart.setPrimaryMarket(
-      withSelection({
-        instrument: { ...currentSpec().instrument, exchange: 'FUTURES', sessionId: 'FUTURES' },
-      }),
-    )
-    expect(session).not.toHaveBeenCalled()
   })
 
   it('rejects unknown timeshare market before changing the selection', () => {

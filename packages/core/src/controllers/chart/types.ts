@@ -23,4 +23,3 @@ export type {
   PaneSpec,
   SymbolInfo,
 } from '../types.js'
-export type { SymbolSpec } from '../../foundation/types/instrument.js'

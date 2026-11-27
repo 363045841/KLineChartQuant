@@ -12,7 +12,7 @@ import type {
   KLinePeriod,
   OlderDataStatus,
   TimeShareRange,
-  TimeShareSeries,
+  ProviderTimeShareSeries,
   TradingDate,
 } from '../provider/types.js'
 import type { TradeRange } from '../trades/types.js'
@@ -205,7 +205,7 @@ export interface TimeShareRangeCacheQuery {
 export interface TimeShareCacheResult {
   readonly source: string
   readonly instrument: InstrumentDescriptor
-  readonly series: TimeShareSeries
+  readonly series: ProviderTimeShareSeries
 }
 
 /** 多日分时结果。 */

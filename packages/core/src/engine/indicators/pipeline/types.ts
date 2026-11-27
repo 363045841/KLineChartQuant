@@ -9,7 +9,7 @@ import type {
   IndicatorSourceDocument,
   ScriptDefinitionKind,
 } from '@363045841yyt/klinechart-plot-contracts'
-import type { ReadonlySignal } from '@/foundation/reactivity/index.js'
+import type { ReadonlySignal } from '@/foundation/reactivity/signal.js'
 import type { ChartDataView } from '../../../foundation/types/chartView.js'
 import type {
   IndicatorCategory,

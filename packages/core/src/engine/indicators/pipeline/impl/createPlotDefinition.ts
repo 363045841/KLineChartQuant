@@ -1,7 +1,7 @@
 /**
  * 定义适配器：把 defineIndicator / defineAlert 产出的中立定义装配成 Core 可执行定义对象。
  *
- * 只做装配，不写注册表；脚本与第三方来源都通过它产出 `RegistrableIndicator`。
+ * 只做装配，不写注册表；产出的是纯计算描述，渲染绑定由图表侧在注册时附加。
  * 计算端口直通，事件随计算输出一起返回，不另设取件通道。
  */
 import {
@@ -13,13 +13,8 @@ import {
   resolveInputDefaults,
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { CalculationCompute, CalculationInputs } from '@/engine/calculation/index.js'
-import {
-  type IndicatorInputDisplay,
-  type IndicatorMetadata,
-} from '@/engine/indicators/indicatorMetadata.js'
+import type { IndicatorInputDisplay, IndicatorMetadata } from '@/engine/indicators/indicatorMetadata.js'
 import { toPlotBar } from '@/engine/indicators/plotBars.js'
-import { plotRenderer } from '@/engine/plots/impl/plotDefinition.js'
-import { createPlotTitleInfo } from '@/engine/plots/impl/plotTitleInfo.js'
 import { formatPlotValue } from '@/engine/plots/impl/plotValueFormat.js'
 
 /** 提取参数展示声明；默认值与类型仍由 defaultInputs 提供，两处不重复存默认值。 */
@@ -45,10 +40,10 @@ function adaptCompute(sourceCompute: IndicatorCompute<CalculationInputs>) {
 }
 
 /**
- * 把中立定义装配成 Core 可注册的定义对象。
+ * 把中立定义装配成 Core 可注册的计算描述。
  *
  * @param definition 已绑定计算入口的中立定义
- * @returns 完整定义对象，注册阶段直接消费
+ * @returns 定义对象；不含渲染器与标题投影
  */
 export function createPlotIndicatorDefinition(
   definition: IndicatorDefinition<CalculationInputs>,
@@ -69,8 +64,7 @@ export function createPlotIndicatorDefinition(
     info: definition.info,
     category: main ? 'main' : 'sub',
     defaultPaneId: paneId,
-    rendererFactory: plotRenderer(),
-    getRendererName: ({ paneId }) => `${internalName}_${paneId}`,
+    getRendererName: ({ paneId: target }) => `${internalName}_${target}`,
     scale: {
       label: definition.name,
       decimals: 2,
@@ -78,7 +72,6 @@ export function createPlotIndicatorDefinition(
         format && format !== Format.price ? (value) => formatPlotValue(format, value) : undefined,
     },
     plots: { source: 'series', series: [], format: definition.format },
-    getTitleInfo: createPlotTitleInfo(definition.name),
     runtime: {
       revision: definition.document?.revision,
       dependency: definition.dependency ?? Object.freeze({ kind: 'stateful' } as const),

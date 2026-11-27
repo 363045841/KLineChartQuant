@@ -1,7 +1,7 @@
 /** Plot 图例投影：从绘图数据直接读取当前点、标签和颜色。 */
 
 import { isOhlcPlot, plotPointAt } from '@363045841yyt/klinechart-plot-contracts'
-import type { GetTitleInfoFn } from '@/engine/indicators/indicatorMetadata.js'
+import type { GetTitleInfoFn } from '@/engine/renderers/Indicator/types.js'
 import { formatPlotValue } from './plotValueFormat.js'
 import { isPlotRenderState } from './readPlotState.js'
 

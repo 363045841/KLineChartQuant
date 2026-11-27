@@ -4,14 +4,15 @@
  * 线程入口与持久化都由本文件决定，Core 与 script-chart 只接收能力。
  */
 import { builtinScriptSources } from '@363045841yyt/klinechart-script'
+import { bindPlotRendering } from '@363045841yyt/klinechart-core'
 import {
   COMPILER_WORKER_URL,
   createScriptWorkerPool,
   fromEventTarget,
   SCRIPT_WORKER_URL,
 } from '@363045841yyt/klinechart-script/worker'
+import { createIndexedDbScriptPersistence } from '@363045841yyt/klinechart-script-chart/browser'
 import {
-  createIndexedDbScriptPersistence,
   createScriptService,
   type ScriptService,
 } from '@363045841yyt/klinechart-script-chart'
@@ -37,6 +38,7 @@ export function createBrowserScriptService(options: {
     isDefinitionReferenced: options.isDefinitionReferenced,
     builtinSources: builtinScriptSources,
     persistence: createIndexedDbScriptPersistence(),
+    bindRendering: bindPlotRendering,
     createWorkerPool: (runtime) =>
       createScriptWorkerPool({
         ...runtime,

@@ -8,7 +8,7 @@ import {
   generateUUID,
   logIndicatorFailure,
   runIndicatorPipeline,
-} from '@363045841yyt/klinechart-core'
+} from '@363045841yyt/klinechart-core/node'
 import { isWithinFolder, type ScriptRunOptions } from '@363045841yyt/klinechart-plot-contracts'
 import {
   inspectScript,
@@ -55,7 +55,7 @@ export async function createScriptService(
   const persistence = options.persistence
   const log = createScriptLog()
   const store = createScriptDocumentStore(libraries, options.definitions)
-  const executor = createScriptExecutor(store, log, options.createWorkerPool)
+  const executor = createScriptExecutor(store, log, options.createWorkerPool, options.bindRendering)
   const restored = await restoreScriptWorkspace({ persistence, store, executor, options })
   const folders = restored.folders
   const report = await runIndicatorPipeline(options.definitions, [
