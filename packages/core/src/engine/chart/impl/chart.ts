@@ -36,7 +36,7 @@ import {
 } from '../../../controllers/renderers/index.js'
 import type { ChartFrameCaptureContext } from '../../../controllers/screenshot/types.js'
 import { isTimeSharePeriod, type SymbolInfo } from '../../../controllers/types.js'
-import type { SymbolSpec } from '@/foundation/types/instrument.js'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
 import type { MarketDataService } from '../../../data/service/index.js'
 import { resolveMarketDataCacheMaxBytes } from '../../../data/buffer/impl/marketDataPolicy.js'
 import type { CoverageResult } from '../../../data/buffer/types.js'
@@ -49,7 +49,9 @@ import {
   DEFAULT_KLINE_PERIOD,
 } from '../../../data/provider/types.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
-import { type CalculationHub, createDataIdentity, type DataIdentity } from '../../calculation/index.js'
+import type { CalculationHub } from '../../calculation/index.js'
+import { seriesSelectionKey } from '@/data/buffer/seriesSelection.js'
+import { formatPlotValue } from '@/engine/plots/impl/plotValueFormat.js'
 import {
   type ChartSettings,
   resolveKLineGapRatio,
@@ -446,26 +448,14 @@ export class Chart {
         comparison: this.kernel.comparison,
         needsTrades: () => this.kernel.footprint.readonly.enabled.peek(),
         updateTradeInput: (input) => this.kernel.data.actions.setTrades(input),
-        invalidateRequests: () => this.indicatorManager.invalidateMarketData(),
         scheduleDraw: (level) => this.scheduleDraw(level),
         onBarsReady: () => this.handleBarsReady(),
         resetInteraction: () => {
           this.interaction.reset()
           this.zoomController.stopAnimation()
         },
-        updateIndicatorData: (data, change, range, dataRevision, displayTimestamps, live) => {
-          const identity = this.currentDataIdentity()
-          if (!identity) return
-          this.indicatorManager.updateIndicatorData(
-            data,
-            change,
-            range,
-            dataRevision,
-            displayTimestamps,
-            identity,
-            this.kernel.data.readonly.readyMarket.peek(),
-            live,
-          )
+        projectIndicatorFeed: (selection, displayTimestamps) => {
+          this.indicatorManager.projectFeed(selection === null ? null : seriesSelectionKey(selection), displayTimestamps)
         },
         publishSymbols: (symbols) => this.kernel.actions.setSymbols(symbols),
       },
@@ -698,7 +688,6 @@ export class Chart {
 
     this.indicatorManager = new ChartIndicatorManager({
       hub: runtime.calculationHub,
-      getMarketRevision: () => this.dataManager.marketRevision,
       getPeriod: () => this.dataManager.currentPeriod,
       plotColors$: computed(() => {
         const settings = this.kernel.settings.readonly.settings()
@@ -1021,7 +1010,9 @@ export class Chart {
           axisId: groupAxis(instance.paneId, groupKey),
           visible: instance.hidden !== true,
           decimals: definition?.scale?.decimals ?? 2,
-          format: definition?.scale?.format,
+          format: definition?.scale?.format ?? (definition?.plots?.format && definition.plots.format !== 'price'
+            ? ((format) => (value: number) => formatPlotValue(format, value))(definition.plots.format)
+            : undefined),
         }
       })
     const seriesState = this.kernel.systemObjects.readonly.state()
@@ -1405,20 +1396,6 @@ export class Chart {
   /** K线原始数据（分时模式下为空） */
   getInternalData(): readonly KLineData[] {
     return this.dataManager.getInternalData()
-  }
-
-  /** 当前主品种的数据身份；计算层只认这份身份，不读视图。 */
-  private currentDataIdentity(): DataIdentity | null {
-    const spec = this.dataManager.symbols.peek()[0]
-    if (!spec) return null
-    return createDataIdentity({
-      source: spec.instrument.source,
-      instrument: spec.instrument.id,
-      period: spec.period,
-      adjustment: spec.adjust,
-      defaultPeriod: DEFAULT_KLINE_PERIOD,
-      defaultAdjustment: DEFAULT_KLINE_ADJUSTMENT,
-    })
   }
 
   /** 获取内容总宽度（用于外部 scroll-content 撑开 scrollWidth） */

@@ -223,11 +223,10 @@ describe('Unified trade loading', () => {
   })
 
   // 淘汰已验证数据时必须同步撤销其完整性证明。
-  it('shares repository identity and invalidates coverage when the common cache evicts trades', async () => {
+  it('reuses the trade buffer and invalidates coverage when the cache evicts trades', async () => {
     const f = createTradeCache([marketTrade('1', 90_000)])
     try {
       await f.query({ from: 60_000, to: 120_000 })
-      expect(f.cache.repository.getTrades(tradeSelection)).toBe(f.buffer)
       expect(f.cache.getTradeBuffer(tradeSelection, tradeInstrument)).toBe(f.buffer)
       f.cache.setMaxBytes(1)
       expect(f.buffer.snapshot.peek().coverage).toEqual([])
@@ -238,7 +237,7 @@ describe('Unified trade loading', () => {
       f.cache.setMaxBytes(50 * 1024 * 1024)
       await f.query({ from: 60_000, to: 120_000 })
       expect(f.buffer.snapshot.peek().batches.flatMap((batch) => batch.items)).toHaveLength(1)
-      f.cache.repository.deleteInstrument(tradeSelection.instrumentKey)
+      f.cache.destroy()
       expect(f.buffer.disposed).toBe(true)
       expect(f.cache.stats.peek().entryCount).toBe(0)
     } finally {

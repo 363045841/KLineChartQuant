@@ -1,7 +1,7 @@
 /** Chart 业务状态的 composition root：组合全部子状态并暴露派生信号。 */
 
 import type { SymbolInfo } from '../../controllers/types.js'
-import type { SymbolSpec } from '@/foundation/types/instrument.js'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
 import {
   type ChartSettings,
   normalizeSettings,
@@ -30,7 +30,7 @@ import {
   resolveChartWorkspaceId,
 } from '../chartModel/index.js'
 import { symbolSpecIdentityKey } from '../data/symbolIdentity.js'
-import { isSymbolSpec } from '../data/symbolSpecGuard.js'
+import { isSymbolSpec } from '@/data/symbolSpecGuard.js'
 import type { DrawingToolId } from '../drawing/index.js'
 import { belongsToDrawingSymbol, bindDrawingSymbol } from '../drawing/model/impl/drawingScope.js'
 import { createIndicatorLayerId } from '../indicators/indicatorLayerNaming.js'

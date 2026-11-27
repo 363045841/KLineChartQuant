@@ -1,16 +1,15 @@
 /** 工作台行情错误恢复期间保留图表及 Agent 实例。 */
 import 'fake-indexeddb/auto'
-import { defineComponent, h, onMounted, onUnmounted } from 'vue'
+import { defineComponent, h, onMounted, onUnmounted, type ShallowRef } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import { createMarketDataHost } from '@363045841yyt/klinechart-core/market-data'
+import type { AlertService } from '@363045841yyt/klinechart-core'
 import { createDataSourceFixture } from '../../../../core/src/data/provider/__tests__/helpers/providerTestKit.js'
 import KlineWorkbench from '../KlineWorkbench.vue'
+import { provideBrowserAppRuntime } from '../../composables/runtime/useAppRuntime.js'
 
 const lifecycle = vi.hoisted(() => ({ chartMounted: vi.fn(), chartUnmounted: vi.fn(), agentMounted: vi.fn(), agentUnmounted: vi.fn() }))
-const initialize = vi.hoisted(() => vi.fn<() => Promise<undefined>>(async () => undefined))
-
-vi.mock('../impl/useWorkbenchServices.js', () => ({ useWorkbenchServices: () => ({ initialize }) }))
 vi.mock('../../components/chart/KLineChart.vue', () => ({
   default: defineComponent({
     setup() {
@@ -32,20 +31,26 @@ vi.mock('../impl/WorkbenchAgent.vue', () => ({
 }))
 
 describe('workbench recovery', () => {
-  it('mounts the chart while script initialization is pending and reports failures without removing it', async () => {
-    let rejectInitialization: (error: Error) => void = () => {}
-    initialize.mockImplementationOnce(() => new Promise((_resolve, reject) => {
-      rejectInitialization = reject
-    }))
+  it('keeps the application alert service alive after its last workbench closes', async () => {
     const host = createMarketDataHost()
-    const wrapper = mount(KlineWorkbench, { props: { agent: false, marketDataContext: host } })
+    let alerts: Readonly<ShallowRef<AlertService | null>> | undefined
+    const App = defineComponent({
+      props: { count: { type: Number, required: true } },
+      setup(props) {
+        alerts = provideBrowserAppRuntime(host, false, (error) => { throw error })
+        return () => Array.from({ length: props.count }, (_, index) => h(KlineWorkbench, {
+          key: index, agent: false, scripts: false, layoutStorageId: `tab-${index}`,
+        }))
+      },
+    })
+    const wrapper = mount(App, { props: { count: 2 } })
     try {
-      expect(wrapper.find('[data-chart]').exists()).toBe(true)
-      const error = new Error('Script initialization failed')
-      rejectInitialization(error)
-      await flushPromises()
-      expect(wrapper.emitted('error')).toEqual([[error]])
-      expect(wrapper.find('[data-chart]').exists()).toBe(true)
+      await vi.waitFor(() => expect(alerts?.value).not.toBeNull())
+      const service = alerts?.value
+      expect(service).toBeDefined()
+      await wrapper.setProps({ count: 0 })
+      await wrapper.setProps({ count: 1 })
+      expect(alerts?.value).toBe(service)
     } finally {
       wrapper.unmount()
       host.dispose()
@@ -58,11 +63,18 @@ describe('workbench recovery', () => {
     vi.spyOn(fixture.source.instruments, 'resolve').mockRejectedValueOnce(new Error('Network unavailable'))
     const host = createMarketDataHost()
     host.registerDataSource(fixture.source)
-    const wrapper = mount(KlineWorkbench, { props: {
-      marketDataContext: host, instrument: { source: 'test', id: 'A' }, scripts: false,
+    const App = defineComponent({
+      props: { instrumentId: { type: String, required: true } },
+      setup(props) {
+        provideBrowserAppRuntime(host, false, (error) => { throw error })
+        return () => h(KlineWorkbench, {
+      instrument: { source: 'test', id: props.instrumentId }, scripts: false,
       // Agent 面板改为首次展开才挂载，这里显式展开以验证错误恢复期间实例不被重建。
       initialAgentPanelOpen: true,
-    } })
+        })
+      },
+    })
+    const wrapper = mount(App, { props: { instrumentId: 'A' } })
     try {
       await flushPromises()
       expect(wrapper.get('[role="alert"]').text()).toContain('Network unavailable')
@@ -72,17 +84,17 @@ describe('workbench recovery', () => {
       await flushPromises()
       expect(wrapper.find('[role="alert"]').exists()).toBe(false)
 
-      await wrapper.setProps({ instrument: { source: 'test', id: 'missing' } })
+      await wrapper.setProps({ instrumentId: 'missing' })
       await flushPromises()
       expect(wrapper.get('[role="alert"]').text()).toContain('Unknown instrument')
-      await wrapper.setProps({ instrument: { source: 'test', id: 'B' } })
+      await wrapper.setProps({ instrumentId: 'B' })
       await flushPromises()
       expect(wrapper.find('[role="alert"]').exists()).toBe(false)
       expect(lifecycle.chartMounted).toHaveBeenCalledOnce()
       expect(lifecycle.agentMounted).toHaveBeenCalledOnce()
       expect(lifecycle.chartUnmounted).not.toHaveBeenCalled()
       expect(lifecycle.agentUnmounted).not.toHaveBeenCalled()
-      expect(wrapper.emitted('error')).toHaveLength(2)
+      expect(wrapper.getComponent(KlineWorkbench).emitted('error')).toHaveLength(2)
     } finally {
       wrapper.unmount()
       host.dispose()

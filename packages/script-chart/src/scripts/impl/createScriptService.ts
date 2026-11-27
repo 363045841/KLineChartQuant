@@ -55,7 +55,7 @@ export async function createScriptService(
   const persistence = options.persistence
   const log = createScriptLog()
   const store = createScriptDocumentStore(libraries, options.definitions)
-  const executor = createScriptExecutor(store, log, options.createWorkerPool, options.bindRendering)
+  const executor = createScriptExecutor(store, log, options.createWorkerPool)
   const restored = await restoreScriptWorkspace({ persistence, store, executor, options })
   const folders = restored.folders
   const report = await runIndicatorPipeline(options.definitions, [
@@ -339,6 +339,7 @@ export async function createScriptService(
     dispose() {
       log.dispose()
       executor.dispose()
+      void pending.finally(() => persistence.dispose?.())
     },
   })
 }

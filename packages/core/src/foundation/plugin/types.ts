@@ -300,7 +300,7 @@ export interface RenderDataContext {
   /** 当前图表实例解析后的市场交易时段 */
   marketSession?: import('../utils/sessionTimeLabels.js').MarketSessionConfig
   comparisonData?: ReadonlyMap<string, ReadonlyArray<KLineData>>
-  comparisonSymbols?: ReadonlyArray<import('../types/instrument.js').SymbolSpec>
+  comparisonSymbols?: ReadonlyArray<import('@/data/symbolSpec.js').SymbolSpec>
   comparisonColors?: ReadonlyMap<string, string>
   /** 比较品种的隐藏状态，图例保留名称供恢复显示。 */
   comparisonHidden?: ReadonlyMap<string, boolean>

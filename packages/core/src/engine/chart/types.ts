@@ -60,7 +60,6 @@ export interface IndicatorInstance {
   id: string
   definitionId: string
   label: string
-  name: string
   paneId: string
   ordinal: number
   params: Record<string, unknown>

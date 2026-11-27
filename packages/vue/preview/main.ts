@@ -1,10 +1,14 @@
 /** 预览启动：在 Script Worker 中注册指标，并接入行情服务。 */
-import { createApp } from 'vue'
+import { createApp, h, onScopeDispose } from 'vue'
 import App from './App.vue'
-import { MARKET_DATA_CONTEXT_KEY } from '@vue-src/composables/market/useMarketDataContext.js'
 // 字体与滚动条样式随包的入口样式一起加载，宿主不需要单独引入。
-import { createPersistedMarketDataHost } from '../src/index'
+import { AlertNotificationStack, createPersistedMarketDataHost, provideBrowserAppRuntime } from '../src/index'
 
-const marketDataHost = createPersistedMarketDataHost()
-createApp(App).provide(MARKET_DATA_CONTEXT_KEY, marketDataHost.context).mount('#app')
-if (import.meta.hot) import.meta.hot.dispose(() => marketDataHost.dispose())
+const app = createApp({ setup() {
+  const market = createPersistedMarketDataHost()
+  const alerts = provideBrowserAppRuntime(market.context, true, (error) => console.error(error))
+  onScopeDispose(market.dispose)
+  return () => h(App, null, { notifications: () => alerts.value && h(AlertNotificationStack, { alerts: alerts.value }) })
+} })
+app.mount('#app')
+if (import.meta.hot) import.meta.hot.dispose(() => app.unmount())

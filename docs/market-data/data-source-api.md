@@ -49,11 +49,15 @@ const unregister = host.registerDataSource(source)
 示例中的 `api` 由应用实现。`stream` 返回一次性传输；历史数据源直接省略此方法。源级 `liveBars` 由传输实现派生，如果显式声明就必须与实现一致。单个品种可以声明 `liveBars: false`。
 
 ```vue
-<KlineWorkbench
-  :market-data-context="host"
-  :instrument="{ source: 'broker', id: 'stable-instrument-id' }"
-  period="daily"
-/>
+<script setup lang="ts">
+import { KlineWorkbench, provideBrowserAppRuntime } from '@363045841yyt/klinechart'
+
+provideBrowserAppRuntime(host, true, console.error)
+</script>
+
+<template>
+  <KlineWorkbench :instrument="{ source: 'broker', id: 'stable-instrument-id' }" period="daily" />
+</template>
 ```
 
 `instrument` 和 `period` 支持受控切换。宿主实例在挂载时确定，卸载单个工作台不销毁共享宿主。`unregister()` 注销来源，`host.dispose()` 释放整个宿主；应用不需要操作内部注册表或缓存。

@@ -12,7 +12,7 @@
 
 ## 行情与计算
 
-- 图表与警报共享同一份行情修订：两者都订阅 `MarketDataService` 的序列，历史分页、实时合并与收线标记由服务统一维护；警报的 `closedBarTime` 来自序列的 `lastBarClosed`。
+- `MarketDataService` 按序列向计算 Hub 发布修订，图表与警报只登记计算需求。`closedBarTime` 取自上游收盘帧的时间戳。
 - 视图读取最新完整结果。警报按顺序接收每次计算结果，因此中间的上穿或收盘帧不会被更新的快照替代。
 - `barstate.prevPrice` 读取同一根 K 线上一次实时更新价。实时首笔与历史计算返回 `undefined`。`close[0]` 是当前 K 线的最新价格。
 - 指标和警报共用计算输出。警报事件随 `alerts` 返回，只有本次更新的实时末根可以产出事件。

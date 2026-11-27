@@ -5,7 +5,7 @@
  * 日志与投递；视图与 UI 不参与判断。
  */
 import type { ReadonlySignal } from '../../foundation/reactivity/signal.js'
-import type { SymbolSpec } from '@/foundation/types/instrument.js'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
 import type { CalculationInputs } from '../../engine/calculation/index.js'
 import type { ScriptAlertFrequency } from '@363045841yyt/klinechart-plot-contracts'
 
@@ -97,9 +97,6 @@ export const DEFAULT_ALERT_LIMITS: AlertLimits = {
 export interface AlertService {
   readonly alerts: ReadonlySignal<readonly Alert[]>
   readonly fires: ReadonlySignal<readonly AlertFire[]>
-
-  /** 指定品种的规则投影；身份换算与 `list({ symbol })` 完全一致。 */
-  forSymbol(symbol: SymbolSpec): ReadonlySignal<readonly Alert[]>
 
   create(draft: AlertDraft): Alert
   update(id: AlertId, patch: Partial<AlertDraft>): Alert

@@ -4,6 +4,8 @@
 import { createMarketDataService } from '@/data/service/index.js'
 import { applyMarketSessions } from '@/foundation/config/marketSession/applyMarketSessions.js'
 import { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry.js'
+import { DATA_CHANGE_KINDS } from '@/data/buffer/types.js'
+import { seriesSelectionKey } from '@/data/buffer/seriesSelection.js'
 import { createCalculationHub } from '../../calculation/index.js'
 import { createCalculationMarket } from '../../calculation/market/index.js'
 import { toCalculationDefinition } from '../../indicators/instances/assembly/toCalculationDefinition.js'
@@ -26,17 +28,33 @@ export function createMarketRuntime(options: MarketRuntimeOptions): MarketRuntim
     stream: options.market.stream,
     marketSessions,
     clock: options.clock,
-  })
-  const calculationMarket = createCalculationMarket({
-    data,
-    marketSessions,
+    health: options.market.health,
   })
   const calculation = createCalculationHub({
     resolveDefinition: (definitionId) => {
       const metadata = options.definitions.getDefinition(definitionId)
       return metadata === undefined ? undefined : toCalculationDefinition(metadata)
     },
-    marketData: () => calculationMarket,
+    marketData: createCalculationMarket(data, marketSessions),
+  })
+
+  const unsubscribeBars = data.subscribeBars((selection, update) => {
+    if (!update) {
+      calculation.removeFeed(seriesSelectionKey(selection))
+      return
+    }
+    const { change, instrument, revision, liveBarTime, closedBarTime } = update
+    if (!change.data.length) return
+    calculation.updateFeed({
+      identity: selection,
+      dataRevision: revision,
+      timestamps: change.data.map((bar) => bar.timestamp),
+      data: change.data,
+      change: { start: change.start, end: change.end, reset: change.kind === DATA_CHANGE_KINDS.replace || change.kind === DATA_CHANGE_KINDS.prepend || change.kind === DATA_CHANGE_KINDS.extend },
+      live: liveBarTime !== undefined && liveBarTime === change.data.at(-1)?.timestamp,
+      ...(closedBarTime === undefined ? {} : { closedBarTime }),
+      marketSession: { selection, instrument },
+    })
   })
 
   const unsubscribeDefinitions = options.definitions.commits.subscribe(() => {
@@ -59,9 +77,9 @@ export function createMarketRuntime(options: MarketRuntimeOptions): MarketRuntim
       disposed = true
       unsubscribeDefinitions()
       unsubscribeSessions()
+      unsubscribeBars()
       data.dispose()
       calculation.dispose()
-      calculationMarket.dispose()
     },
   }
 }

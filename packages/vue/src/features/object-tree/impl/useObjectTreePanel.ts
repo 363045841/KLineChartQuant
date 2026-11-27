@@ -11,7 +11,7 @@ import type {
 } from '@363045841yyt/klinechart-core'
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
 import { useControllerSignal } from '@vue-src/composables/chart/useControllerSignal.js'
-import { computed, type Ref, shallowRef } from 'vue'
+import { computed, type ComputedRef, type Ref, shallowRef } from 'vue'
 import {
   createMoveTarget,
   createNewPaneTarget,
@@ -41,7 +41,35 @@ interface DragSession {
   readonly target: DragTarget | null
 }
 
-export function useObjectTreePanel(controller: Readonly<Ref<ChartController | null>>) {
+interface ObjectTreePanelState {
+  readonly groups: ComputedRef<readonly PaneObjectGroup[]>
+  readonly totalCount: ComputedRef<number>
+  readonly isEmpty: ComputedRef<boolean>
+  readonly canCreatePane: ComputedRef<boolean>
+  readonly draggingId: ComputedRef<string | null>
+  readonly newPaneDropSide: ComputedRef<PaneDropSide | null>
+  toggleVisible(row: PaneObjectRow): void
+  toggleLocked(row: PaneObjectRow): void
+  removeRow(row: PaneObjectRow): void
+  canDrag(row: PaneObjectRow): boolean
+  visibilityHint(row: PaneObjectRow): string
+  lockHint(row: PaneObjectRow): string
+  onDragStart(event: DragEvent, row: PaneObjectRow): void
+  onRowPointerDown(event: PointerEvent): void
+  onDragEnd(): void
+  onRowDragOver(event: DragEvent, group: PaneObjectGroup, index: number): void
+  onGroupDragOver(event: DragEvent, group: PaneObjectGroup, displayIndex: number): void
+  onDrop(event: DragEvent, group: PaneObjectGroup, displayIndex: number): void
+  onRowDrop(event: DragEvent, group: PaneObjectGroup, index: number): void
+  onNewPaneDragOver(event: DragEvent, side: PaneDropSide): void
+  onNewPaneDrop(event: DragEvent, side: PaneDropSide): void
+  onRowKeydown(event: KeyboardEvent, group: PaneObjectGroup, row: PaneObjectRow): void
+  isDropBefore(group: PaneObjectGroup, index: number): boolean
+  isDropAfter(group: PaneObjectGroup, index: number): boolean
+}
+
+/** 向面板提供对象投影与交互命令。 */
+export function useObjectTreePanel(controller: Readonly<Ref<ChartController | null>>): ObjectTreePanelState {
   const groups = useControllerSignal(
     controller,
     (chart) => chart.objects.groups,
@@ -257,7 +285,6 @@ export function useObjectTreePanel(controller: Readonly<Ref<ChartController | nu
     toggleLocked,
     removeRow,
     canDrag,
-    canDropInto,
     visibilityHint,
     lockHint,
     draggingId,

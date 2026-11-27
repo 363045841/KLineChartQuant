@@ -17,18 +17,15 @@ export { createBuiltinMarketDataContext } from './data/provider/impl/sources/cre
 export { installBuiltinProviders } from './data/provider/impl/sources/builtinProviders.js'
 export type { HttpSourceOptions } from './data/provider/impl/sources/createHttpSource.js'
 export type { EventStream, EventStreamFactory, EventStreamHandlers } from './data/stream/types.js'
-export type { SymbolSpec } from './foundation/types/instrument.js'
+export type { SymbolSpec } from './data/symbolSpec.js'
 export type { KLineData, TimeShareData } from './foundation/types/bar.js'
 
 export { createAlertRuntime } from './features/alerts/impl/createAlertRuntime.js'
-export type { AlertRuntime, AlertRuntimeOptions } from './features/alerts/impl/createAlertRuntime.js'
+export type { AlertRuntimeOptions } from './features/alerts/impl/createAlertRuntime.js'
 export { createAlertService } from './features/alerts/impl/createAlertService.js'
-export { decodeFires, decodeRules } from './features/alerts/impl/alertCodec.js'
+export { decodeAlertDocument, importAlertDocuments } from './features/alerts/impl/alertCodec.js'
 export { DEFAULT_ALERT_LIMITS } from './features/alerts/types.js'
-export type {
-  AlertFiresDocument,
-  AlertRulesDocument,
-} from './features/alerts/impl/alertCodec.js'
+export type { AlertDocument } from './features/alerts/impl/alertCodec.js'
 export type {
   Alert,
   AlertChannel,

@@ -26,10 +26,10 @@
 
 ## 所有权
 
-- `MarketDataCache` 与 `SeriesRepository` 由服务独占，图表和 Agent 不再持有。
-- 实时订阅、重连补偿、收线标记（`lastBarClosed`）和向前分页都在服务内部完成。
+- 行情服务持有 K 线和分时订阅序列。查询缓存复用活跃 K 线，并维护历史分页与成交快照。
+- 实时订阅、重连补偿、收盘时间和向前分页都在服务内部完成。
 - 计算中心只调用 `read` / `readSymbol`，不建立订阅、不持有缓存。
-- 警报通过 `createAlertFeeds` 把服务序列投影成计算中枢的 feed，自己不再查询历史。
+- 共享运行时把行情修订传给计算 Hub，图表与警报没有各自的行情发布入口。
 
 ## 不变量
 
@@ -47,7 +47,6 @@
 - `packages/core/src/data/buffer/impl/marketDataCache.ts`：分页缓存、重试与在途请求去重。
 - `packages/core/src/engine/data/chartDataManager.ts`：图表侧只读投影。
 - `packages/core/src/engine/calculation/market/impl/readIndicatorBars.ts`：计算侧只读读取。
-- `packages/core/src/features/alerts/impl/createAlertFeeds.ts`：警报侧 feed 投影。
 
 ## 验收
 

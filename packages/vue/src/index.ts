@@ -174,6 +174,8 @@ export type {
 } from './features/side-panel/types.js'
 export type { KlineWorkbenchHandle, KlineWorkbenchProps } from './workbench/types.js'
 export { KlineWorkbench }
+export { provideBrowserAppRuntime } from './composables/runtime/useAppRuntime.js'
+export { default as AlertNotificationStack } from './components/alert/AlertNotificationStack.vue'
 
 // ---------------------------------------------------------------------------
 // createChart — imperative mount

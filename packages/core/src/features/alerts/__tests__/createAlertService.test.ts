@@ -1,6 +1,7 @@
 /** 警报服务：频率、冷却、过期、脚本解析与通知投递。 */
 import { describe, expect, it, vi } from 'vitest'
 import { createCalculationHub } from '../../../engine/calculation/index.js'
+import { resolveBarsSelection } from '@/data/service/index.js'
 import { makeSymbolSpec } from '../../../engine/data/__tests__/helpers/symbolSpecFixture.js'
 import { createTestDefinitions } from '@/engine/indicators/__tests__/helpers/definitionsTestKit.js'
 import { createMemoryDocumentStore } from '../../../foundation/persistence/index.js'
@@ -8,15 +9,13 @@ import {
   createAlertService,
   DEFAULT_ALERT_LIMITS,
   type AlertDraft,
-  type AlertFiresDocument,
+  type AlertDocument,
   type AlertFrequency,
-  type AlertRulesDocument,
 } from '../index.js'
-import { alertFeedIdentity } from '../impl/alertSymbol.js'
 
-const symbol = makeSymbolSpec({ id: 'BTC', symbol: 'BTCUSDT', source: 'binance', period: '1', adjust: 'none' })
+const symbol = makeSymbolSpec({ id: 'BTC', symbol: 'BTCUSDT', source: 'binance', period: '1min', adjust: 'none' })
 const script = { definitionId: 'PriceCross', inputs: {} }
-const identity = alertFeedIdentity(symbol)
+const identity = resolveBarsSelection(symbol, 'original')
 const draft: AlertDraft = { name: 'PriceCross', script, symbol, channels: ['in-app'], message: '{{message}}' }
 
 /** 构造一份独立注册表、计算中枢与内存持久化的完整夹具。 */
@@ -44,16 +43,13 @@ async function setup(frequency: AlertFrequency) {
       },
     }),
   })
-  const rules = createMemoryDocumentStore<AlertRulesDocument>(null)
-  const fires = createMemoryDocumentStore<AlertFiresDocument>(null)
-  const retain = vi.fn()
+  const document = createMemoryDocumentStore<AlertDocument>(null)
   let clock = 1000
   const deps = {
     hub,
     definitions,
-    rules,
-    fires,
-    feeds: { retain },
+    document,
+    acquireBars: () => () => {},
     clock: { now: () => clock },
     limits: DEFAULT_ALERT_LIMITS,
     onError: vi.fn(),
@@ -64,13 +60,13 @@ async function setup(frequency: AlertFrequency) {
     const close = ++revision
     payloads.set(close, events)
     hub.updateFeed({
-      identity, dataRevision: revision, marketRevision: 0, timestamps: [time],
+      identity, dataRevision: revision, timestamps: [time],
       data: [{ timestamp: time, close, open: close, high: close, low: close }],
-      change: { start: 0, end: 1 }, live: true, ordered: true,
+      change: { start: 0, end: 1 }, live: true,
       ...(closed ? { closedBarTime: time } : {}),
     })
   }
-  return { hub, definitions, rules, fires, service, retain, observed, deps, push, advance: (by: number) => { clock += by } }
+  return { hub, document, service, observed, deps, push, advance: (by: number) => { clock += by } }
 }
 
 describe('alert rules', () => {
@@ -104,17 +100,17 @@ describe('alert rules', () => {
       id: 'ETH',
       symbol: 'ETHUSDT',
       source: 'binance',
-      period: '1',
+      period: '1min',
       adjust: 'none',
     })
     const btc = service.create(draft)
     const eth = service.create({ ...draft, name: 'PriceCross ETH', symbol: other })
-    expect(service.forSymbol(symbol).peek()).toEqual([btc])
-    expect(service.forSymbol(other).peek()).toEqual([eth])
+    expect(service.list({ symbol })).toEqual([btc])
+    expect(service.list({ symbol: other })).toEqual([eth])
     expect(service.list()).toHaveLength(2)
     service.remove(btc.id)
-    expect(service.forSymbol(symbol).peek()).toEqual([])
-    expect(service.forSymbol(other).peek()).toEqual([eth])
+    expect(service.list({ symbol })).toEqual([])
+    expect(service.list({ symbol: other })).toEqual([eth])
     await service.dispose()
     hub.dispose()
   })
@@ -158,14 +154,15 @@ describe('alert rules', () => {
   })
 
   it('restores a terminal once rule from the current document format', async () => {
-    const { hub, service, push, rules, deps } = await setup('once')
+    const { hub, service, push, document, deps } = await setup('once')
     const rule = service.create(draft)
     push(10, [1])
     await vi.waitFor(() => expect(service.fires.peek()).toHaveLength(1))
+    await vi.waitFor(async () => expect((await document.read())?.fires).toHaveLength(1))
+    const persisted = await document.read()
     await service.dispose()
-    expect(await rules.read()).not.toBeNull()
 
-    const restored = await createAlertService(deps)
+    const restored = await createAlertService({ ...deps, document: createMemoryDocumentStore(persisted) })
     expect(restored.list({ status: 'triggered' }).map((item) => item.id)).toEqual([rule.id])
     restored.setEnabled(rule.id, false)
     restored.setEnabled(rule.id, true)

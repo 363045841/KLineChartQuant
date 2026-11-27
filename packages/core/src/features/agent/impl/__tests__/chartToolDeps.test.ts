@@ -5,7 +5,7 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 import type { IndicatorInputDef } from '@/controllers/types'
-import type { SymbolSpec } from '@/foundation/types/instrument.js'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
 import type {
   BarsWindowCacheQuery,
   BarsWindowCacheResult,
@@ -49,7 +49,6 @@ function instance(
     id,
     definitionId,
     label: definitionId,
-    name: definitionId,
     paneId,
     ordinal,
     params,
@@ -159,7 +158,6 @@ describe('indicator commands', () => {
           return {
             timestamps: [1, 2],
             dataRevision: 1,
-            marketRevision: 0,
             series: SERIES,
           }
         },

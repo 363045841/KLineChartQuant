@@ -35,7 +35,16 @@ export function useAlertDraft(options: AlertDraftOptions) {
   const instrument = computed<InstrumentDescriptor | null>(
     () => targetSpec.value?.instrument ?? null,
   )
-  const canAdd = computed(() => Boolean(selectedScript.value && instrument.value))
+  const canAdd = computed(() => Boolean(selectedScript.value && targetSpec.value && alertSpec(targetSpec.value)))
+
+  /** 草稿只提交品种明确支持的完整 K 线选择。 */
+  function alertSpec(spec: SymbolSpec): SymbolSpec | null {
+    const bars = spec.instrument.capabilities.bars
+    if (!bars) return null
+    const period = bars.periods.find((period) => period === spec.period) ?? bars.periods[0]
+    const adjust = bars.adjustments.find((adjust) => adjust === spec.adjust) ?? bars.adjustments[0]
+    return period === undefined || adjust === undefined ? null : { instrument: spec.instrument, period, adjust }
+  }
 
   /** 重开草稿：清空脚本并回到当前图表品种。 */
   function reset(): void {
@@ -67,7 +76,7 @@ export function useAlertDraft(options: AlertDraftOptions) {
   function confirm(): boolean {
     const alerts = options.alerts()
     const script = selectedScript.value
-    const spec = targetSpec.value
+    const spec = targetSpec.value && alertSpec(targetSpec.value)
     if (!alerts || !script || !spec) return false
 
     try {

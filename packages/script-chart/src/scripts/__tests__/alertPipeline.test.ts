@@ -2,15 +2,13 @@ import { systemClock } from '@363045841yyt/klinechart-core'
 /** 端到端：脚本 alert → Worker → CalculationHub → AlertService → 通知。 */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  createDataIdentity,
   createDefinitionRegistry,
-  createFeedKey,
   createMarketRuntime,
+  resolveBarsSelection,
 } from '@363045841yyt/klinechart-core'
 import { createBuiltinMarketDataContext } from '@363045841yyt/klinechart-core/market-data/sources'
 import {
-  type AlertFiresDocument,
-  type AlertRulesDocument,
+  type AlertDocument,
   createAlertService,
   DEFAULT_ALERT_LIMITS,
 } from '@363045841yyt/klinechart-core'
@@ -39,18 +37,10 @@ const SYMBOL = makeSymbolSpec({
   id: 'BTC',
   symbol: 'BTCUSDT',
   source: 'test',
-  period: '1',
+  period: '1min',
   adjust: 'none',
 })
-const CHART_IDENTITY = createDataIdentity({
-  source: 'test',
-  instrument: 'BTC',
-  period: '1',
-  adjustment: 'none',
-  defaultPeriod: '1d',
-  defaultAdjustment: 'none',
-})
-const IDENTITY = { ...CHART_IDENTITY, scope: 'alerts' }
+const IDENTITY = resolveBarsSelection(SYMBOL, 'original')
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -71,16 +61,14 @@ describe('alert pipeline', () => {
       persistence: { load: async () => null, save: async () => true },
       builtinSources: [SOURCE],
       createWorkerPool: testScriptPool,
-      bindRendering: null,
     })
     // 运行时是唯一所有者：警报与图表都只是它的消费者。
     const hub = runtime.calculation
     const alerts = await createAlertService({
       hub,
       definitions,
-      rules: createMemoryDocumentStore<AlertRulesDocument>(null),
-      fires: createMemoryDocumentStore<AlertFiresDocument>(null),
-      feeds: { retain: () => {} },
+      document: createMemoryDocumentStore<AlertDocument>(null),
+      acquireBars: () => () => {},
       clock: systemClock,
       limits: DEFAULT_ALERT_LIMITS,
       onError: (error) => {
@@ -102,37 +90,20 @@ describe('alert pipeline', () => {
     hub.updateFeed({
       identity: IDENTITY,
       dataRevision: 1,
-      marketRevision: 0,
       timestamps: bars.map((bar) => bar.timestamp),
       data: bars,
       change: { start: 0, end: bars.length },
       live: true,
-      ordered: true,
     })
 
     const updated = [bars[0]!, { ...bars[1]!, high: 11, close: 11 }]
-    for (const identity of [CHART_IDENTITY, IDENTITY]) {
-      hub.updateFeed({
-        identity,
-        dataRevision: 2,
-        marketRevision: 0,
-        timestamps: [1, 2],
-        data: updated,
-        change: { start: 1, end: 2 },
-        live: true,
-        ordered: true,
-      })
-    }
-    hub.removeFeed(createFeedKey(CHART_IDENTITY))
     hub.updateFeed({
       identity: IDENTITY,
-      dataRevision: 3,
-      marketRevision: 0,
+      dataRevision: 2,
       timestamps: [1, 2],
-      data: bars,
+      data: updated,
       change: { start: 1, end: 2 },
       live: true,
-      ordered: true,
     })
 
     await vi.waitFor(() => expect(alerts.fires.peek()).toHaveLength(1))
@@ -140,7 +111,7 @@ describe('alert pipeline', () => {
       message: '价格上穿 10',
       price: 11,
       barTime: 2,
-      source: { ticker: 'BTCUSDT', interval: '1' },
+      source: { ticker: 'BTCUSDT', interval: '1min' },
     })
     await alerts.dispose()
     runtime.dispose()

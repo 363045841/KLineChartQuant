@@ -29,7 +29,7 @@ interface SymbolSpec {
 
 - 身份：`symbolSpecIdentityKey` 固定为 `instrument:<source>:<id>`；目录条目另用 `symbolInfoIdentityKey`（无 ID 时才回退到来源/市场/交易所/代码/params）。
 - 数据层：请求字段全部取自 `instrument`；`sourceFromSpec` 直接返回 `instrument.source`。
-- AUTO 来源：品种模型始终携带已解析来源，图表路径删除 auto 叶子迁移（`SeriesRepository.moveToSource` 一并移除）；缓存层仍保留 auto 供其他查询使用。
+- 品种选择携带已解析来源，图表直接订阅对应序列。历史查询仍可委托路由器自动选源。
 - 市场会话：`resolveSymbolMarketSession` 接受 `{ sessionId, exchange, symbol }`，优先 `sessionId`，回退 `exchange`。
 - 持久化边界：新增 `isSymbolSpec` 守卫（`engine/data/symbolSpecGuard.ts`）；布局恢复与工作区标签恢复遇到旧形状按「无品种」处理，不抛错。
 - 界面：`toSymbolSpec(instrument, selection)` 只装配 `instrument` 与图表级字段；`setPrimaryMarket` 是唯一写入入口。

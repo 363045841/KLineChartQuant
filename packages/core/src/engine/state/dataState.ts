@@ -1,7 +1,7 @@
 /** 主图数据 buffer 业务状态：activeBuffer、数据版本与 symbol 目录。 */
 
 import type { SymbolInfo } from '../../controllers/types.js'
-import type { SymbolSpec } from '@/foundation/types/instrument.js'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
 import {
   type BarsSelection,
   SERIES_SELECTION_KIND,

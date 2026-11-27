@@ -32,14 +32,13 @@ function createScriptService(
   libraries: readonly QuickJSLibrary[],
   options: Omit<
     ScriptServiceOptions,
-    'builtinSources' | 'createWorkerPool' | 'persistence' | 'bindRendering'
+    'builtinSources' | 'createWorkerPool' | 'persistence'
   > &
     Partial<Pick<ScriptServiceOptions, 'builtinSources' | 'createWorkerPool' | 'persistence'>>,
 ): Promise<ScriptService> {
   return createService(libraries, {
     builtinSources: [],
     persistence: createIndexedDbScriptPersistence(),
-    bindRendering: null,
     createWorkerPool: (runtime) =>
       createScriptWorkerPool({
         ...runtime,
@@ -144,7 +143,6 @@ describe('useScriptEditor', () => {
           id: 'debug-instance',
           definitionId: id,
           label: 'EditorDebug',
-          name: 'EditorDebug',
           paneId: 'pane-script',
           ordinal: 0,
           params: {},

@@ -6,18 +6,14 @@
  */
 import type { Alert, AlertFire } from '../types.js'
 import type { CalculationInputs, CalculationInputValue } from '../../../engine/calculation/index.js'
-import { isSymbolSpec } from '../../../engine/data/symbolSpecGuard.js'
+import { isSymbolSpec } from '@/data/symbolSpecGuard.js'
 import { deepFreezeSnapshot } from '../../../foundation/utils/deepFreezeSnapshot.js'
 
-export const ALERT_DOCUMENT_VERSION = 1
+export const ALERT_DOCUMENT_VERSION = 2
 
-export interface AlertRulesDocument {
+export interface AlertDocument {
   readonly version: typeof ALERT_DOCUMENT_VERSION
   readonly alerts: readonly Alert[]
-}
-
-export interface AlertFiresDocument {
-  readonly version: typeof ALERT_DOCUMENT_VERSION
   readonly fires: readonly AlertFire[]
 }
 
@@ -59,11 +55,8 @@ function number(value: unknown): number {
 }
 
 /** 解码规则文档；版本不符视为损坏。 */
-export function decodeRules(value: unknown): AlertRulesDocument {
-  const root = asRecord(value, 'Alert rules document')
-  if (root.version !== ALERT_DOCUMENT_VERSION)
-    throw new TypeError(`Unsupported alert rules version: ${String(root.version)}`)
-  const alerts = asArray(root.alerts, 'Alert rules').map((item) => {
+function decodeAlerts(value: unknown): readonly Alert[] {
+  const alerts = asArray(value, 'Alert rules').map((item) => {
     const rule = asRecord(item, 'Alert')
     const script = asRecord(rule.script, 'Alert script')
     const channels = asArray(rule.channels, 'Alert channels')
@@ -83,15 +76,12 @@ export function decodeRules(value: unknown): AlertRulesDocument {
       ...(rule.lastError === undefined ? {} : { lastError: text(rule.lastError) }),
     } satisfies Alert)
   })
-  return Object.freeze({ version: ALERT_DOCUMENT_VERSION, alerts: Object.freeze(alerts) })
+  return Object.freeze(alerts)
 }
 
 /** 解码触发日志；与规则分开存储，互不影响。 */
-export function decodeFires(value: unknown): AlertFiresDocument {
-  const root = asRecord(value, 'Alert fires document')
-  if (root.version !== ALERT_DOCUMENT_VERSION)
-    throw new TypeError(`Unsupported alert fires version: ${String(root.version)}`)
-  const fires = asArray(root.fires, 'Alert fires').map((item) => {
+function decodeFires(value: unknown): readonly AlertFire[] {
+  const fires = asArray(value, 'Alert fires').map((item) => {
     const fire = asRecord(item, 'Alert fire')
     const source = asRecord(fire.source, 'Alert fire source')
     return deepFreezeSnapshot({
@@ -100,5 +90,25 @@ export function decodeFires(value: unknown): AlertFiresDocument {
       message: text(fire.message), price: number(fire.price), barTime: number(fire.barTime),
     })
   })
-  return Object.freeze({ version: ALERT_DOCUMENT_VERSION, fires: Object.freeze(fires) })
+  return Object.freeze(fires)
+}
+
+/** 恢复统一文档，规则与触发记录共享一次提交。 */
+export function decodeAlertDocument(value: unknown): AlertDocument {
+  const root = asRecord(value, 'Alert document')
+  if (root.version !== ALERT_DOCUMENT_VERSION)
+    throw new TypeError(`Unsupported alert document version: ${String(root.version)}`)
+  return Object.freeze({ version: ALERT_DOCUMENT_VERSION, alerts: decodeAlerts(root.alerts), fires: decodeFires(root.fires) })
+}
+
+/** 一次性导入旧宿主的规则与触发文档。 */
+export function importAlertDocuments(rules: readonly unknown[], logs: readonly unknown[]): AlertDocument {
+  const read = (value: unknown, field: string): unknown => {
+    const document = asRecord(value, 'Legacy alert document')
+    if (document.version !== 1) throw new TypeError('Invalid legacy alert document version')
+    return document[field]
+  }
+  const alerts = new Map(rules.flatMap((value) => decodeAlerts(read(value, 'alerts'))).map((alert) => [alert.id, alert]))
+  const fires = new Map(logs.flatMap((value) => decodeFires(read(value, 'fires'))).map((fire) => [fire.id, fire]))
+  return { version: ALERT_DOCUMENT_VERSION, alerts: [...alerts.values()], fires: [...fires.values()].sort((a, b) => b.firedAt - a.firedAt) }
 }

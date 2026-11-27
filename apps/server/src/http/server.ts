@@ -26,12 +26,11 @@ function writeJson(response: ServerResponse, status: number, body: unknown): voi
 /**
  * 启动只读 HTTP 服务。
  *
- * @param port - 监听端口
  * @param handlers - 三份只读快照
  * @returns 未监听的 Server，由调用方 listen/close
  */
-export function createHttpServer(port: number, handlers: HttpHandlers): Server {
-  const server = createServer((request, response) => {
+export function createHttpServer(handlers: HttpHandlers): Server {
+  return createServer((request, response) => {
     if (request.method !== 'GET') {
       writeJson(response, 405, { error: 'method-not-allowed' })
       return
@@ -57,8 +56,4 @@ export function createHttpServer(port: number, handlers: HttpHandlers): Server {
       })
     }
   })
-  server.on('listening', () => {
-    console.log(`[server] listening on http://127.0.0.1:${port}`)
-  })
-  return server
 }

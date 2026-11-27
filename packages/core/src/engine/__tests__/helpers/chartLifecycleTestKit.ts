@@ -8,12 +8,10 @@ import { MarketDataContext } from '@/data/management/context'
 import { createTestDefinitions } from '@/core/indicators/__tests__/helpers/definitionsTestKit'
 import { testProviderRegistry } from '@/engine/data/__tests__/helpers/chartDataManagerTestKit'
 import { MAIN_PANE_ID } from '@/core/pane/types'
-import { createCalculationHub } from '@/engine/calculation/index'
-import { toCalculationDefinition } from '@/engine/indicators/instances/assembly/toCalculationDefinition'
+import { createMarketRuntime } from '@/engine/runtime/index'
 import type { DefinitionRegistry } from '@/engine/indicators/registry/index'
 import { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry'
 import { systemClock } from '@/foundation/utils/clock'
-import { createMarketDataService } from '@/data/service/index'
 import { createChartDom, installChartDomStubs } from './chartDomTestKit'
 
 /** Chart 构造函数的 runtime 参数。 */
@@ -29,24 +27,12 @@ export function createTestChartRuntime(overrides: Partial<ChartRuntime> = {}): C
   const definitions = overrides.definitions ?? createTestDefinitions()
   const marketSessionRegistry = overrides.marketSessionRegistry ?? new MarketSessionRegistry()
   const marketDataContext = overrides.marketDataContext ?? new MarketDataContext(testProviderRegistry)
-  const data =
-    overrides.data ??
-    createMarketDataService({
-      registry: marketDataContext.registry,
-      stream: marketDataContext.stream,
-      marketSessions: marketSessionRegistry,
-      clock: systemClock,
-    })
+  const runtime = createMarketRuntime({ market: marketDataContext, definitions, clock: systemClock })
   return {
-    calculationHub: createCalculationHub({
-      resolveDefinition: (definitionId) => {
-        const metadata = definitions.getDefinition(definitionId)
-        return metadata === undefined ? undefined : toCalculationDefinition(metadata)
-      },
-    }),
+    calculationHub: runtime.calculation,
     marketSessionRegistry,
     marketDataContext,
-    data,
+    data: runtime.data,
     definitions,
     ...overrides,
   }

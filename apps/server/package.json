@@ -14,12 +14,14 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
+    "test:node": "node --import ./test/node-boundary.mjs --test ./test/runtime.test.mjs",
     "type-check": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "@363045841yyt/klinechart-core": "workspace:*",
     "@363045841yyt/klinechart-script": "workspace:*",
-    "@363045841yyt/klinechart-script-chart": "workspace:*"
+    "@363045841yyt/klinechart-script-chart": "workspace:*",
+    "eventsource": "3.0.7"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

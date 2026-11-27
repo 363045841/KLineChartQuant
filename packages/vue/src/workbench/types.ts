@@ -1,6 +1,6 @@
 /** 完整工作台的公开配置；功能开关在挂载时确定。 */
 import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
-import type { KLinePeriod, MarketDataContext } from '@363045841yyt/klinechart-core/market-data'
+import type { KLinePeriod } from '@363045841yyt/klinechart-core/market-data'
 import type KlineChart from '../components/chart/KLineChart.vue'
 
 export interface KlineWorkbenchProps {
@@ -10,8 +10,6 @@ export interface KlineWorkbenchProps {
   scripts?: boolean
   /** 智能体面板初始是否展开，默认收起。 */
   initialAgentPanelOpen?: boolean
-  /** 行情实例归调用方所有，工作台卸载时不会销毁它。 */
-  marketDataContext?: MarketDataContext
   /**
    * 当前工作台是否为活动图表标签。
    *

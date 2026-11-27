@@ -33,7 +33,7 @@ flowchart TB
         Ctl["ChartController<br/>只读信号 + 命令方法"]
         Chart["Chart 门面"]
         Kernel["StateKernel<br/>Reactive SSOT"]
-        Data["数据层<br/>SeriesRepository · Buffer · 调度"]
+        Data["数据层<br/>MarketDataService · Buffer · 调度"]
         Pipe["渲染管线<br/>FrameTransaction · Scene/Layer"]
         GPU["WebGPU / WebGL2 / Canvas2D"]
         Plugin["插件子系统<br/>PluginHost · RendererPlugin"]
@@ -243,7 +243,7 @@ flowchart TB
 ### 4.1 数据加载
 
 1. 绑定层调用 `controller.setPrimaryMarket(spec)`，行情统一由 Provider 链路加载。
-2. `Chart` 通过 `ChartDataManager` 在 `SeriesRepository` 中定位 / 创建对应 Buffer。
+2. `Chart` 通过 `ChartDataManager` 向 `MarketDataService` 获取行情序列租约。
 3. 图表与 Agent 共用图表实例级 `MarketDataCache`；它根据 latest 或时间范围处理缓存覆盖、
    Provider cursor 分页、重试与请求去重。
 4. `MarketDataCache` 将结果写入图表 Buffer 快照；Buffer 数据变更经订阅回调更新 StateKernel 的 data 信号，并触发

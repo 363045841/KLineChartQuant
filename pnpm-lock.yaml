@@ -113,6 +113,9 @@ importers:
       '@363045841yyt/klinechart-script-chart':
         specifier: workspace:*
         version: link:../../packages/script-chart
+      eventsource:
+        specifier: 3.0.7
+        version: 3.0.7
     devDependencies:
       '@types/node':
         specifier: ^26.6.6
@@ -20297,13 +20300,11 @@ snapshots:
 
   events@3.3.0: {}
 
-  eventsource-parser@3.1.0:
-    optional: true
+  eventsource-parser@3.1.0: {}
 
   eventsource@3.0.7:
     dependencies:
       eventsource-parser: 3.1.0
-    optional: true
 
   execa@8.0.1:
     dependencies:

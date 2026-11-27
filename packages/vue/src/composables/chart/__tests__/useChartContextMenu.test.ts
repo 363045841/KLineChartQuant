@@ -173,7 +173,6 @@ describe('图表右键菜单', () => {
         id: 'instance-1',
         definitionId: 'MA',
         label: 'MA',
-        name: 'MA',
         paneId: 'pane-1',
         ordinal: 0,
         params: {},

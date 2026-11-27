@@ -10,11 +10,13 @@ import { createTestDefinitions } from '@/engine/indicators/__tests__/helpers/def
 import { createTestData } from '@/engine/indicators/__tests__/helpers/instanceTestKit.js'
 import type { IndicatorMetadata } from '@/engine/indicators/indicatorMetadata.js'
 import { createPlotIndicatorDefinition } from '@/engine/indicators/pipeline/impl/createPlotDefinition.js'
-import { bindPlotRendering } from '@/engine/renderers/Indicator/plotBinding.js'
 import type { DefinitionRegistry } from '@/engine/indicators/registry/index.js'
 import type { IndicatorSeries } from '@/engine/plots/types.js'
+import { createMarketRuntime } from '@/engine/runtime/index.js'
+import { systemClock } from '@/foundation/utils/clock.js'
 import { batch } from '@/foundation/reactivity/signal.js'
 import { createTestChartController as createChartController } from './helpers/controllerTestKit.js'
+import { createChartController as mountController } from '../chart/index.js'
 import { createIndicatorCatalog } from '../indicatorCatalog/index.js'
 import type { ChartController, ChartMountOptions } from '../types.js'
 
@@ -85,8 +87,7 @@ function plot(name: string, position: 'main' | 'sub', value: number) {
     fills: [],
   }))
   const sourceDefinition = { kind: 'indicator' as const, name, position, inputs: {} }
-  const definition = bindPlotRendering(
-    createPlotIndicatorDefinition({
+  const definition = createPlotIndicatorDefinition({
       ...sourceDefinition,
       source: 'script',
       document: {
@@ -97,9 +98,7 @@ function plot(name: string, position: 'main' | 'sub', value: number) {
         definition: sourceDefinition,
       },
       compute: () => ({ series: compute() }),
-    }),
-    name,
-  )
+    })
   return { definition, compute }
 }
 
@@ -129,6 +128,27 @@ async function lastValue(controller: ChartController, indicator: string) {
 }
 
 describe('indicator runtime projection', () => {
+  it('shares one calculation across two charts and keeps the second chart live when the first closes', async () => {
+    const runtime = createMarketRuntime({ market, definitions, clock: systemClock })
+    const indicator = plot('SharedPlot', 'sub', 42)
+    register(indicator.definition)
+    const first = await mountController({ container: document.createElement('div'), runtime, symbols: mountOptions.symbols })
+    const second = await mountController({ container: document.createElement('div'), runtime, symbols: mountOptions.symbols })
+    try {
+      first.addIndicator(indicator.definition.name)
+      second.addIndicator(indicator.definition.name)
+      await vi.waitFor(() => expect(second.getData()).toHaveLength(bars.length))
+      expect(await lastValue(first, indicator.definition.name)).toBe(42)
+      await first.dispose()
+      expect(await lastValue(second, indicator.definition.name)).toBe(42)
+      expect(indicator.compute).toHaveBeenCalledOnce()
+    } finally {
+      await first.dispose()
+      await second.dispose()
+      runtime.dispose()
+    }
+  })
+
   it.each(['cold mount', 'apply with data'])(
     'automatically computes all restored indicators on %s',
     async (entry) => {

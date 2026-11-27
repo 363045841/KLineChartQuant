@@ -18,7 +18,6 @@ export {
   type RenderableIndicator,
   type RendererFactory,
 } from './engine/renderers/Indicator/types.js'
-export { bindPlotRendering } from './engine/renderers/Indicator/plotBinding.js'
 export {
   createPlotIndicatorDefinition,
   type IndicatorCandidate,
@@ -83,7 +82,7 @@ export * from './features/agent/index.js'
 export * from './engine/calculation/index.js'
 export * from './features/alerts/index.js'
 export * from './features/input/index.js'
-export type { SymbolSpec } from './foundation/types/instrument.js'
+export type { SymbolSpec } from './data/symbolSpec.js'
 export type { ChartSettings } from './foundation/config/chartSettings.js'
 export * from './foundation/config/marketSession/marketSessionRegistry.js'
 export * from './foundation/config/marketSession/resolveSymbolMarketSession.js'

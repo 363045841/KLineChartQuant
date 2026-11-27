@@ -46,7 +46,6 @@ export function composeScripts(
     builtinSources: builtinScriptSources,
     persistence: createFileScriptPersistence({ directory: config.scriptsDirectory }),
     createWorkerPool: createThreadPool(config.workers),
-    bindRendering: null,
     isDefinitionReferenced,
   })
 }

@@ -4,7 +4,7 @@
  * 只有本模块可以查询 Provider、订阅实时流并合并历史；调用方只读取序列，
  * 不再各自维护缓存、分页或实时补偿。
  */
-import type { SymbolSpec } from '@/foundation/types/instrument.js'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
 import type { ReadonlySignal } from '@/foundation/reactivity/signal.js'
 import type { KLineData, TimeShareData } from '@/foundation/types/price.js'
 import type {
@@ -32,6 +32,7 @@ import type {
   TradingDate,
 } from '../provider/types.js'
 import type { TradeRange, TradeSnapshot } from '../trades/types.js'
+import type { BarsSelection } from '../buffer/seriesSelection.js'
 
 /** K 线序列的取数参数；周期与复权由 spec 携带，这里只声明序列差异。 */
 export interface BarsOptions {
@@ -53,13 +54,21 @@ export interface BarsSeries {
   readonly instrument: InstrumentDescriptor
   /** 数据源声明的能力；用于脚本时间与成交流判断。 */
   readonly capabilities: SourceCapabilities | null
-  /** 最后一根是否已经收盘；实时尾巴据此判断。 */
-  readonly lastBarClosed: ReadonlySignal<boolean>
   getRawData(): readonly KLineData[]
   /** 向前补一页；返回本次是否真正推进、或数据源已耗尽。 */
   loadOlder(limit: number): Promise<CoverageResult>
   /** 释放一个使用者；最后一个使用者离开时才销毁序列。 */
   dispose(): void
+}
+
+/** 行情服务提交的 K 线修订；历史、实时更新和收盘由写入方区分。 */
+export interface BarsUpdate {
+  readonly selection: BarsSelection
+  readonly instrument: InstrumentDescriptor
+  readonly revision: number
+  readonly change: DataChange<KLineData>
+  readonly liveBarTime?: number
+  readonly closedBarTime?: number
 }
 
 /** 分时序列参数；单日与多日共用同一条加载路径。 */
@@ -120,6 +129,7 @@ export interface BarsPage {
 
 /** 行情服务唯一入口。 */
 export interface MarketDataService {
+  subscribeBars(listener: (selection: BarsSelection, update: BarsUpdate | null) => void): () => void
   /** 订阅 K 线序列；同一序列的多个使用者共享一份数据与一条连接。 */
   bars(spec: SymbolSpec, options: BarsOptions): BarsSeries
   /** 订阅分时序列；分时不建立实时连接。 */

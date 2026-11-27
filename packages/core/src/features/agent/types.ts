@@ -5,7 +5,7 @@ import type {
   DrawingWorkspaceId,
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { IndicatorInputDef, IndicatorInstance } from '../../controllers/types.js'
-import type { SymbolSpec } from '@/foundation/types/instrument.js'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
 import type { MarketDataService } from '../../data/service/index.js'
 import type { InstrumentSearchResult } from '../../data/provider/instrumentSearch.js'
 import type { MarketDataProviderRegistry } from '../../data/provider/registry.js'

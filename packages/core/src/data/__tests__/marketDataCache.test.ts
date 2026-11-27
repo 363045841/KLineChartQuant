@@ -48,7 +48,7 @@ function createCache(
     catalog: { search: async () => [instrument] },
     bars: { fetch: ({ beforeTimestamp, signal }) => fetch(beforeTimestamp, signal) },
   })
-  return { cache: new MarketDataCache(registry), instrument }
+  return { cache: new MarketDataCache(registry, () => []), instrument }
 }
 
 function query(overrides: { limit?: number; beforeTimestamp?: number } = {}) {

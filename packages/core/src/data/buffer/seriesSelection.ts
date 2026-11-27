@@ -3,7 +3,7 @@
  *
  * 不持有 Buffer、不访问 Provider；仓库实现与消费者都从这里取身份定义。
  */
-import type { SymbolSpec } from '@/foundation/types/instrument.js'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
 import type {
   BarAggregation,
   KLineAdjustment,

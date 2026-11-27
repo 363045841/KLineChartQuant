@@ -4,7 +4,7 @@
  * 只描述“看哪个品种、什么周期、什么复权”，不包含图表几何、渲染或交互类型；
  * 因此它可以被无 DOM 的运行时直接引用。
  */
-import type { InstrumentDescriptor } from '@/data/provider/types.js'
+import type { InstrumentDescriptor } from './provider/types.js'
 
 /** 一次序列选择；身份、请求路由与展示都只从 `instrument` 读取。 */
 export interface SymbolSpec {

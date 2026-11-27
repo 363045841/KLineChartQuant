@@ -14,8 +14,7 @@ import {
   createMemoryDocumentStore,
   DEFAULT_ALERT_LIMITS,
   systemClock,
-  type AlertFiresDocument,
-  type AlertRulesDocument,
+  type AlertDocument,
 } from '../node.js'
 
 describe('core/node entry', () => {
@@ -27,13 +26,12 @@ describe('core/node entry', () => {
     const onError = vi.fn()
     const alerts = await createAlertRuntime({
       runtime,
-      rules: createMemoryDocumentStore<AlertRulesDocument>(null),
-      fires: createMemoryDocumentStore<AlertFiresDocument>(null),
+      document: createMemoryDocumentStore<AlertDocument>(null),
       limits: DEFAULT_ALERT_LIMITS,
       onError,
     })
     try {
-      expect(alerts.service.alerts.peek()).toEqual([])
+      expect(alerts.alerts.peek()).toEqual([])
       expect(runtime.data).toBeDefined()
       expect(typeof document).toBe('undefined')
     } finally {

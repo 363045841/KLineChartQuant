@@ -3,7 +3,7 @@
  */
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type { ScriptPersistence, ScriptWorkspace } from '@363045841yyt/klinechart-script-chart'
+import { decodeScriptWorkspace, type ScriptPersistence } from '@363045841yyt/klinechart-script-chart'
 
 /** 工作区文件名；目录由 `--scripts` 指定。 */
 const WORKSPACE_FILE = 'workspace.json'
@@ -27,9 +27,9 @@ export function createFileScriptPersistence(
     async load() {
       try {
         const text = await readFile(file, 'utf8')
-        return JSON.parse(text) as ScriptWorkspace
+        return decodeScriptWorkspace(JSON.parse(text))
       } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+        if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return null
         throw error
       }
     },

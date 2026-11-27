@@ -116,7 +116,7 @@ export function createChartAgentIndicatorCommands(
         paneId: instance.paneId,
         view: {
           indicator: instance.definitionId,
-          name: instance.name,
+          name: instance.label,
           inputs: Object.freeze({ ...instance.params }),
           placement: instance.paneId === MAIN_PANE_ID ? 'main' : 'sub',
           row,

@@ -4,25 +4,26 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import type { KLineData } from '@/foundation/types/price.js'
+import { type BarsSelection, seriesSelectionKey } from '@/data/buffer/seriesSelection.js'
 import {
   type CalculationCommit,
   type CalculationDefinition,
   type CalculationHub,
   type CalculationRequest,
   createCalculationHub,
-  createDataIdentity,
-  createFeedKey,
   type FeedKey,
   type FeedSnapshot,
 } from '../index.js'
 
-const IDENTITY = createDataIdentity({
+const IDENTITY: BarsSelection = {
+  kind: 'bars',
   source: 'test',
-  instrument: 'TEST',
-  defaultPeriod: '1',
-  defaultAdjustment: 'none',
-})
-const FEED: FeedKey = createFeedKey(IDENTITY)
+  instrumentKey: 'TEST',
+  period: '1min',
+  adjustment: 'none',
+  barAggregation: 'original',
+}
+const FEED: FeedKey = seriesSelectionKey(IDENTITY)
 
 const BARS: readonly KLineData[] = [
   { timestamp: 1, open: 1, high: 2, low: 1, close: 2, volume: 10 },
@@ -34,7 +35,6 @@ function feed(dataRevision: number): FeedSnapshot {
   return {
     identity: IDENTITY,
     dataRevision,
-    marketRevision: 0,
     timestamps: BARS.map((bar) => bar.timestamp),
     data: BARS,
     change: { start: 0, end: BARS.length },
@@ -46,7 +46,7 @@ function feed(dataRevision: number): FeedSnapshot {
 function plan(key = 'ma'): { feed: FeedKey; requests: readonly CalculationRequest[] } {
   return {
     feed: FEED,
-    requests: [{ key, definitionId: 'ma', inputs: {}, context: {} }],
+    requests: [{ key, definitionId: 'ma', inputs: {} }],
   }
 }
 
@@ -271,7 +271,7 @@ describe('calculation hub', () => {
       {
         feed: FEED,
         requests: [
-          { key: 'ma', definitionId: 'ma', inputs: {}, context: {}, owners: ['i1'] },
+          { key: 'ma', definitionId: 'ma', inputs: {}, owners: ['i1'] },
         ],
       },
     ])
@@ -333,7 +333,6 @@ describe('calculation hub', () => {
       key: 'ma',
       definitionId: 'ma',
       inputs: {},
-      context: {},
     }
     const signal = new AbortController().signal
     const first = await hub.submit(FEED, request, signal)

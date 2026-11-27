@@ -19,7 +19,7 @@ flowchart TB
         Ctl["ChartController<br/>signals + commands"]
         Chart["Chart facade"]
         Kernel["StateKernel<br/>Reactive SSOT"]
-        Data["Data Layer<br/>SeriesRepository · Buffers"]
+        Data["Data Layer<br/>MarketDataService · Buffers"]
         Pipe["Rendering Pipeline<br/>FrameTransaction · Scene/Layer"]
         GPU["WebGPU / WebGL2 / Canvas2D"]
         Plugin["Plugin Subsystem<br/>PluginHost · RendererPlugin"]
@@ -58,7 +58,7 @@ flowchart TB
   `computed()` for derivation, `effect()` for DOM side effects.
 - **Rendering** — submit primitives once, render via WebGPU / WebGL2 / Canvas2D with
   automatic fallback (WebGPU → WebGL → Canvas2D).
-- **Data layer** — unified `SeriesRepository` + incremental buffers + fetch scheduler;
+- **Data layer** — shared `MarketDataService` + incremental buffers + fetch scheduler;
   multi-source aggregation (gotdx / BaoStock / TradingView / MT5 / mock) and Binance Spot K-lines and trades.
 - **Plugin subsystem** — PluginHost / HookSystem / EventBus / RendererPluginManager;
   indicators and drawing tools plug in as Scene Layers.

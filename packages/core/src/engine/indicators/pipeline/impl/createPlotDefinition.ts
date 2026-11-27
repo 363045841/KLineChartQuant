@@ -5,7 +5,6 @@
  * 计算端口直通，事件随计算输出一起返回，不另设取件通道。
  */
 import {
-  Format,
   type IndicatorCompute,
   type IndicatorDefinition,
   type InputDef,
@@ -15,7 +14,6 @@ import {
 import type { CalculationCompute, CalculationInputs } from '@/engine/calculation/index.js'
 import type { IndicatorInputDisplay, IndicatorMetadata } from '@/engine/indicators/indicatorMetadata.js'
 import { toPlotBar } from '@/engine/indicators/plotBars.js'
-import { formatPlotValue } from '@/engine/plots/impl/plotValueFormat.js'
 
 /** 提取参数展示声明；默认值与类型仍由 defaultInputs 提供，两处不重复存默认值。 */
 function resolveInputDefs<P>(inputs: InputSchema<P>): Record<string, IndicatorInputDisplay> {
@@ -51,7 +49,6 @@ export function createPlotIndicatorDefinition(
   const main = definition.position === 'main'
   const internalName = definition.id ?? definition.name
   const paneId = main ? 'main' : `sub_${internalName}`
-  const format = definition.format
   return {
     ...(definition.kind === 'alert'
       ? { kind: definition.kind, frequency: definition.frequency }
@@ -68,8 +65,6 @@ export function createPlotIndicatorDefinition(
     scale: {
       label: definition.name,
       decimals: 2,
-      format:
-        format && format !== Format.price ? (value) => formatPlotValue(format, value) : undefined,
     },
     plots: { source: 'series', series: [], format: definition.format },
     runtime: {

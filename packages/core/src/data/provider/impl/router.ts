@@ -196,10 +196,8 @@ async function discoverCapabilities(
   signal?: AbortSignal,
 ): Promise<void> {
   if (registry.getCapabilities(provider.source.id) !== undefined) return
-  const result = await provider.probe(signal)
-  if (result.capabilities !== undefined) {
-    registry.setCapabilities(provider.source.id, result.capabilities)
-  }
+  await registry.probe(provider, signal ?? AbortSignal.timeout(5_000))
+  signal?.throwIfAborted()
 }
 
 /** 行情 Provider Router。 */

@@ -10,7 +10,7 @@ import { JSDOM } from 'jsdom'
 import { vi } from 'vitest'
 
 import type { KLineData } from '@/foundation/types/bar.js'
-import type { SymbolSpec } from '@/foundation/types/instrument.js'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
 import type { StreamHub } from '@/data/stream/types.js'
 import { MarketDataProviderRegistry } from '@/data/provider/registry'
 import { createMarketDataService } from '@/data/service/index'
@@ -145,6 +145,7 @@ function createMockDataDependencies(
     data:
       options.data ??
       createMarketDataService({
+        health: { state: createSignal({}) },
         registry: options.marketDataProviderRegistry ?? testProviderRegistry,
         stream: options.streamHub ?? inactiveStreamHub,
         marketSessions: new MarketSessionRegistry(),
@@ -160,7 +161,7 @@ function createMockDataDependencies(
     resetInteraction,
     needsTrades: options.needsTrades ?? (() => false),
     updateTradeInput: options.updateTradeInput ?? (() => {}),
-    updateIndicatorData: () => {},
+    projectIndicatorFeed: () => {},
     publishSymbols,
   }
 }

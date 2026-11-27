@@ -3,7 +3,7 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 import type { IndicatorInstance } from '@/controllers/types'
-import type { SymbolSpec } from '@/foundation/types/instrument.js'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
 import { SERIES_SELECTION_KIND } from '@/data/buffer/seriesSelection'
 import { makeSymbolSpec } from '@/engine/data/__tests__/helpers/symbolSpecFixture'
 import type { DrawingObject } from '@/engine/drawing/index'

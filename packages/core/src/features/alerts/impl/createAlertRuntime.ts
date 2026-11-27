@@ -4,25 +4,19 @@
  * 时钟取自共享运行时，规则容量与错误出口由宿主给出；本文件不提供默认值。
  */
 import type { MarketRuntime } from '@/engine/runtime/index.js'
+import { ORIGINAL_BAR_AGGREGATION } from '@/data/provider/types.js'
 import type { DocumentStore } from '@/foundation/persistence/types.js'
 import type { AlertService, AlertLimits } from '../types.js'
-import type { AlertFiresDocument, AlertRulesDocument } from './alertCodec.js'
-import { createAlertFeeds } from './createAlertFeeds.js'
+import type { AlertDocument } from './alertCodec.js'
 import { createAlertService } from './createAlertService.js'
 
 export interface AlertRuntimeOptions {
   readonly runtime: MarketRuntime
-  readonly rules: DocumentStore<AlertRulesDocument>
-  readonly fires: DocumentStore<AlertFiresDocument>
+  readonly document: DocumentStore<AlertDocument>
   /** 规则与触发记录的容量策略。 */
   readonly limits: AlertLimits
   /** 持久化与投递失败的唯一出口。 */
   readonly onError: (error: unknown) => void
-}
-
-export interface AlertRuntime {
-  readonly service: AlertService
-  dispose(): Promise<void>
 }
 
 /**
@@ -31,32 +25,17 @@ export interface AlertRuntime {
  * @param options - 共享运行时、存储、容量与错误出口
  * @returns 与图表无关的警报运行时
  */
-export async function createAlertRuntime(options: AlertRuntimeOptions): Promise<AlertRuntime> {
-  const feeds = createAlertFeeds({
-    data: options.runtime.data,
-    hub: options.runtime.calculation,
-    registry: options.runtime.market.registry,
-    onError: (_symbol, error) => options.onError(error),
-  })
-  const service = await createAlertService({
+export function createAlertRuntime(options: AlertRuntimeOptions): Promise<AlertService> {
+  return createAlertService({
     hub: options.runtime.calculation,
     definitions: options.runtime.definitions,
-    rules: options.rules,
-    fires: options.fires,
-    feeds,
+    document: options.document,
+    acquireBars: (symbol) => options.runtime.data.bars(symbol, {
+      aggregation: ORIGINAL_BAR_AGGREGATION,
+      initialBars: 500,
+    }).dispose,
     clock: options.runtime.clock,
     limits: options.limits,
     onError: options.onError,
   })
-  let disposed = false
-  return {
-    service,
-    async dispose() {
-      if (disposed) return
-      disposed = true
-      await service.dispose()
-      feeds.dispose()
-      await Promise.allSettled([options.rules.dispose(), options.fires.dispose()])
-    },
-  }
 }

@@ -4,14 +4,16 @@
  * 规则只声明脚本、品种、参数与投递策略；触发条件完全由脚本定义。
  * 时钟、容量策略与错误出口都由宿主注入，服务内不提供任何默认值。
  */
-import type { SymbolSpec } from '@/foundation/types/instrument.js'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
+import { ORIGINAL_BAR_AGGREGATION } from '@/data/provider/types.js'
+import { seriesSelectionKey } from '@/data/buffer/seriesSelection.js'
+import { resolveBarsSelection } from '@/data/service/index.js'
 import {
   type CalculationHub,
   type CalculationInputs,
   type CalculationRequest,
   type CalculationResult,
   createCalculationKey,
-  createFeedKey,
   createLocalCalculationKey,
   type FeedKey,
   type ScriptAlertEvent,
@@ -21,10 +23,7 @@ import { ALERT_ERROR_CODES, KLineChartError } from '../../../errors.js'
 import type { DocumentStore } from '@/foundation/persistence/types.js'
 import {
   asReadonlySignal,
-  batch,
-  computed,
   createSignal,
-  type ReadonlySignal,
 } from '../../../foundation/reactivity/signal.js'
 import type { Clock } from '../../../foundation/utils/clock.js'
 import { deepFreezeSnapshot } from '../../../foundation/utils/deepFreezeSnapshot.js'
@@ -40,19 +39,15 @@ import type {
 } from '../types.js'
 import {
   ALERT_DOCUMENT_VERSION,
-  type AlertFiresDocument,
-  type AlertRulesDocument,
+  type AlertDocument,
 } from './alertCodec.js'
 import { alertStatus } from './alertStatus.js'
-import { alertFeedIdentity } from './alertSymbol.js'
-import type { AlertFeedLease } from './createAlertFeeds.js'
 
 interface AlertServiceDependencies {
   readonly hub: CalculationHub
   readonly definitions: DefinitionRegistry
-  readonly rules: DocumentStore<AlertRulesDocument>
-  readonly fires: DocumentStore<AlertFiresDocument>
-  readonly feeds: Pick<AlertFeedLease, 'retain'>
+  readonly document: DocumentStore<AlertDocument>
+  readonly acquireBars: (symbol: SymbolSpec) => () => void
   /** 时间来源；频率、冷却与过期判断共用。 */
   readonly clock: Clock
   /** 容量策略；由宿主显式给出。 */
@@ -66,6 +61,11 @@ interface RuleEvaluation {
   pendingClose?: ScriptAlertEvent
 }
 
+/** 规则与图表使用行情服务定义的同一个序列键。 */
+function alertSeries(symbol: SymbolSpec) {
+  return resolveBarsSelection(symbol, ORIGINAL_BAR_AGGREGATION)
+}
+
 function readScript(definitions: DefinitionRegistry, id: string) {
   const descriptor = definitions.getDescriptor(id)
   if (descriptor?.kind !== 'alert') return undefined
@@ -73,6 +73,7 @@ function readScript(definitions: DefinitionRegistry, id: string) {
 }
 
 function validateDraft(draft: AlertDraft): void {
+  alertSeries(draft.symbol)
   if (
     !draft.name.trim() ||
     !draft.message ||
@@ -138,7 +139,7 @@ function canEvaluate(alert: Alert, frequency: AlertFrequency, now: number): bool
 
 function makeFire(alert: Alert, event: ScriptAlertEvent, firedAt: number): AlertFire {
   const ticker = alert.symbol.instrument.symbol
-  const interval = alertFeedIdentity(alert.symbol).period
+  const interval = alertSeries(alert.symbol).period
   const tokens = new Map([
     ['ticker', ticker],
     ['interval', interval],
@@ -160,35 +161,26 @@ function makeFire(alert: Alert, event: ScriptAlertEvent, firedAt: number): Alert
 
 export async function createAlertService(deps: AlertServiceDependencies): Promise<AlertService> {
   const { definitions, clock, limits, onError: reportError } = deps
-  const [rulesDocument, firesDocument] = await Promise.all([deps.rules.read(), deps.fires.read()])
-  const rules = new Map((rulesDocument?.alerts ?? []).map((rule) => [rule.id, rule]))
-  let history = (firesDocument?.fires ?? []).slice(0, limits.maxFires)
+  const restored = await deps.document.read()
+  const rules = new Map((restored?.alerts ?? []).map((rule) => [rule.id, rule]))
+  let history = (restored?.fires ?? []).slice(0, limits.maxFires)
   const alerts = createSignal<readonly Alert[]>(Object.freeze([...rules.values()]))
   const fires = createSignal<readonly AlertFire[]>(Object.freeze(history))
   const evaluations = new Map<string, RuleEvaluation>()
+  const leases = new Map<FeedKey, () => void>()
   const listeners = new Map<AlertChannel, Set<(fire: AlertFire) => void>>()
-  const scopedSignals = new Map<FeedKey, ReadonlySignal<readonly Alert[]>>()
   let routes = new Map<string, string[]>()
   let writes = Promise.resolve()
   let disposed = false
 
-  function publish(rulesChanged: boolean, historyChanged = false): void {
-    const nextRules = rulesChanged ? Object.freeze([...rules.values()]) : undefined
-    const nextHistory = historyChanged ? Object.freeze(history) : undefined
+  function publish(rulesChanged: boolean, historyChanged = false, deliver?: () => void): void {
+    const snapshot = { version: ALERT_DOCUMENT_VERSION, alerts: Object.freeze([...rules.values()]), fires: Object.freeze(history) } satisfies AlertDocument
     writes = writes.then(async () => {
-      if (nextRules)
-        await deps.rules
-          .write({ version: ALERT_DOCUMENT_VERSION, alerts: nextRules })
-          .catch(reportError)
-      if (nextHistory)
-        await deps.fires
-          .write({ version: ALERT_DOCUMENT_VERSION, fires: nextHistory })
-          .catch(reportError)
-    })
-    batch(() => {
-      if (nextRules) alerts.set(nextRules)
-      if (nextHistory) fires.set(nextHistory)
-    })
+      await deps.document.write(snapshot)
+      if (historyChanged) fires.set(snapshot.fires)
+      deliver?.()
+    }).catch(reportError)
+    if (rulesChanged) alerts.set(snapshot.alerts)
   }
 
   function updatePlan(): void {
@@ -200,11 +192,10 @@ export async function createAlertService(deps: AlertServiceDependencies): Promis
       if (!alert.enabled) continue
       const script = readScript(definitions, alert.script.definitionId)
       if (!script || !canEvaluate(alert, script.frequency, now)) continue
-      const feed = createFeedKey(alertFeedIdentity(alert.symbol))
+      const feed = seriesSelectionKey(alertSeries(alert.symbol))
       const request = {
         definitionId: script.id,
         inputs: calculationInputs(script.defaults, alert.script.inputs),
-        context: {},
       }
       const key = createLocalCalculationKey(request)
       const route = createCalculationKey(feed, key)
@@ -220,7 +211,19 @@ export async function createAlertService(deps: AlertServiceDependencies): Promis
       else routes.set(route, [alert.id])
     }
     client.setPlan([...requests].map(([feed, group]) => ({ feed, requests: [...group.values()] })))
-    deps.feeds.retain([...symbols.values()])
+    for (const [feed, release] of leases) {
+      if (symbols.has(feed)) continue
+      release()
+      leases.delete(feed)
+    }
+    for (const [feed, symbol] of symbols) {
+      if (leases.has(feed)) continue
+      try {
+        leases.set(feed, deps.acquireBars(symbol))
+      } catch (error) {
+        reportError(error)
+      }
+    }
   }
 
   function recordFires(id: string, events: readonly ScriptAlertEvent[], frequency: AlertFrequency): void {
@@ -255,18 +258,19 @@ export async function createAlertService(deps: AlertServiceDependencies): Promis
         .slice(0, limits.maxFires)
     }
     if (frequency === 'once' && accepted.length) updatePlan()
-    publish(true, accepted.length > 0)
-    for (const fire of accepted) {
-      for (const channel of alert.channels) {
-        for (const listener of [...(listeners.get(channel) ?? [])]) {
-          try {
-            listener(fire)
-          } catch (error) {
-            reportError(error)
+    publish(true, accepted.length > 0, () => {
+      for (const fire of accepted) {
+        for (const channel of alert.channels) {
+          for (const listener of listeners.get(channel) ?? []) {
+            try {
+              listener(fire)
+            } catch (error) {
+              reportError(error)
+            }
           }
         }
       }
-    }
+    })
   }
 
   function acceptResult(feed: FeedKey, result: CalculationResult): void {
@@ -309,7 +313,7 @@ export async function createAlertService(deps: AlertServiceDependencies): Promis
   function save(alert: Alert): Alert {
     const snapshot = deepFreezeSnapshot({ ...alert, channels: [...new Set(alert.channels)] })
     rules.set(snapshot.id, snapshot)
-    const revision = deps.hub.readDataRevision(createFeedKey(alertFeedIdentity(snapshot.symbol))) ?? 0
+    const revision = deps.hub.readDataRevision(seriesSelectionKey(alertSeries(snapshot.symbol))) ?? 0
     evaluations.set(snapshot.id, { revision })
     updatePlan()
     publish(true)
@@ -323,20 +327,6 @@ export async function createAlertService(deps: AlertServiceDependencies): Promis
   return {
     alerts: asReadonlySignal(alerts),
     fires: asReadonlySignal(fires),
-    forSymbol(symbol) {
-      const feed = createFeedKey(alertFeedIdentity(symbol))
-      const existing = scopedSignals.get(feed)
-      if (existing) return existing
-      const scoped = computed(() =>
-        Object.freeze(
-          [...alerts()].filter(
-            (alert) => createFeedKey(alertFeedIdentity(alert.symbol)) === feed,
-          ),
-        ),
-      )
-      scopedSignals.set(feed, scoped)
-      return scoped
-    },
     create(draft) {
       validateDraft(draft)
       if (rules.size >= limits.maxAlerts) {
@@ -368,8 +358,8 @@ export async function createAlertService(deps: AlertServiceDependencies): Promis
       }
       validateDraft(next)
       const sameFeed =
-        createFeedKey(alertFeedIdentity(next.symbol)) ===
-        createFeedKey(alertFeedIdentity(alert.symbol))
+        seriesSelectionKey(alertSeries(next.symbol)) ===
+        seriesSelectionKey(alertSeries(alert.symbol))
       if (sameFeed) return save(next)
       const { lastFiredBarTime: _previousBar, ...rebound } = next
       return save(rebound)
@@ -383,11 +373,11 @@ export async function createAlertService(deps: AlertServiceDependencies): Promis
     },
     get: (id) => rules.get(id) ?? null,
     list({ symbol, status } = {}) {
-      const feed = symbol && createFeedKey(alertFeedIdentity(symbol))
+      const feed = symbol && seriesSelectionKey(alertSeries(symbol))
       const timestamp = clock.now()
       return [...rules.values()].filter(
         (alert) =>
-          (!feed || createFeedKey(alertFeedIdentity(alert.symbol)) === feed) &&
+          (!feed || seriesSelectionKey(alertSeries(alert.symbol)) === feed) &&
           (status === undefined ||
             alertStatus(
               alert,
@@ -419,9 +409,12 @@ export async function createAlertService(deps: AlertServiceDependencies): Promis
         disposed = true
         unsubscribeCatalog()
         client.dispose()
-        listeners.clear()
-        scopedSignals.clear()
-        deps.feeds.retain([])
+        for (const release of leases.values()) release()
+        leases.clear()
+        writes = writes.finally(async () => {
+          listeners.clear()
+          await deps.document.dispose()
+        })
       }
       return writes
     },

@@ -56,7 +56,7 @@ export function createTradeCache(
     catalog: { search: async () => [tradeInstrument] },
     trades: { fetch: fetchRange, connect: () => ({ subscribe: () => () => {}, close: () => {} }) },
   })
-  const cache = new MarketDataCache(registry)
+  const cache = new MarketDataCache(registry, () => [])
   const buffer = cache.getTradeBuffer(tradeSelection, tradeInstrument)
   return {
     cache,

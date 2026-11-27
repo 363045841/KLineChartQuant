@@ -26,6 +26,7 @@
         @active-controller="bindDocumentTitle"
       />
     </div>
+    <slot name="notifications" />
   </div>
 </template>
 

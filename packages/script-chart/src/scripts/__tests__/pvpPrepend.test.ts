@@ -19,7 +19,6 @@ describe('PVP service prepend', () => {
       persistence: { load: async () => null, save: async () => true },
       builtinSources: [source],
       createWorkerPool: testScriptPool,
-      bindRendering: null,
     })
     const runtime = definitions.getDefinition('PVP')?.runtime
     if (!runtime) throw new Error('PVP not registered')

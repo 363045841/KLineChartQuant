@@ -13,17 +13,8 @@ import type {
 } from '@363045841yyt/klinechart-plot-contracts'
 
 import type { KLineData } from '@/foundation/types/price.js'
-import type { ReadyMarketSession } from '../data/series/types.js'
-
-/** 一条行情序列的稳定身份；与图表实例、Pane、视口无关。 */
-export interface DataIdentity {
-  /** 独立发布者的命名空间，修订号只在各自的行情序列内有效。 */
-  readonly scope?: string
-  readonly source: string
-  readonly instrument: string
-  readonly period: string
-  readonly adjustment: string
-}
+import type { ScriptMarketSession } from '../data/series/types.js'
+import type { BarsSelection } from '@/data/buffer/seriesSelection.js'
 
 /** 行情序列键；结果仓库与调度都按它隔离不同数据。 */
 export type FeedKey = string
@@ -33,10 +24,8 @@ export type CalculationKey = string
 
 /** 一次行情更新；修订号是结果是否有效的唯一判据。 */
 export interface FeedSnapshot {
-  readonly identity: DataIdentity
+  readonly identity: BarsSelection
   readonly dataRevision: number
-  /** 行情源（含 request.* 结果）的修订号。 */
-  readonly marketRevision: number
   readonly timestamps: readonly number[]
   readonly data: readonly KLineData[]
   /** 本次行情的变化区间；执行器据此推导重算范围。 */
@@ -45,10 +34,8 @@ export interface FeedSnapshot {
   readonly live: boolean
   /** 本次更新明确确认收盘的 K 线时间。 */
   readonly closedBarTime?: number
-  /** 此序列的中间更新也有业务意义，必须按顺序执行。 */
-  readonly ordered?: boolean
   /** 品种独立于活动图表时提供该行情的取数上下文。 */
-  readonly marketSession?: ReadyMarketSession
+  readonly marketSession?: ScriptMarketSession
 }
 
 /** 可递归编码为计算身份的输入值。 */
@@ -75,7 +62,6 @@ export interface CalculationRequest {
   readonly key: CalculationKey
   readonly definitionId: string
   readonly inputs: CalculationInputs
-  readonly context: CalculationInputs
   /** 等待状态上报的宿主对象身份；与计算身份无关。 */
   readonly owners?: readonly string[]
 }
@@ -100,7 +86,6 @@ export interface CalculationResult {
   readonly key: CalculationKey
   readonly definitionId: string
   readonly dataRevision: number
-  readonly marketRevision: number
   /** 计算时的时间轴；展示映射在消费边界生成。 */
   readonly timestamps: readonly number[]
   readonly series: unknown
@@ -114,7 +99,6 @@ export interface CalculationResult {
 export interface CalculationCommit {
   readonly feed: FeedKey
   readonly dataRevision: number
-  readonly marketRevision: number
   readonly results: ReadonlyMap<CalculationKey, CalculationResult>
 }
 
@@ -150,15 +134,13 @@ export interface CalculationDefinition {
 }
 
 /** 计算级行情上下文端口；只供执行器读取，不承载调度状态。 */
-export interface CalculationMarketData {
-  context(owner: string, bars: readonly KLineData[], session?: ReadyMarketSession): IndicatorMarketContext
-  /** 提交当前计划的全部租约；只回收计划自己拥有、本次未声明的 key。 */
-  retain(owners: ReadonlySet<string>): void
-}
+export type CalculationMarketData = (
+  bars: readonly KLineData[], session?: ScriptMarketSession,
+) => IndicatorMarketContext
 
 export interface CalculationHubOptions {
   resolveDefinition(definitionId: string): CalculationDefinition | undefined
-  marketData?: () => CalculationMarketData
+  marketData?: CalculationMarketData
 }
 
 /** 消费者回调；同一 feed 的有效结果只提交一次。 */

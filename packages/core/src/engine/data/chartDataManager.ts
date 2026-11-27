@@ -10,7 +10,7 @@ import {
   isTimeSharePeriod,
   type SymbolInfo,
 } from '../../controllers/types.js'
-import type { SymbolSpec } from '@/foundation/types/instrument.js'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
 import { DEFAULT_BAR_PAGE_LIMIT } from '../../data/buffer/impl/marketDataPolicy.js'
 import {
   type BarsSelection,
@@ -31,8 +31,6 @@ import {
 import {
   DEFAULT_KLINE_ADJUSTMENT,
   DEFAULT_KLINE_PERIOD,
-  isKLineAdjustment,
-  isKLinePeriod,
   isTradingDate,
   KLinePeriod,
   OLDER_DATA_STATUS,
@@ -46,6 +44,7 @@ import type {
   TradesSeries,
 } from '../../data/service/index.js'
 import type { TradeSnapshot } from '../../data/trades/types.js'
+import { resolveBarsSelection } from '../../data/service/index.js'
 import { EMPTY_TRADE_SNAPSHOT } from '../../data/trades/types.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../errors.js'
 import type { MarketSessionRegistry } from '../../foundation/config/marketSession/marketSessionRegistry.js'
@@ -72,7 +71,6 @@ import { symbolInfoIdentityKey } from './symbolIdentity.js'
 export interface DataDependencies {
   readonly data: MarketDataService
   readonly marketSessions: MarketSessionRegistry
-  invalidateRequests?(): void
   updateTradeInput: (input: TradeSnapshot) => void
   needsTrades: () => boolean
   /** 视图尺寸与几何；滚动补偿和增量提示使用。 */
@@ -86,14 +84,10 @@ export interface DataDependencies {
   /** 行情页确实向左推进后，由 Chart 决定是否继续补齐左缘。 */
   onBarsReady: () => void
   resetInteraction: () => void
-  /** 指标数据更新入口：K 线计算 + 可选展示时间戳投影。 */
-  updateIndicatorData: (
-    data: readonly KLineData[],
-    change: import('@363045841yyt/klinechart-plot-contracts').ComputeChange,
-    range: VisibleRange,
-    dataRevision: number,
+  /** 选择共享计算序列，并提供图表独有的分时投影。 */
+  projectIndicatorFeed: (
+    selection: BarsSelection | null,
     displayTimestamps: readonly number[] | null,
-    live: boolean,
   ) => void
   /** 发布 symbols 选择（含 primary + comparison），只写状态不触发加载 */
   publishSymbols: (symbols: ReadonlyArray<SymbolSpec>) => void
@@ -122,12 +116,11 @@ export class ChartDataManager {
   private _loadingUnsub: (() => void) | null = null
   private _errorUnsub: (() => void) | null = null
   private _lastDataChange: DataChange<KLineData> | DataChange<TimeShareData> | null = null
-  private _marketRevision = 0
   private _dataRevision = 0
   private _coverageTarget: number | null = null
   private _coveragePromise: Promise<CoverageResult> | null = null
   private _hasActiveData = false
-  private _timeShareIndicatorRequest: AbortController | null = null
+  private _timeShareIndicatorBars: BarsSeries | null = null
   private _pendingIncrementalLoadFlushTimer: ReturnType<typeof setTimeout> | null = null
   private _disposed = false
 
@@ -153,11 +146,6 @@ export class ChartDataManager {
       this._comparisonManager.reconcile()
     })
     this._comparisonManager.reconcile()
-  }
-
-  /** 行情修订参与指标结果新旧判断。 */
-  get marketRevision(): number {
-    return this._marketRevision
   }
 
   /** 图表与 Agent 共用的底层缓存；窗口查询与容量设置走这里。 */
@@ -389,6 +377,7 @@ export class ChartDataManager {
     if (selection.kind === SERIES_SELECTION_KIND.bars) {
       const bars = this._bars
       if (!bars) return this.publishEmptySnapshot()
+      this.deps.projectIndicatorFeed(selection, null)
       this._barsUnsub = bars.data.subscribe(() => this.handleData(selection))
       this._loadingUnsub = bars.loading.subscribe(() => this.handleLoading(selection))
       this._errorUnsub = bars.lastError.subscribe(() => {
@@ -424,15 +413,6 @@ export class ChartDataManager {
   private handleData(selection: SeriesSelection): void {
     if (!this.isActiveSelection(selection)) return
     if (!this.publishSnapshot(false)) return
-    this._marketRevision++
-    const change = this.activeChange()
-    if (
-      change?.kind === DATA_CHANGE_KINDS.append ||
-      change?.kind === DATA_CHANGE_KINDS.tail ||
-      change?.kind === DATA_CHANGE_KINDS.extend
-    ) {
-      this.deps.invalidateRequests?.()
-    }
     this._dataRevision++
     this.onDataChanged(selection)
   }
@@ -442,12 +422,6 @@ export class ChartDataManager {
     this.publishSnapshot(false)
     const active = this._activeData ?? this._activeTimeShare
     if (active && !active.loading.peek()) this.scheduleIncrementalLoadHintFlush(selection)
-  }
-
-  private activeChange(): DataChange<KLineData> | DataChange<TimeShareData> | null {
-    if (this._activeSelection?.kind === SERIES_SELECTION_KIND.bars)
-      return this._bars?.data.peek() ?? null
-    return this._timeShare?.data.peek() ?? null
   }
 
   private onDataChanged(selection: SeriesSelection): void {
@@ -472,25 +446,6 @@ export class ChartDataManager {
     if (!this._dmState.readonly.rangeInitialized.peek() && data.length > 0) {
       this._dmState.actions.setRangeInitialized(true)
     }
-    let range = this.getVisibleRangeOrNull()
-    if (!range && this._dmState.readonly.rangeInitialized.peek() && data.length > 0) {
-      range = { start: 0, end: data.length }
-    }
-    if (range) {
-      this.deps.updateIndicatorData(
-        data,
-        {
-          start: change.start,
-          end: change.end,
-          reset:
-            change.kind !== DATA_CHANGE_KINDS.append && change.kind !== DATA_CHANGE_KINDS.tail,
-        },
-        range,
-        this._dataState.readonly.dataRevision.peek(),
-        null,
-        change.kind === DATA_CHANGE_KINDS.append || change.kind === DATA_CHANGE_KINDS.tail,
-      )
-    }
     if (prepended > 0) {
       this._dmState.actions.recordIncrementalLoad(
         prepended,
@@ -504,40 +459,17 @@ export class ChartDataManager {
   private onTimeShareChanged(): void {
     this._dmState.actions.setRangeInitialized(true)
     this.deps.resetInteraction()
-    void this.updateTimeShareIndicators()
-    this.deps.scheduleDraw()
-  }
-
-  /** 分时指标用 1min K 线计算，再投影到分时坐标。 */
-  private async updateTimeShareIndicators(): Promise<void> {
     const spec = this._dmState.readonly.currentSpec.peek()
-    const range = this.getVisibleRangeOrNull()
-    const data = this._activeTimeShare?.getRawData() ?? []
-    if (!spec || !range || data.length === 0) return
-    this._timeShareIndicatorRequest?.abort()
-    const request = new AbortController()
-    this._timeShareIndicatorRequest = request
-    try {
-      const page = await this.deps.data.read({
-        spec: { instrument: spec.instrument, period: KLinePeriod.Min1, adjust: spec.adjust ?? DEFAULT_KLINE_ADJUSTMENT },
+    const data = this._activeTimeShare?.getRawData()
+    if (spec && data?.length) {
+      const barsSpec = { ...this.normalizeSpec(spec), period: KLinePeriod.Min1 }
+      this._timeShareIndicatorBars ??= this.deps.data.bars(barsSpec, {
         aggregation: ORIGINAL_BAR_AGGREGATION,
-        limit: ChartDataManager.TIME_SHARE_INDICATOR_BAR_LIMIT,
-        signal: request.signal,
+        initialBars: ChartDataManager.TIME_SHARE_INDICATOR_BAR_LIMIT,
       })
-      if (request.signal.aborted || this._timeShareIndicatorRequest !== request) return
-      this.deps.updateIndicatorData(
-        [...page.data],
-        { start: 0, end: page.data.length },
-        range,
-        this._dataState.readonly.dataRevision.peek(),
-        data.map((item) => item.timestamp),
-        false,
-      )
-    } catch {
-      // 分时指标失败不回写主行情错误，主图仍可读。
-    } finally {
-      if (this._timeShareIndicatorRequest === request) this._timeShareIndicatorRequest = null
+      this.deps.projectIndicatorFeed(resolveBarsSelection(barsSpec, ORIGINAL_BAR_AGGREGATION), data.map((item) => item.timestamp))
     }
+    this.deps.scheduleDraw()
   }
 
   // ── 覆盖与预取 ──
@@ -629,22 +561,7 @@ export class ChartDataManager {
   }
 
   private barsSelectionForSpec(spec: SymbolSpec): BarsSelection {
-    const period = ChartDataManager.normalizePeriod(spec.period)
-    const adjustment = spec.adjust ?? DEFAULT_KLINE_ADJUSTMENT
-    if (!isKLinePeriod(period)) {
-      throw new Error(`[ChartDataManager] invalid K-line period "${period}"`)
-    }
-    if (!isKLineAdjustment(adjustment)) {
-      throw new Error(`[ChartDataManager] invalid K-line adjustment "${adjustment}"`)
-    }
-    return {
-      kind: SERIES_SELECTION_KIND.bars,
-      instrumentKey: instrumentKeyFromSpec(spec),
-      source: sourceFromSpec(spec),
-      period,
-      adjustment,
-      barAggregation: ORIGINAL_BAR_AGGREGATION,
-    }
+    return resolveBarsSelection(this.normalizeSpec(spec), ORIGINAL_BAR_AGGREGATION)
   }
 
   private comparisonSpecForPrimary(spec: SymbolSpec): SymbolSpec {
@@ -730,8 +647,6 @@ export class ChartDataManager {
     const nextKey = selection === null ? null : seriesSelectionKey(selection)
     const activeKey = active === null ? null : seriesSelectionKey(active)
     if (nextKey !== activeKey) {
-      this._timeShareIndicatorRequest?.abort()
-      this._timeShareIndicatorRequest = null
       this._dmState.actions.setRangeInitialized(false)
       this._hasActiveData = false
       this.deps.resetInteraction()
@@ -776,6 +691,9 @@ export class ChartDataManager {
   private disposeActiveSeries(): void {
     this.unbindActiveSeries()
     this._activeSelection = null
+    this.deps.projectIndicatorFeed(null, null)
+    this._timeShareIndicatorBars?.dispose()
+    this._timeShareIndicatorBars = null
     this._bars?.dispose()
     this._bars = null
     this._timeShare?.dispose()
@@ -901,7 +819,6 @@ export class ChartDataManager {
     this._comparisonManager.clearAll()
     this.disposeTrades()
     this.disposeActiveSeries()
-    this._timeShareIndicatorRequest?.abort()
     this._loadHint.destroy()
     if (this._pendingIncrementalLoadFlushTimer !== null) {
       clearTimeout(this._pendingIncrementalLoadFlushTimer)

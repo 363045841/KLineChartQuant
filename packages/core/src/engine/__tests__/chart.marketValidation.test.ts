@@ -5,7 +5,7 @@ import {
   FIVE_DAY_TIME_SHARE_PERIOD,
   TIME_SHARE_PERIOD,
 } from '../../controllers/types'
-import type { SymbolSpec } from '@/foundation/types/instrument.js'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
 import { Chart, type ChartOptions } from '../chart/index'
 import { ChartDataViewId } from '../chartModel/index'
 import { MAIN_PANE_ID } from '../pane/types'

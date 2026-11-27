@@ -1,6 +1,6 @@
 /** 品种身份：统一由 instrument 派生，来源与路由字段不再参与拼接。 */
 import type { SymbolInfo } from '../../controllers/types.js'
-import type { SymbolSpec } from '@/foundation/types/instrument.js'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
 
 /**
  * 业务品种的稳定身份键。

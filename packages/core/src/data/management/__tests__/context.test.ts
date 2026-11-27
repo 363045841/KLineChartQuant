@@ -1,9 +1,6 @@
 // @vitest-environment jsdom
 /** 行情宿主的注册、健康检查、异步失效策略与流所有权边界。 */
 import { describe, expect, it, vi } from 'vitest'
-import { DataBuffer } from '../../buffer/impl/dataBuffer.js'
-import { MarketDataCache } from '../../buffer/impl/marketDataCache.js'
-import type { BarsSelection } from '../../buffer/seriesSelection.js'
 import { searchInstruments } from '../../provider/instrumentSearch.js'
 import { createBuiltinMarketDataContext } from '../../provider/impl/sources/createBuiltinContext.js'
 import type { MarketDataProvider, SourceProbeResult } from '../../provider/types.js'
@@ -121,30 +118,6 @@ describe('MarketDataContext stream lifecycle', () => {
 })
 
 describe('MarketDataContext', () => {
-  it('drops old connection snapshots while retaining unrelated data', () => {
-    const context = new MarketDataContext()
-    context.registry.register(provider('one'))
-    const other = provider('other')
-    context.registry.register({ ...other, source: { ...other.source, connectionId: 'other' } })
-    const cache = new MarketDataCache(context.registry)
-    const selection: BarsSelection = {
-      kind: 'bars',
-      instrumentKey: 'stock',
-      source: 'one',
-      period: 'daily',
-      adjustment: 'none',
-      barAggregation: 'original',
-    }
-    const unrelated = { ...selection, source: 'other' }
-    cache.repository.getOrCreateBars(selection, () => new DataBuffer())
-    const retained = cache.repository.getOrCreateBars(unrelated, () => new DataBuffer())
-    context.applyConnection('shared', 'http://localhost:9000')
-    expect(cache.repository.getBars(selection)).toBeUndefined()
-    expect(cache.repository.getBars(unrelated)).toBe(retained)
-    cache.destroy()
-    context.dispose()
-  })
-
   it('times out providers that ignore cancellation', async () => {
     vi.useFakeTimers()
     const context = new MarketDataContext()

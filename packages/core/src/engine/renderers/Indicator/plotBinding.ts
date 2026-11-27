@@ -1,25 +1,15 @@
-/**
- * Plot 指标的渲染绑定：图表侧在注册时把渲染器与标题投影附加到计算描述上。
- */
+/** 图表按定义的输出类型选择渲染和图例投影。 */
 import type { IndicatorMetadata } from '../../indicators/indicatorMetadata.js'
 import { plotRenderer } from '../../plots/impl/plotDefinition.js'
 import { createPlotTitleInfo } from '../../plots/impl/plotTitleInfo.js'
-import type { RenderableIndicator } from './types.js'
+import { isRenderableIndicator, type RenderableIndicator } from './types.js'
 
-/**
- * 为 Plot 指标附加渲染绑定。
- *
- * @param metadata - 注册表中的计算描述
- * @param displayName - 指标显示名，标题投影按它生成
- * @returns 带渲染器的定义
- */
-export function bindPlotRendering(
-  metadata: IndicatorMetadata,
-  displayName: string,
-): RenderableIndicator {
-  return {
-    ...metadata,
-    rendererFactory: plotRenderer(),
-    getTitleInfo: createPlotTitleInfo(displayName),
-  }
+const createPlotRenderer = plotRenderer()
+
+/** Plot 定义使用图表自带的渲染器，原生扩展由其图表入口提供。 */
+export function resolveIndicatorRendering(definition: IndicatorMetadata): RenderableIndicator | undefined {
+  if (definition.kind !== 'indicator') return undefined
+  if (isRenderableIndicator(definition)) return definition
+  if (!definition.plots) return undefined
+  return { ...definition, rendererFactory: createPlotRenderer, getTitleInfo: createPlotTitleInfo(definition.displayName) }
 }

@@ -1,7 +1,7 @@
 /** 控制器层公共出口：导出 framework-agnostic 控制器类型、工厂函数与引擎子模块的 facade 重导出。 */
 // -- Controller types (framework-agnostic) --
 
-export { isSymbolSpec } from '../engine/data/symbolSpecGuard.js'
+export { isSymbolSpec } from '@/data/symbolSpecGuard.js'
 export type {
   IndicatorTemplateApi,
   IndicatorTemplateApplyResult,

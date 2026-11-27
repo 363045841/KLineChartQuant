@@ -6,11 +6,10 @@ import {
   type CalculationDefinition,
   type CalculationHub,
   createCalculationHub,
-  createDataIdentity,
-  createFeedKey,
   type FeedKey,
   type FeedSnapshot,
 } from '../../../../core/src/engine/calculation/index.js'
+import { type BarsSelection, seriesSelectionKey } from '../../../../core/src/data/buffer/seriesSelection.js'
 import type { Bar } from '@363045841yyt/klinechart-plot-contracts'
 import { describe, expect, it, vi } from 'vitest'
 import { createTestData } from '../../../../core/src/engine/indicators/__tests__/helpers/instanceTestKit.js'
@@ -20,12 +19,14 @@ import type { ScriptWorkerPoolFactory } from '@363045841yyt/klinechart-script/wo
 import { NodeScriptWorker } from '../../../../script/src/worker/__tests__/nodeWorker.js'
 import { createScriptService } from '../impl/createScriptService.js'
 
-const IDENTITY = createDataIdentity({
+const IDENTITY: BarsSelection = {
+  kind: 'bars',
   source: 'test',
-  instrument: 'TEST',
-  defaultPeriod: '5',
-  defaultAdjustment: 'none',
-})
+  instrumentKey: 'TEST',
+  period: '5min',
+  adjustment: 'none',
+  barAggregation: 'original',
+}
 
 /** 断言脚本运行端口存在；缺失直接失败，不提供替身。 */
 function requireRuntime(definitions: ReturnType<typeof createDefinitionRegistry>, id: string) {
@@ -86,7 +87,6 @@ describe('realtime script lifecycle', () => {
       definitions: registry,
       persistence: { load: async () => null, save: async () => true },
       createWorkerPool: pool,
-      bindRendering: null,
       builtinSources: [
         `defineIndicator({ version: 2,name:'LifetimeSlow',position:Position.main,onBar(){
         const values=request.securityLowerTf(syminfo.tickerId,Timeframe.minute1,()=>volume);
@@ -107,16 +107,12 @@ describe('realtime script lifecycle', () => {
     const hub: CalculationHub = createCalculationHub({
       resolveDefinition: (id) => definitions.get(id),
       marketData: () => ({
-        revision: 0,
-        retain() {},
-        context: () => ({
-          symbol: 'TEST',
-          time: { period: '5', session: { timeZone: 'UTC', sessions: [{ open: 0, close: 1440 }] } },
-          loadBars,
-        }),
+        symbol: 'TEST',
+        time: { period: '5', session: { timeZone: 'UTC', sessions: [{ open: 0, close: 1440 }] } },
+        loadBars,
       }),
     })
-    const feedKey: FeedKey = createFeedKey(IDENTITY)
+    const feedKey: FeedKey = seriesSelectionKey(IDENTITY)
     const loading = new Set<string>()
     const commits: { revision: number; keys: string[] }[] = []
     const client = hub.createClient('test', {
@@ -135,7 +131,6 @@ describe('realtime script lifecycle', () => {
     const snapshot = (dataRevision: number): FeedSnapshot => ({
       identity: IDENTITY,
       dataRevision,
-      marketRevision: 0,
       data,
       timestamps,
       change: { start: 0, end: data.length },
@@ -145,8 +140,8 @@ describe('realtime script lifecycle', () => {
       {
         feed: feedKey,
         requests: [
-          { key: 'slow', definitionId: 'slow', inputs: {}, context: {}, owners: ['slow'] },
-          { key: 'fast', definitionId: 'fast', inputs: {}, context: {}, owners: ['fast'] },
+          { key: 'slow', definitionId: 'slow', inputs: {}, owners: ['slow'] },
+          { key: 'fast', definitionId: 'fast', inputs: {}, owners: ['fast'] },
         ],
       },
     ])

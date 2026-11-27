@@ -368,7 +368,6 @@
       @create-script="openBlankScriptEditor"
       @close="replacementPaneId = null"
     />
-    <AlertNotificationStack v-if="appRuntime?.alerts.value" :alerts="appRuntime.alerts.value" />
     <ChartSettingsDialog
       v-model:open="chartSettingsOpen"
       :initial-section="chartSettingsSection"
@@ -471,7 +470,6 @@
   import { useMarketDataSourceCatalog } from '@vue-src/composables/market/useMarketDataSourceCatalog.js'
   import { provideToast, TOAST_STORE_KEY, useToast } from '@vue-src/composables/toast/useToast.js'
   import { useDeviceEnvironment } from '@vue-src/composables/useDeviceEnvironment.js'
-  import { createScriptsPort } from '@vue-src/features/agent/browser-agent/host/impl/script-port.js'
   import { PROJECT_REPOSITORY_URL } from '@vue-src/productLinks.js'
   import {
     computed,
@@ -510,7 +508,6 @@
   import ExportProgressDialog from '@vue-src/components/export/ExportProgressDialog.vue'
   import RangeSelectionExport from '@vue-src/components/export/RangeSelectionExport.vue'
   import IndicatorSelector from '@vue-src/components/indicator/IndicatorSelector.vue'
-  import AlertNotificationStack from '@vue-src/components/alert/AlertNotificationStack.vue'
   import CanvasToolbarStack from './CanvasToolbarStack.vue'
 
   const ScriptEditorHost = defineAsyncComponent(
@@ -521,7 +518,6 @@
   import LeftToolbar from '@vue-src/components/toolbar/LeftToolbar.vue'
   import TopToolbar, { type SymbolItem } from '@vue-src/components/toolbar/TopToolbar.vue'
   import { RANGE_SELECT_UI_TOOL_ID } from '@vue-src/components/toolbar/toolbarToolIds.js'
-  import { sharedScriptService } from '@vue-src/composables/chart/scriptEditor/impl/sharedScriptService.js'
   import { SCRIPT_SOURCE_STORE_KEY } from '@vue-src/composables/chart/scriptEditor/types.js'
   import { useCanvasDrawingTemplates } from '@vue-src/composables/chart/useCanvasDrawingTemplates.js'
   import { useChartContextMenu } from '@vue-src/composables/chart/useChartContextMenu.js'
@@ -1742,15 +1738,7 @@
       settings: props.settings,
       layoutRestore: props.restoreLayout,
       layoutStorageId: props.layoutStorageId,
-      scripts: createScriptsPort(() =>
-        sharedScriptService(
-          props.runtime.definitions,
-          (definitionId) =>
-            appRuntime?.alerts.value?.alerts
-              .peek()
-              .some((rule) => rule.script.definitionId === definitionId) ?? false,
-        ),
-      ),
+      scripts: appRuntime?.scriptTools,
     })
     return ctrl
   }

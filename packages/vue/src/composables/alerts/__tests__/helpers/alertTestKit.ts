@@ -1,8 +1,7 @@
 /** 警报 UI 测试夹具：脚本注册、假行情会话与规则构造。 */
 import { expect } from 'vitest'
 import {
-  type AlertFiresDocument,
-  type AlertRulesDocument,
+  type AlertDocument,
   type AlertScriptDefinition,
   type AlertService,
   createAlertCatalog,
@@ -89,9 +88,8 @@ export function createAlertTestContext(): AlertTestContext {
     const service: AlertService = await createAlertService({
       hub,
       definitions,
-      rules: createMemoryDocumentStore<AlertRulesDocument>(null),
-      fires: createMemoryDocumentStore<AlertFiresDocument>(null),
-      feeds: { retain: () => {} },
+      document: createMemoryDocumentStore<AlertDocument>(null),
+      acquireBars: () => () => {},
       clock: { now: () => 0 },
       limits: DEFAULT_ALERT_LIMITS,
       onError: () => {},

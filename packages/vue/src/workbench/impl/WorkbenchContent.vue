@@ -17,7 +17,7 @@
       <KlineChart
         ref="chart"
         v-bind="{ ...chart, ...$attrs }"
-        :runtime="marketRuntime"
+        :runtime="runtime.market"
         :restore-layout="restoreLayout"
         :layout-storage-id="layoutStorageId"
         :symbols="market.symbols.value"
@@ -57,17 +57,9 @@
 
 <script setup lang="ts">
   import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
-  import {
-    createAlertRuntime,
-    createAlertStores,
-    createDefinitionRegistry,
-    createMarketRuntime,
-    DEFAULT_ALERT_LIMITS,
-    systemClock,
-  } from '@363045841yyt/klinechart-core'
   import AlertPanel from '@vue-src/components/alert/AlertPanel.vue'
   import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
-  import { computed, defineAsyncComponent, onScopeDispose, shallowRef, useTemplateRef } from 'vue'
+  import { computed, defineAsyncComponent, shallowRef, useTemplateRef } from 'vue'
   import IconBookmark from '~icons/tabler/bookmark'
   import IconTablerBell from '~icons/tabler/bell'
   import IconSettings from '~icons/tabler/settings'
@@ -77,13 +69,11 @@
   import WatchlistPanel from '../../components/watchlist/WatchlistPanel.vue'
   import { provideChartCommands } from '../../composables/commands/useCommands.js'
   import { useAggregationSources } from '../../composables/market/useAggregationSources.js'
-  import { provideMarketDataContext } from '../../composables/market/useMarketDataContext.js'
-  import { useMarketDataContext } from '../../composables/market/useMarketDataContext.js'
   import { useMarketDataSourceCatalog } from '../../composables/market/useMarketDataSourceCatalog.js'
   import { createInstrumentSearch } from '../../composables/symbol/createInstrumentSearch.js'
   import { switchChartSymbol } from '../../composables/symbol/chartSymbolSwitch.js'
   import type { SearchableSymbol } from '../../composables/symbol/useSymbolSearch.js'
-  import { provideAppRuntime } from '../../composables/runtime/useAppRuntime.js'
+  import { useAppRuntime } from '../../composables/runtime/useAppRuntime.js'
   import { useToast } from '../../composables/toast/useToast.js'
   import { provideWatchlist } from '../../composables/watchlist/useWatchlist.js'
   import ObjectTreePanel from '../../features/object-tree/ObjectTreePanel.vue'
@@ -95,7 +85,6 @@
   import type { SidePanelDefinition } from '../../features/side-panel/types.js'
   import type { KlineWorkbenchProps } from '../types.js'
   import { useWorkbenchMarket } from './useWorkbenchMarket.js'
-  import { useWorkbenchServices } from './useWorkbenchServices.js'
 
   defineOptions({ inheritAttrs: false })
   const props = withDefaults(defineProps<KlineWorkbenchProps>(), {
@@ -136,50 +125,13 @@
   const widthStorage = createSidePanelWidthStorage()
   const sideStorage = createSidePanelSideStorage()
   const toast = useToast()
-  const market = useWorkbenchMarket(
-    props,
-    props.marketDataContext ?? useMarketDataContext(),
-    (error) => emit('error', error),
-  )
-  // 图表与侧栏面板共享同一个行情实例：面板不是图表的子节点，不能依赖图表内部注入。
-  provideMarketDataContext(market.context)
-  const definitions = createDefinitionRegistry()
-  const marketRuntime = createMarketRuntime({ market: market.context, definitions, clock: systemClock })
-  const alerts = shallowRef<import('@363045841yyt/klinechart-core').AlertService | null>(null)
-  provideAppRuntime({ market: marketRuntime, definitions, alerts })
-  const { initialize } = useWorkbenchServices(
-    props.scripts,
-    definitions,
-    (definitionId) =>
-      alerts.value?.alerts.peek().some((rule) => rule.script.definitionId === definitionId) ?? false,
-  )
-  const alertStores = createAlertStores(props.layoutStorageId ?? 'kline-workbench')
-  let alertRuntime: import('@363045841yyt/klinechart-core').AlertRuntime | undefined
-  void createAlertRuntime({
-    runtime: marketRuntime,
-    ...alertStores,
-    limits: DEFAULT_ALERT_LIMITS,
-    onError: (error) => emit('error', error instanceof Error ? error : new Error(String(error))),
-  })
-    .then((runtime) => {
-      alertRuntime = runtime
-      alerts.value = runtime.service
-    })
-    .catch((cause: unknown) => {
-      emit('error', cause instanceof Error ? cause : new Error(String(cause)))
-    })
-  onScopeDispose(() => {
-    void alertRuntime?.dispose()
-    marketRuntime.dispose()
-  })
+  const runtime = useAppRuntime()
+  const market = useWorkbenchMarket(props, runtime.market.market, (error) => emit('error', error))
   const aggregationSources = useMarketDataSourceCatalog(market.context)
   const { enabledNames: enabledSourceNames, enabledNameSet: enabledSourceNameSet } =
     useAggregationSources(aggregationSources, market.context)
   const searchSymbols = createInstrumentSearch(market.context, () => enabledSourceNames.value)
   void market.initialize()
-  void initialize().catch((cause: unknown) => {
-    emit('error', cause instanceof Error ? cause : new Error(String(cause)))
-  })
 
   /** 对外转发同一个图表控制器，Agent 和宿主不再各自组装图表。 */
   function onControllerReady(value: ChartController): void {

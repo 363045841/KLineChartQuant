@@ -1,7 +1,7 @@
 /** 持久化边界上的品种校验：只有完整 instrument 的 spec 才能进入图表。 */
 
-import type { SymbolSpec } from '@/foundation/types/instrument.js'
-import type { InstrumentDescriptor } from '../../data/provider/types.js'
+import type { SymbolSpec } from './symbolSpec.js'
+import type { InstrumentDescriptor } from './provider/types.js'
 
 /** 判断任意值是否是完整的统一品种描述。 */
 function isInstrumentDescriptor(value: unknown): value is InstrumentDescriptor {

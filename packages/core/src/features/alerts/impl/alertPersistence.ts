@@ -1,49 +1,38 @@
-/**
- * 警报持久化：浏览器组合根使用的 IndexedDB 仓库装配。
- *
- * 规则与触发日志是两个独立文档；仓库由调用方持有并释放。没有可用实现时直接失败，
- * 不退回内存，避免进程无报错但重启后规则全丢。
- */
-import {
-  createIndexedDbDocumentStore,
-  type DocumentStore,
-} from '../../../foundation/persistence/index.js'
-import {
-  ALERT_DOCUMENT_VERSION,
-  type AlertFiresDocument,
-  type AlertRulesDocument,
-  decodeFires,
-  decodeRules,
-} from './alertCodec.js'
+/** 浏览器应用级警报文档；首次打开时一次性导入旧标签的记录。 */
+import { createIndexedDbDocumentStore } from '@/foundation/persistence/impl/indexedDbDocumentStore.js'
+import { createIndexedDbDriver } from '@/foundation/persistence/impl/indexedDbDriver.js'
+import { scopedPersistenceName } from '@/foundation/persistence/persistence-scope.js'
+import { decodeAlertDocument, importAlertDocuments } from './alertCodec.js'
 
-/**
- * 创建某一命名空间的规则仓库。
- *
- * @param namespace - 工作区命名空间，与浏览器持久化作用域拼接
- * @param name - 文档名，同时用作 store 名与记录键
- * @param decode - 结构校验与解码
- */
-function store<T>(
-  namespace: string,
-  name: 'rules' | 'fires',
-  decode: (value: unknown) => T,
-): DocumentStore<T> {
-  return createIndexedDbDocumentStore<T>({
-    databaseName: `@363045841yyt/klinechart-alert-${namespace}-${name}`,
-    version: ALERT_DOCUMENT_VERSION,
-    storeName: name,
-    key: name,
-    codec: { decode, encode: (value) => value },
+/** 打开应用文档，只有首次创建时读取旧存储；原始文档保留供恢复。 */
+export async function openBrowserAlertStore() {
+  const document = createIndexedDbDocumentStore({
+    databaseName: '@363045841yyt/klinechart-alerts', version: 1,
+    storeName: 'alerts', key: 'state', codec: { decode: decodeAlertDocument, encode: (value) => value },
   })
-}
-
-/** 创建某一运行时的规则与触发存储；两者独立释放。 */
-export function createAlertStores(namespace: string): {
-  rules: DocumentStore<AlertRulesDocument>
-  fires: DocumentStore<AlertFiresDocument>
-} {
-  return {
-    rules: store(namespace, 'rules', decodeRules),
-    fires: store(namespace, 'fires', decodeFires),
+  try {
+    if (await document.read()) return document
+    const prefix = '@363045841yyt/klinechart-alert-'
+    const scopedPrefix = scopedPersistenceName(prefix)
+    const databases = await indexedDB.databases()
+    const rules: unknown[] = []
+    const fires: unknown[] = []
+    for (const { name } of databases) {
+      if (!name?.startsWith(scopedPrefix)) continue
+      const kind = name.endsWith('-rules') ? 'rules' : name.endsWith('-fires') ? 'fires' : null
+      if (!kind) continue
+      const driver = createIndexedDbDriver({ databaseName: prefix + name.slice(scopedPrefix.length), version: 1 })
+      try {
+        const value = await driver.transaction([kind], 'readonly', (tx) => tx.get(kind, kind))
+        if (value !== undefined) (kind === 'rules' ? rules : fires).push(value)
+      } finally {
+        await driver.dispose()
+      }
+    }
+    await document.update((current) => current ?? importAlertDocuments(rules, fires))
+    return document
+  } catch (error) {
+    await document.dispose()
+    throw error
   }
 }

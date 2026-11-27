@@ -32,7 +32,6 @@ export interface IndicatorResult {
   /** 计算时的时间轴；展示映射在投影边界生成。 */
   readonly timestamps: readonly number[]
   readonly dataRevision: number
-  readonly marketRevision: number
   readonly series: unknown
   readonly error?: IndicatorError
 }

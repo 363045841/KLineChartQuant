@@ -10,7 +10,7 @@
  * 不创建也不释放中枢，不持有行情或任务状态。
  */
 
-import type { ComputeChange } from '@363045841yyt/klinechart-plot-contracts'
+import { generateUUID } from '@/foundation/utils/uuid.js'
 
 import { GENERIC_ERROR_CODES, INDICATOR_SERIES_ERROR_CODES, KLineChartError } from '@/errors.js'
 import type { ObjectAxisBinding } from '@/foundation/geometry/axisBinding.js'
@@ -34,12 +34,8 @@ import {
   type CalculationInputValue,
   type CalculationRequest,
   type CalculationResult,
-  createFeedKey,
   createLocalCalculationKey,
-  type DataIdentity,
-  type FeedSnapshot,
 } from '../calculation/index.js'
-import type { ReadyMarketSession } from '../data/series/types.js'
 import type { ChartOptions, IndicatorInstance, SubPaneInfo } from '../chart/index.js'
 import { type PaneAxisSpec, resolveObjectAxisMap } from '../pane/axisResolver.js'
 import { UpdateLevel } from '../pane/index.js'
@@ -48,7 +44,7 @@ import { updatePlotRange } from '../plots/impl/projectPlots.js'
 import { isPlotRenderState } from '../plots/impl/readPlotState.js'
 import type { PlotRenderState } from '../plots/types.js'
 import { createIndicatorLayer } from '../renderers/Indicator/factory.js'
-import { isRenderableIndicator } from '../renderers/Indicator/types.js'
+import { resolveIndicatorRendering } from '../renderers/Indicator/plotBinding.js'
 import type { IndicatorInstanceSpec, IndicatorStateModule } from '../state/indicatorState.js'
 import type { VisibleRange } from '../viewport/viewport.js'
 import type { IndicatorMetadata } from './indicatorMetadata.js'
@@ -123,7 +119,6 @@ export interface IndicatorDependencies {
   /** 会话级计算中枢；图表只是消费者，不创建也不释放。 */
   readonly hub: CalculationHub
   /** 行情修订参与结果新旧判断；来自图表自己的行情运行时。 */
-  getMarketRevision: () => number
   getPeriod: () => string
   plotColors$: ReadonlySignal<ColorTokens>
   getOption: () => ResolvedChartOptions
@@ -176,7 +171,6 @@ export class ChartIndicatorManager {
   /** 当前行情身份；没有数据时为 null。 */
   private feedKey: string | null = null
   /** 当前行情修订；提交只接受该修订的结果。 */
-  private feed: FeedSnapshot | null = null
   /** 当前状态下的实例与请求映射。 */
   private planned: readonly PlannedInstance[] = []
   /** 最近一次提交；滚动/缩放只重投影，不重算。 */
@@ -246,7 +240,7 @@ export class ChartIndicatorManager {
     this.deps = deps
     this.hub = deps.hub
     this.definitions = deps.definitions
-    this.client = this.hub.createClient('chart', {
+    this.client = this.hub.createClient(generateUUID(), {
       onCommit: (commit) => this.publishResults(commit.results),
       onPending: (owners, pending) => {
         for (const id of owners)
@@ -273,7 +267,6 @@ export class ChartIndicatorManager {
           id: instance.instanceId,
           definitionId: instance.indicatorId,
           label,
-          name: label,
           paneId: instance.paneId,
           ordinal: instance.ordinal,
           params: { ...instance.params },
@@ -315,11 +308,6 @@ export class ChartIndicatorManager {
     this.paneAxes = axes
   }
 
-  /** 目标行情更新复用现有计算层；旧结果由修订校验自然淘汰。 */
-  invalidateMarketData(): void {
-    if (this.feed) this.hub.updateFeed(this.feed)
-  }
-
   /** 在协调者的提交内同步计算器、发布完整计划、挂载图层。 */
   projectIndicators(inputs: IndicatorRuntimeInputs): void {
     this.planned = this.createPlan(inputs.instances)
@@ -333,10 +321,11 @@ export class ChartIndicatorManager {
     this.releaseLayerResources()
     for (const { spec, metadata } of this.planned) {
       // 注册表只保证计算描述；图表要建 Layer 必须先有渲染绑定。
-      if (!isRenderableIndicator(metadata))
+      const rendering = resolveIndicatorRendering(metadata)
+      if (!rendering)
         throw new Error(`[Indicator] definition '${spec.indicatorId}' has no renderer binding`)
       const layer = createIndicatorLayer({
-        definition: metadata,
+        definition: rendering,
         paneId: spec.paneId,
         indicatorId: spec.indicatorId,
         instanceId: spec.instanceId,
@@ -366,7 +355,10 @@ export class ChartIndicatorManager {
       planned.push({
         spec,
         metadata,
-        request: metadata.runtime ? this.createRequest(spec, metadata) : null,
+        request: metadata.runtime ? {
+          ...this.createRequest(metadata.name, metadata.runtime, spec.params),
+          owners: [spec.instanceId],
+        } : null,
         presentation: ChartIndicatorManager.resolvePresentation(metadata, spec.params),
       })
     }
@@ -375,39 +367,25 @@ export class ChartIndicatorManager {
 
   /** 生成一个实例的计算请求；参数与上下文完整快照。 */
   private createRequest(
-    spec: IndicatorInstanceSpec,
-    metadata: IndicatorMetadata,
+    definitionId: string,
+    runtime: NonNullable<IndicatorMetadata['runtime']>,
+    overrides: Readonly<Record<string, unknown>> | undefined,
   ): CalculationRequest {
-    const definitionId = metadata.name
-    const defaults = ChartIndicatorManager.resolveDefaultInputs(metadata.runtime!.defaultInputs)
     const inputs: Record<string, CalculationInputValue> = {}
-    for (const name of Object.keys(defaults)) {
-      const value = spec.params[name] ?? defaults[name]
-      if (value === undefined) continue
-      inputs[name] = toCalculationInputValue(value)
+    for (const [name, value] of Object.entries(runtime.defaultInputs)) {
+      inputs[name] = toCalculationInputValue(overrides?.[name] ?? value)
     }
-    const context = { definitionRevision: metadata.runtime!.revision ?? 0 }
     return Object.freeze({
-      key: createLocalCalculationKey({ definitionId, inputs, context }),
+      key: createLocalCalculationKey({ definitionId, inputs }),
       definitionId,
       inputs: Object.freeze(inputs),
-      context: Object.freeze(context),
-      owners: Object.freeze([spec.instanceId]),
     })
   }
 
   /** 把计划提交给计算层；渲染型实例不产生请求。 */
   private applyPlan(): void {
-    if (!this.feedKey) return
     const requests = this.planned.flatMap((entry) => (entry.request ? [entry.request] : []))
-    this.client.setPlan([{ feed: this.feedKey, requests }])
-  }
-
-  /** 解析 runtime.defaultInputs，支持函数与常量两种声明。 */
-  private static resolveDefaultInputs(value: unknown): Record<string, unknown> {
-    if (typeof value === 'function') return (value as () => Record<string, unknown>)()
-    if (value && typeof value === 'object') return value as Record<string, unknown>
-    return {}
+    this.client.setPlan(this.feedKey === null ? [] : [{ feed: this.feedKey, requests }])
   }
 
   /** 从 Kernel 实例参数中提取展示配置。 */
@@ -500,52 +478,15 @@ export class ChartIndicatorManager {
     })
   }
 
-  /** 行情更新入口：构造快照交给计算层，视图只保留展示所需信息。 */
-  updateIndicatorData(
-    data: readonly KLineData[],
-    change: ComputeChange,
-    visibleRange: VisibleRange,
-    dataRevision: number,
-    displayTimestamps: readonly number[] | null,
-    identity: DataIdentity,
-    marketSession: ReadyMarketSession | null,
-    live: boolean,
-  ): void {
-    this.visibleRange = visibleRange
+  /** 选择运行时持有的序列，图表只保留展示投影。 */
+  projectFeed(feedKey: string | null, displayTimestamps: readonly number[] | null): void {
     this.displayTimestamps = displayTimestamps
-    if (data.length === 0) {
-      this.clearFeed()
-      return
-    }
-    const nextFeedKey = createFeedKey(identity)
-    if (this.feedKey !== null && this.feedKey !== nextFeedKey) {
-      this.hub.removeFeed(this.feedKey)
+    if (this.feedKey !== feedKey) {
+      this.feedKey = feedKey
       this.resetResults()
+      this.applyPlan()
     }
-    this.feedKey = nextFeedKey
-    this.feed = {
-      identity,
-      dataRevision,
-      marketRevision: this.deps.getMarketRevision(),
-      timestamps: data.map((item) => item.timestamp),
-      data,
-      change,
-      // 由数据层显式给出：只有追加与末根更新才是实时 bar。
-      live,
-      ...(marketSession === null ? {} : { marketSession }),
-    }
-    this.hub.updateFeed(this.feed)
-    this.applyPlan()
-    if (this.reprojectRenderStates()) this.deps.scheduleDraw()
-  }
-
-  /** 数据清空时释放行情与结果；消费者计划置空，不再等待提交。 */
-  private clearFeed(): void {
-    if (this.feedKey) this.hub.removeFeed(this.feedKey)
-    this.feedKey = null
-    this.feed = null
-    this.resetResults()
-    this.client.setPlan([])
+    this.reprojectRenderStates()
     this.deps.scheduleDraw()
   }
 
@@ -569,7 +510,7 @@ export class ChartIndicatorManager {
     },
     signal: AbortSignal,
   ): Promise<CalculationResult> {
-    if (!this.feedKey || !this.feed)
+    if (!this.feedKey || this.hub.readDataRevision(this.feedKey) === undefined)
       throw new KLineChartError(
         INDICATOR_SERIES_ERROR_CODES.NO_DATA,
         'Reading indicator series requires active market data.',
@@ -580,21 +521,7 @@ export class ChartIndicatorManager {
         INDICATOR_SERIES_ERROR_CODES.INDICATOR_NOT_REGISTERED,
         `Unknown indicator '${request.definitionId}'. Load or register it before reading its series.`,
       )
-    const defaults = ChartIndicatorManager.resolveDefaultInputs(metadata.runtime.defaultInputs)
-    const inputs: Record<string, CalculationInputValue> = {}
-    for (const name of Object.keys(defaults)) {
-      const value = request.inputs?.[name] ?? defaults[name]
-      if (value === undefined) continue
-      inputs[name] = toCalculationInputValue(value)
-    }
-    const context = { definitionRevision: metadata.runtime.revision ?? 0 }
-    const definitionId = metadata.name
-    const calculationRequest: CalculationRequest = Object.freeze({
-      key: createLocalCalculationKey({ definitionId, inputs, context }),
-      definitionId,
-      inputs: Object.freeze(inputs),
-      context: Object.freeze(context),
-    })
+    const calculationRequest = this.createRequest(metadata.name, metadata.runtime, request.inputs)
     const result = await this.hub.submit(this.feedKey, calculationRequest, signal)
     if (result.error) {
       throw new KLineChartError(
@@ -742,7 +669,7 @@ export class ChartIndicatorManager {
 
   /** 从权威计算时间轴映射到当前展示时间轴，缓存完整的映射身份。 */
   private getTimelineProjection(source: readonly number[]): IndicatorTimelineProjection {
-    const target = this.displayTimestamps ?? this.feed?.timestamps ?? source
+    const target = this.displayTimestamps ?? source
     const byMinute = this.displayTimestamps !== null
     const cached = this.timelineProjection
     if (cached?.source === source && cached.target === target && cached.byMinute === byMinute)
@@ -813,7 +740,6 @@ export class ChartIndicatorManager {
     this.paneAxes = new Map()
     this.planned = []
     this.results = null
-    this.feed = null
     this.feedKey = null
   }
 }

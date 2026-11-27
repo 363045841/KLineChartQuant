@@ -7,7 +7,6 @@ import type {
   CalculationInputObject,
   CalculationInputValue,
   CalculationRequest,
-  DataIdentity,
 } from '../types.js'
 
 /** 判断是否为输入数组；显式谓词用于收窄 readonly 数组。 */
@@ -38,49 +37,12 @@ export function canonicalizeInput(value: CalculationInputValue): string {
   return canonicalizeObject(value)
 }
 
-/** 由数据字段构造稳定身份；缺省值只在这里归一。 */
-export function createDataIdentity(input: {
-  readonly scope?: string
-  readonly source: string
-  readonly instrument: string
-  readonly period?: string
-  readonly adjustment?: string
-  readonly defaultPeriod: string
-  readonly defaultAdjustment: string
-}): DataIdentity {
-  if (!input.source) throw new TypeError('Data identity requires a source')
-  if (!input.instrument) throw new TypeError('Data identity requires an instrument')
-  if (!input.defaultPeriod) throw new TypeError('Data identity requires a default period')
-  if (!input.defaultAdjustment)
-    throw new TypeError('Data identity requires a default adjustment')
-  return Object.freeze({
-    ...(input.scope === undefined ? {} : { scope: input.scope }),
-    source: input.source,
-    instrument: input.instrument,
-    period: input.period ?? input.defaultPeriod,
-    adjustment: input.adjustment ?? input.defaultAdjustment,
-  })
-}
-
-/** 行情序列键；与视图无关。 */
-export function createFeedKey(identity: DataIdentity): string {
-  return JSON.stringify([
-    identity.source,
-    identity.instrument,
-    identity.period,
-    identity.adjustment,
-    ...(identity.scope === undefined ? [] : [identity.scope]),
-  ])
-}
-
-/** 消费者内部的计算键：定义、参数与上下文共同决定一次计算。 */
+/** 同一序列上的计算由定义与输入唯一决定。 */
 export function createLocalCalculationKey(
-  request: Pick<CalculationRequest, 'definitionId' | 'inputs' | 'context'>,
+  request: Pick<CalculationRequest, 'definitionId' | 'inputs'>,
 ): string {
   if (!request.definitionId) throw new TypeError('Calculation definitionId is required')
-  return `${request.definitionId}:${canonicalizeInput(request.inputs)}:${canonicalizeInput(
-    request.context,
-  )}`
+  return `${JSON.stringify(request.definitionId)}:${canonicalizeInput(request.inputs)}`
 }
 
 /** 全局结果键；feed 与消费者本地键拼接，跨数据源不会串结果。 */

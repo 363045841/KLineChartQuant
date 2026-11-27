@@ -11,6 +11,7 @@ import type {
   MarketDataSourceConfigPatch,
   SourceCapabilities,
   SourceCapabilityQuery,
+  SourceProbeResult,
 } from './types.js'
 import { isFilterableInstrumentType } from './types.js'
 
@@ -49,6 +50,7 @@ function supportsCapability(
 /** 管理实例的注册与配置入口；所有读者共享同一份不可变快照。 */
 export class MarketDataProviderRegistry {
   private readonly stateSignal = createSignal(EMPTY_STATE)
+  private readonly probes = new Map<MarketDataProvider, { connection: MarketConnection; result: Promise<SourceProbeResult> }>()
   /** 唯一的观察入口；注册、注销和配置更新都发布新的不可变快照。 */
   readonly state = asReadonlySignal(this.stateSignal)
 
@@ -181,9 +183,20 @@ export class MarketDataProviderRegistry {
     )
   }
 
-  setCapabilities(source: string, capabilities: SourceCapabilities | undefined): void {
-    const provider = this.getRequired(source)
-    provider.source.capabilities = capabilities
+  /** 健康检查与取数路由共用当前连接的在途探测。 */
+  probe(provider: MarketDataProvider, signal: AbortSignal): Promise<SourceProbeResult> {
+    const id = provider.source.id
+    const connection = this.getConnection(id)
+    const pending = this.probes.get(provider)
+    if (pending?.connection === connection) return pending.result
+    const result = Promise.resolve().then(() => provider.probe(signal)).then((status) => {
+      if (this.get(id) === provider && this.getConnection(id) === connection) provider.source.capabilities = status.capabilities
+      return status
+    }).finally(() => {
+      if (this.probes.get(provider)?.result === result) this.probes.delete(provider)
+    })
+    this.probes.set(provider, { connection, result })
+    return result
   }
   getCapabilities(source: string): SourceCapabilities | undefined {
     return this.getRequired(source).source.capabilities

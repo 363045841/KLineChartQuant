@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { SymbolSpec } from '@/foundation/types/instrument.js'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit'
 import { createTimeSharePoint } from '@/engine/__tests__/helpers/timeShareTestKit'
 import { projectComparison } from '@/engine/chartModel'

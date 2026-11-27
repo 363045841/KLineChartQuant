@@ -79,7 +79,7 @@ export class MarketDataHealth {
       timer = setTimeout(() => controller.abort(), this.timeoutMs)
     })
     const promise = Promise.race([
-      Promise.resolve().then(() => provider.probe(controller.signal)),
+      this.registry.probe(provider, controller.signal),
       aborted,
     ])
       .catch(

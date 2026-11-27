@@ -113,7 +113,7 @@
     <AlertAddDialog
       v-model:open="addOpen"
       :alerts="runtime.alerts.value"
-      :definitions="runtime.definitions"
+      :definitions="runtime.market.definitions"
       :current-spec="currentSpec"
       :instruments="instrumentPool"
       :search-symbols="searchSymbols"
@@ -196,7 +196,7 @@
     confirmParams,
   } = useAlertPanel({
     alerts: () => runtime.alerts.value,
-    definitions: runtime.definitions,
+    definitions: runtime.market.definitions,
   })
 </script>
 

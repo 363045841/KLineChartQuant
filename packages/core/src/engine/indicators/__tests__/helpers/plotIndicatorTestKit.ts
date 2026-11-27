@@ -14,7 +14,6 @@ import type { IndicatorSeries } from '@/engine/plots/types.js'
 import { createIndicatorLayerId } from '../../indicatorLayerNaming.js'
 import type { IndicatorInputs, IndicatorInputValue } from '../../instances/domain/indicatorModel.js'
 import { createPlotIndicatorDefinition } from '../../pipeline/impl/createPlotDefinition.js'
-import { bindPlotRendering } from '../../../renderers/Indicator/plotBinding.js'
 
 /** 注册夹具的声明；compute 决定输出，defaultInputs 缺省提供 factor。 */
 export interface PlotIndicatorFixtureConfig {
@@ -62,14 +61,11 @@ export function registerPlotDefinition(
     compute(options: IndicatorComputeOptions<IndicatorInputs>): IndicatorSeries
   },
 ): void {
-  const definitionClass = bindPlotRendering(
-    createPlotIndicatorDefinition({
+  const definitionClass = createPlotIndicatorDefinition({
       ...definition,
       kind: 'indicator',
       compute: (options) => ({ series: definition.compute(options) }),
-    }),
-    definition.name,
-  )
+    })
   definitions.register([
     {
       kind: 'definition',

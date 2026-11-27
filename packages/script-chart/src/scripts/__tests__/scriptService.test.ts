@@ -19,7 +19,7 @@ function createScriptService(
   libraries: readonly QuickJSLibrary[],
   options: Omit<
     ScriptServiceOptions,
-    'builtinSources' | 'createWorkerPool' | 'persistence' | 'bindRendering'
+    'builtinSources' | 'createWorkerPool' | 'persistence'
   > &
     Partial<Pick<ScriptServiceOptions, 'builtinSources' | 'createWorkerPool' | 'persistence'>>,
 ): Promise<ScriptService> {
@@ -27,7 +27,6 @@ function createScriptService(
     builtinSources: [],
     createWorkerPool: testScriptPool,
     persistence: createIndexedDbScriptPersistence(),
-    bindRendering: null,
     ...options,
   })
 }
@@ -175,7 +174,7 @@ describe('ScriptService', () => {
     })
     unregisterIndicator(indicator.id)
     scripts.dispose()
-    const restored = await createScriptService([], { definitions, persistence })
+    const restored = await createScriptService([], { definitions, persistence: createIndexedDbScriptPersistence() })
     try {
       expect(restored.read(base.id)).toEqual(next)
       expect(await values()).toMatchObject({

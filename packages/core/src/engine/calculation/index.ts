@@ -6,8 +6,6 @@
 export {
   canonicalizeInput,
   createCalculationKey,
-  createDataIdentity,
-  createFeedKey,
   createLocalCalculationKey,
 } from './impl/canonical.js'
 export { createCalculationHub } from './impl/createCalculationHub.js'
@@ -27,7 +25,6 @@ export type {
   CalculationOutput,
   CalculationRequest,
   CalculationResult,
-  DataIdentity,
   FeedKey,
   FeedPlan,
   FeedSnapshot,

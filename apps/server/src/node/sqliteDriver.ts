@@ -12,7 +12,7 @@ import type {
 
 /** 契约键转成存储键；数组键序列化后保持唯一。 */
 function encodeKey(key: DocumentKey): string {
-  return typeof key === 'string' ? key : JSON.stringify(key)
+  return JSON.stringify(key)
 }
 
 export interface SqliteDriverOptions {
@@ -31,6 +31,8 @@ export function createSqliteDriver(options: SqliteDriverOptions): DocumentDriver
   database.exec(
     'CREATE TABLE IF NOT EXISTS documents (store TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY (store, key))',
   )
+  // 旧服务只写过 alerts/rules 和 alerts/fires 两个字符串键。
+  database.exec(`UPDATE documents SET key = json_quote(key) WHERE store = 'alerts' AND key IN ('rules', 'fires')`)
   const select = database.prepare('SELECT value FROM documents WHERE store = ? AND key = ?')
   const upsert = database.prepare(
     'INSERT INTO documents (store, key, value) VALUES (?, ?, ?) ON CONFLICT(store, key) DO UPDATE SET value = excluded.value',
@@ -41,23 +43,32 @@ export function createSqliteDriver(options: SqliteDriverOptions): DocumentDriver
 
   /** 事务串行执行，避免两个写事务交错读写。 */
   function transaction<R>(
-    _storeNames: readonly string[],
-    _mode: 'readonly' | 'readwrite',
+    storeNames: readonly string[],
+    mode: 'readonly' | 'readwrite',
     run: (transaction: DocumentTransaction) => Promise<R>,
   ): Promise<R> {
     if (disposed) return Promise.reject(new Error('SQLite driver is disposed'))
+    const stores = new Set(storeNames)
+    const check = (store: string, write = false): void => {
+      if (!stores.has(store) || (write && mode === 'readonly')) throw new Error(`Invalid document transaction operation on ${store}`)
+    }
     const result = queue.then(async () => {
       database.exec('BEGIN')
       try {
         const value = await run({
           async get(storeName, key) {
-            const row = select.get(storeName, encodeKey(key)) as { value: string } | undefined
-            return row === undefined ? undefined : JSON.parse(row.value)
+            check(storeName)
+            const row = select.get(storeName, encodeKey(key))
+            if (!row) return undefined
+            if (typeof row.value !== 'string') throw new Error('Invalid SQLite document value')
+            return JSON.parse(row.value)
           },
           async put(storeName, next, key) {
+            check(storeName, true)
             upsert.run(storeName, encodeKey(key), JSON.stringify(next))
           },
           async delete(storeName, key) {
+            check(storeName, true)
             remove.run(storeName, encodeKey(key))
           },
         })

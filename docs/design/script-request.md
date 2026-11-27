@@ -23,7 +23,7 @@ QuickJS 注入保留 NaN/Infinity，不用 JSON 的 null 替换缺值。
 
 ## 行情与所有权
 
-事实仍由 MarketDataCache 与 SeriesRepository 保存。历史加载坚持游标之前 N 根，
+事实由 MarketDataService 及其查询缓存保存。历史加载坚持游标之前 N 根，
 根据实际返回时间戳继续分页，直到覆盖主图已加载历史并补足预热，或 Provider 声明耗尽。
 不估算交易日历起点，不增加第二套网络查询实现。
 

@@ -18,7 +18,7 @@ flowchart TB
         Ctl["ChartController<br/>只读信号 + 命令方法"]
         Chart["Chart 门面"]
         Kernel["StateKernel<br/>Reactive SSOT"]
-        Data["数据层<br/>SeriesRepository · Buffer · 调度"]
+        Data["数据层<br/>MarketDataService · Buffer · 调度"]
         Pipe["渲染管线<br/>FrameTransaction · Scene/Layer"]
         GPU["WebGPU / WebGL2 / Canvas2D"]
         Plugin["插件子系统<br/>PluginHost · RendererPlugin"]
@@ -57,7 +57,7 @@ flowchart TB
   `effect()` 副作用。
 - **渲染** — 图元一次提交，WebGPU / WebGL2 / Canvas2D 三后端渲染，自动降级
   （WebGPU → WebGL → Canvas2D）。
-- **数据层** — 统一 `SeriesRepository` + 增量缓冲 + 拉取调度；多数据源聚合
+- **数据层** — 统一 `MarketDataService` + 增量缓冲 + 拉取调度；多数据源聚合
   （gotdx / BaoStock / TradingView / MT5 / mock）与 Binance 现货 K 线 / 逐笔成交。
 - **插件子系统** — PluginHost / HookSystem / EventBus / RendererPluginManager；
   指标、标记、画图以 Scene Layer 形式接入。

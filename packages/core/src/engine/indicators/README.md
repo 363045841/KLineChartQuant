@@ -86,7 +86,7 @@ indicators/
 2. `CalculationHub` 按 `calculationKey` 合并同一份行情上的相同请求；运行中的任务不因行情更新被取消，
    队列只保留最新一版待执行。
 3. 执行器调用 `CalculationDefinition.compute`；有状态定义通过 `createCompute` 建立独立计算会话。
-4. 结果按 `dataRevision + marketRevision` 判断有效性，提交给该行情上的全部消费者。
+4. 结果按行情服务发布的 `dataRevision` 判断有效性，提交给该序列的消费者。
 5. 失败作为带 `error` 的结果提交，不切换执行链路。
 
 `request.*` 取数由会话级计算行情按需调用 `MarketDataService.read` / `readSymbol` 补历史并投影，不再持有自己的缓存或 Buffer。
@@ -97,7 +97,7 @@ Agent 的 `indicator_series_query` 通过 `CalculationHub.submit` 提交预览�
 ## 结果与投影
 
 `CalculationResult` 承载一次计算本身：`key`、`definitionId`、`timestamps`、`dataRevision`、
-`marketRevision`、`series`、`alerts` 与可选的 `error`。结果身份由计算中枢与消费者计划共同承担，
+`series`、`alerts` 与可选的 `error`。结果身份由计算中枢与消费者计划共同承担，
 不在结果里重复保存 `instanceId`。
 
 `stateComposer.ts` 的

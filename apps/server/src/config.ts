@@ -15,14 +15,17 @@ export interface ServerConfig {
 }
 
 const FLAG_PATTERN = /^--([a-z-]+)=(.*)$/
+const FLAG_NAMES = new Set(['port', 'db', 'scripts', 'workers', 'sources'])
 
 /** 解析 `--key=value` 形式的参数；未识别的 flag 视为错误。 */
 function readFlags(argv: readonly string[]): ReadonlyMap<string, string> {
   const flags = new Map<string, string>()
   for (const argument of argv) {
     const match = FLAG_PATTERN.exec(argument)
-    if (!match) throw new Error(`Unsupported argument: ${argument}`)
-    flags.set(match[1]!, match[2]!)
+    const name = match?.[1]
+    if (name === undefined || !FLAG_NAMES.has(name)) throw new Error(`Unsupported argument: ${argument}`)
+    if (flags.has(name)) throw new Error(`Duplicate flag: --${name}`)
+    flags.set(name, match?.[2] ?? '')
   }
   return flags
 }

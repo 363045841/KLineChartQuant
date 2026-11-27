@@ -55,11 +55,12 @@ import {
   retryBackoffMs,
 } from './marketDataPolicy.js'
 import {
+  instrumentKeyFromSpec,
   LATEST_TRADING_DATE,
   seriesSelectionKey,
+  type BarsSelection,
   type TradesSelection,
 } from '../seriesSelection.js'
-import { SeriesRepository } from './seriesRepository.js'
 
 /** Agent 日期窗口查询最多向前翻的页数；用尽仍未覆盖 `from` 时如实标记截断。 */
 const BARS_WINDOW_PAGE_BUDGET = 12
@@ -207,7 +208,7 @@ function resolveTradeStatus(facts: TradeFacts, query?: QueryState): TradeStatus 
 
 /** 仅允许一个覆盖请求补齐同一缓存条目，避免并发滚动重复拉取同一页。 */
 export class MarketDataCache {
-  readonly repository = new SeriesRepository()
+  private readonly tradeBuffers = new Map<string, { selection: TradesSelection; buffer: TradeBuffer }>()
   private readonly router: SourceRouter
   private readonly registry: MarketDataProviderRegistry
   private readonly bars = new Map<string, CacheEntry>()
@@ -233,7 +234,7 @@ export class MarketDataCache {
   readonly stats = asReadonlySignal(this.statsSignal)
 
   /** 创建绑定一个 Provider Registry 的图表实例级缓存。 */
-  constructor(registry: MarketDataProviderRegistry) {
+  constructor(registry: MarketDataProviderRegistry, private readonly readLiveBars: (selection: BarsSelection) => readonly KLineData[]) {
     this.router = new SourceRouter(registry)
     this.registry = registry
     let previous = registry.state.peek()
@@ -251,9 +252,10 @@ export class MarketDataCache {
       previous = next
       if (changedSources.length) {
         this.clear()
-        for (const [instrumentKey] of this.repository.snapshot.peek()) {
-          for (const source of changedSources)
-            this.repository.deleteSource(instrumentKey, source)
+        for (const [key, { selection, buffer }] of this.tradeBuffers) {
+          if (!changedSources.includes(selection.source)) continue
+          buffer.dispose()
+          this.tradeBuffers.delete(key)
         }
       }
     })
@@ -263,10 +265,12 @@ export class MarketDataCache {
   getTradeBuffer(selection: TradesSelection, instrument: InstrumentDescriptor): TradeBuffer {
     this.throwIfDestroyed()
     const key = seriesSelectionKey(selection)
-    const existing = this.repository.getTrades(selection)
-    if (existing && existing.snapshot.peek().tickSize !== String(instrument.tickSize ?? 0))
-      this.repository.delete(selection)
-    const buffer = this.repository.getOrCreateTrades(selection, () => createTradeBuffer(instrument))
+    let buffer = this.tradeBuffers.get(key)?.buffer
+    if (!buffer || buffer.disposed || buffer.snapshot.peek().tickSize !== String(instrument.tickSize ?? 0)) {
+      buffer?.dispose()
+      buffer = createTradeBuffer(instrument)
+      this.tradeBuffers.set(key, { selection, buffer })
+    }
     const id = this.entryId('trades', key)
     const tracked = this.entries.get(id)
     if (tracked?.kind !== 'trades' || tracked.buffer !== buffer) {
@@ -395,7 +399,7 @@ export class MarketDataCache {
   }
 
   /** 查询一页 K 线；缓存命中该页则直接返回，否则请求 Provider 一页并合并。 */
-  async queryBars(query: BarsCacheQuery): Promise<BarsCacheResult> {
+  async queryBars(query: BarsCacheQuery, includeLive = true): Promise<BarsCacheResult> {
     this.throwIfDestroyed()
     if (!Number.isInteger(query.limit) || query.limit < 1) {
       throw new TypeError('[MarketDataCache] limit must be a positive integer')
@@ -411,11 +415,20 @@ export class MarketDataCache {
     if (!entry) throw new Error('[MarketDataCache] query completed without a cache entry')
     this.touchEntry('bars', key)
 
+    const live = includeLive ? this.readLiveBars({
+      kind: 'bars',
+      instrumentKey: instrumentKeyFromSpec({ instrument: entry.instrument }),
+      source: entry.source,
+      period: entry.series.period,
+      adjustment: entry.series.adjustment,
+      barAggregation: entry.series.barAggregation,
+    }) : []
+    const bars = live.length ? mergeBars(entry.data, live) : entry.data
     const beforeTimestamp = query.beforeTimestamp
     const data =
       beforeTimestamp === undefined
-        ? entry.data.slice(Math.max(0, entry.data.length - query.limit))
-        : entry.data.filter((item) => item.timestamp < beforeTimestamp).slice(-query.limit)
+        ? bars.slice(-query.limit)
+        : bars.filter((item) => item.timestamp < beforeTimestamp).slice(-query.limit)
     return {
       source: entry.source,
       instrument: entry.instrument,
@@ -508,7 +521,7 @@ export class MarketDataCache {
     const maximum =
       this.registry.getRequired(query.source).source.capabilities?.bars?.maxBarsPerRequest ??
       query.limit
-    let result = await this.queryBars({ ...query, limit: Math.min(query.limit, maximum) })
+    let result = await this.queryBars({ ...query, limit: Math.min(query.limit, maximum) }, false)
     let data = [...result.series.data]
     while (
       data.length < query.limit &&
@@ -520,7 +533,7 @@ export class MarketDataCache {
         ...query,
         beforeTimestamp,
         limit: Math.min(query.limit - data.length, maximum),
-      })
+      }, false)
       if (result.series.data.length === 0) break
       data = [...result.series.data, ...data]
     }
@@ -641,7 +654,8 @@ export class MarketDataCache {
     this.destroyed = true
     this.lifecycleAbortController.abort()
     this.clear()
-    this.repository.dispose()
+    for (const { buffer } of this.tradeBuffers.values()) buffer.dispose()
+    this.tradeBuffers.clear()
   }
 
   /** 确保一页请求的根数可从缓存命中，未命中时等待已有请求后重新判断。 */

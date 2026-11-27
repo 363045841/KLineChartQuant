@@ -85,6 +85,7 @@ export interface ScriptWorkspace {
 export interface ScriptPersistence {
   load(): Promise<ScriptWorkspace | null>
   save(workspace: ScriptWorkspace): Promise<boolean>
+  dispose?(): Promise<void>
 }
 
 /** 内置源码只参与启动注册，不进入用户持久化。 */
@@ -96,15 +97,6 @@ export interface ScriptServiceOptions {
   readonly createWorkerPool: import('@363045841yyt/klinechart-script/worker').ScriptWorkerPoolFactory
   /** 用户脚本工作区持久化。 */
   readonly persistence: ScriptPersistence
-  /**
-   * 注册时附加渲染绑定；浏览器传 `bindPlotRendering`，Node 传 `null` 只注册计算描述。
-   */
-  readonly bindRendering:
-    | ((
-        metadata: import('@363045841yyt/klinechart-core/node').IndicatorMetadata,
-        displayName: string,
-      ) => import('@363045841yyt/klinechart-core/node').IndicatorMetadata)
-    | null
   /** 定义是否仍被宿主引用（例如警报规则）；为 true 时拒绝删除。 */
   readonly isDefinitionReferenced?: (definitionId: string) => boolean | Promise<boolean>
 }
