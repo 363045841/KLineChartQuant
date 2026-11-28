@@ -62,7 +62,7 @@ async function setup(frequency: AlertFrequency) {
     hub.updateFeed({
       identity, dataRevision: revision, timestamps: [time],
       data: [{ timestamp: time, close, open: close, high: close, low: close }],
-      change: { start: 0, end: 1 }, live: true,
+      change: { kind: 'reset', start: 0, revision }, live: true,
       ...(closed ? { closedBarTime: time } : {}),
     })
   }

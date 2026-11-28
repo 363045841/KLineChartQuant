@@ -1,17 +1,32 @@
 /** Script Worker 端口：把主线程调用转成消息、把返回值解包并转发调试输出。 */
-
-import type { DrawingObject } from '@363045841yyt/klinechart-plot-contracts'
+import type { DrawingObject, IndicatorSeries } from '@363045841yyt/klinechart-plot-contracts'
 import type { LogEvent } from '../../contracts/log.js'
 import { applyDrawingDelta } from '../../execution/session/impl/drawingDelta.js'
+import type { CompiledScriptSources } from '../../execution/types.js'
+import type { QuickJSScriptDefinition } from '../../quickjs/types.js'
 import type { CompilationHost, CompilationLease } from '../compiler/types.js'
-import { inputTransferList, WorkerInputSender } from '../transport/impl/input.js'
+import { encodeRunInput, inputTransferList, WorkerInputReceiver } from '../transport/impl/input.js'
 import { unpackIndicatorSeries } from '../transport/impl/series.js'
-import type {
-  ScriptThread,
-  ScriptWorker,
-  ScriptWorkerRequest,
-  ScriptWorkerResponse,
+import {
+  ScriptThreadFailure,
+  type ScriptRequestsInput,
+  type ScriptRunInput,
+  type ScriptRunResult,
+  type ScriptThread,
+  type ScriptWorker,
+  type ScriptWorkerRequest,
+  type ScriptWorkerResponse,
 } from '../types.js'
+
+/** 端口持有的已编译条目；安装状态只在这里维护一份。 */
+interface ScriptEntry {
+  readonly lease: CompilationLease
+  readonly source: string
+  readonly trusted: boolean
+  installed: boolean
+  /** 已应用到的行情修订号；不连续时改发全量。 */
+  revision: number
+}
 
 /**
  * 创建脚本执行端口。
@@ -26,14 +41,13 @@ export function createScriptWorker(
   compiler: CompilationHost,
 ): ScriptWorker {
   let nextRequestId = 0
-  let failure: Error | undefined
-  const input = new WorkerInputSender()
+  let failure: ScriptThreadFailure | undefined
+  const input = new WorkerInputReceiver()
   /** 每个脚本只维护一份绘图增量，仅替换变化项；未变化对象保留引用。 */
   const drawings = new Map<string, readonly DrawingObject[]>()
-  const compiled = new Map<
-    string,
-    { lease: CompilationLease; trusted: boolean; installed: boolean }
-  >()
+  /** 每个脚本保留上一轮完整序列；尾部补丁只覆盖变化段。 */
+  const seriesStore = new Map<string, IndicatorSeries>()
+  const entries = new Map<string, ScriptEntry>()
   const preparing = new Set<CompilationLease>()
   let ready: Promise<void> = Promise.resolve()
   const pending = new Map<
@@ -47,16 +61,15 @@ export function createScriptWorker(
   /** 线程失效后拒绝全部请求，并终止迟到的失效线程消息。 */
   function stop(error: Error): void {
     if (failure) return
-    Object.assign(error, { workerFailure: true })
-    failure = error
-    input.clear()
-    drawings.clear()
-    for (const entry of compiled.values()) entry.lease.release()
+    failure = new ScriptThreadFailure(error.message, { cause: error })
+    for (const entry of entries.values()) entry.lease.release()
     for (const lease of preparing) lease.release()
-    compiled.clear()
+    entries.clear()
+    drawings.clear()
+    seriesStore.clear()
     preparing.clear()
     thread.terminate()
-    for (const request of pending.values()) request.reject(error)
+    for (const request of pending.values()) request.reject(failure)
     pending.clear()
   }
 
@@ -84,7 +97,7 @@ export function createScriptWorker(
   /** 无法读取线程消息时回传给客户端，避免调用方永久等待。 */
   thread.onMessageError(() => stop(new Error('无法读取 Script Worker 消息')))
 
-  /** 登记并转发专用通信块；发送失败立即端口，防止继续使用已失效线程。 */
+  /** 登记并转发专用通信块；发送失败立即标记线程失效。 */
   function request(
     message: ScriptWorkerRequest,
     transfer: ArrayBuffer[] = [],
@@ -96,122 +109,147 @@ export function createScriptWorker(
         thread.postMessage(message, transfer)
       } catch (error) {
         pending.delete(message.requestId)
-        reject(error)
-        stop(error instanceof Error ? error : new Error(String(error)))
+        const cause = error instanceof Error ? error : new Error(String(error))
+        reject(cause)
+        stop(cause)
       }
     })
   }
 
-  /** 元数据读取只依赖编译产物本身；破坏性安装执行会话只在首次运行时做。 */
-  function ensureInstalled(id: string): Promise<void> {
-    const operation = ready.then(async () => {
-      if (failure) throw failure
-      const entry = compiled.get(id)
-      if (!entry) throw new Error(`脚本尚未准备：${id}`)
-      if (entry.installed) return
-      const module = await entry.lease.module
-      const response = await request({
-        requestId: ++nextRequestId,
-        type: 'prepare',
-        id,
-        module,
-        trusted: entry.trusted,
-      })
-      if (response.type !== 'prepare') throw new Error('Script Worker 响应类型不匹配')
-      entry.installed = true
-    })
-    ready = operation.then(
+  /** 串行化请求；编译失败只影响当前调用，不破坏已安装的运行态。 */
+  function enqueue<T>(operation: () => Promise<T>): Promise<T> {
+    const result = ready.then(operation)
+    ready = result.then(
       () => {},
       () => {},
     )
-    return operation
+    return result
+  }
+
+  /** 编译并读取声明；读完立即释放运行态，不占会话。 */
+  function compile(
+    id: string,
+    source: string,
+    libraries: readonly import('../../quickjs/types.js').QuickJSLibrary[] | undefined,
+    trusted: boolean,
+  ): Promise<QuickJSScriptDefinition> {
+    const lease = compiler.acquire(source, libraries)
+    preparing.add(lease)
+    return lease.module
+      .then((module) => {
+        if (failure) throw failure
+        return request({
+          requestId: ++nextRequestId,
+          type: 'prepare',
+          id,
+          module,
+          trusted,
+        })
+      })
+      .then((response) => {
+        if (response.type !== 'prepare') throw new Error('Script Worker 响应类型不匹配')
+        entries.get(id)?.lease.release()
+        entries.set(id, { lease, source, trusted, installed: false, revision: -1 })
+        drawings.delete(id)
+        seriesStore.delete(id)
+        return response.definition
+      })
+      .catch((error: unknown) => {
+        lease.release()
+        throw failure ?? error
+      })
+      .finally(() => {
+        preparing.delete(lease)
+      })
+  }
+
+  /** 首次执行前安装运行态；同一源码只安装一次。 */
+  function ensureInstalled(id: string, entry: ScriptEntry): Promise<void> {
+    if (entry.installed) return Promise.resolve()
+    return entry.lease.module
+      .then((module) =>
+        request({
+          requestId: ++nextRequestId,
+          type: 'install',
+          id,
+          module,
+          trusted: entry.trusted,
+        }),
+      )
+      .then((response) => {
+        if (response.type !== 'install') throw new Error('Script Worker 响应类型不匹配')
+        entry.installed = true
+      })
   }
 
   return {
-    /** 编译在宿主线程完成；安装成功后才替换旧租约，失败保留当前执行模块。 */
-    prepare(id, source, libraries, trusted = false, mode = 'execution') {
-      const operation = ready.then(async () => {
+    prepare(id, source, libraries, trusted = false) {
+      return enqueue(() => compile(id, source, libraries, trusted))
+    },
+
+    run(id: string, runInput: ScriptRunInput): Promise<ScriptRunResult> {
+      return enqueue(async () => {
+        const entry = entries.get(id)
+        if (!entry) throw new Error(`脚本尚未准备：${id}`)
+        await ensureInstalled(id, entry)
         if (failure) throw failure
-        const lease = compiler.acquire(source, libraries)
-        preparing.add(lease)
-        try {
-          const module = await lease.module
-          if (failure) throw failure
-          const response = await request({
+        const reset = entry.revision !== runInput.change.revision - 1
+        const patch = encodeRunInput(runInput, reset)
+        // 行情在发送前已同步；脚本错误不回退修订号，只有线程失败才丢弃条目。
+        entry.revision = runInput.change.revision
+        const response = await request(
+          {
             requestId: ++nextRequestId,
-            type: 'prepare',
+            type: 'run',
             id,
-            module,
-            trusted,
-            metadataOnly: mode === 'metadata',
-          })
-          if (response.type !== 'prepare') throw new Error('Script Worker 响应类型不匹配')
-          compiled.get(id)?.lease.release()
-          compiled.set(id, { lease, trusted, installed: mode === 'execution' })
-          drawings.delete(id)
-          return response.definition
-        } catch (error) {
-          lease.release()
-          throw failure ?? error
-        } finally {
-          preparing.delete(lease)
-        }
+            input: patch,
+            params: runInput.params,
+            live: runInput.live,
+          },
+          inputTransferList(patch),
+        )
+        if (response.type !== 'run') throw new Error('Script Worker 响应类型不匹配')
+        const series = unpackIndicatorSeries(response.series, seriesStore.get(id))
+        seriesStore.set(id, series)
+        const deltaCollection = unpackIndicatorSeries(response.drawingDelta.series)
+        const next = applyDrawingDelta(drawings.get(id) ?? [], {
+          reset: response.drawingDelta.reset,
+          upsert: deltaCollection.drawings ?? [],
+          remove: response.drawingDelta.remove,
+        })
+        drawings.set(id, next)
+        return { series: { ...series, drawings: next }, alerts: response.alerts }
       })
-      ready = operation.then(
-        () => {},
-        () => {},
-      )
-      return operation
     },
-    /** 使用 Worker 输入块传输区间数据。 */
-    async run(id, bars, params, context, range, live) {
-      await ensureInstalled(id)
-      if (failure) throw failure
-      const inputPatch = input.encode(bars, context)
-      const response = await request(
-        {
+
+    requests(id: string, requestInput: ScriptRequestsInput) {
+      return enqueue(async () => {
+        const entry = entries.get(id)
+        if (!entry) throw new Error(`脚本尚未准备：${id}`)
+        await ensureInstalled(id, entry)
+        const response = await request({
           requestId: ++nextRequestId,
-          type: 'run',
+          type: 'requests',
           id,
-          input: inputPatch,
-          params,
-          range,
-          live,
-        },
-        inputTransferList(inputPatch),
-      )
-      if (response.type !== 'run') throw new Error('Script Worker 响应类型不匹配')
-      const series = unpackIndicatorSeries(response.series)
-      const deltaCollection = unpackIndicatorSeries(response.drawingDelta.series)
-      const next = applyDrawingDelta(drawings.get(id) ?? [], {
-        reset: response.drawingDelta.reset,
-        upsert: deltaCollection.drawings ?? [],
-        remove: response.drawingDelta.remove,
+          params: requestInput.params,
+          symbol: requestInput.symbol,
+        })
+        if (response.type !== 'requests') throw new Error('Script Worker 响应类型不匹配')
+        return response.requests
       })
-      drawings.set(id, next)
-      return { series: { ...series, drawings: next }, alerts: response.alerts }
     },
-    async requests(id, params, symbol) {
-      await ensureInstalled(id)
-      const response = await request({
-        requestId: ++nextRequestId,
-        type: 'requests',
-        id,
-        params,
-        symbol,
+
+    /** 删除指定脚本的编译快照与运行态。 */
+    release(id) {
+      return enqueue(async () => {
+        entries.get(id)?.lease.release()
+        entries.delete(id)
+        drawings.delete(id)
+        seriesStore.delete(id)
+        if (!failure) await request({ requestId: ++nextRequestId, type: 'release', id })
       })
-      if (response.type !== 'requests') throw new Error('Script Worker 响应类型不匹配')
-      return response.requests
     },
-    /** 删除指定脚本的编译快照。 */
-    async release(id) {
-      await ready
-      input.clear()
-      drawings.delete(id)
-      await request({ requestId: ++nextRequestId, type: 'release', id })
-      compiled.get(id)?.lease.release()
-      compiled.delete(id)
-    },
+
     /** 终止线程并拒绝所有未完成的请求。 */
     dispose() {
       stop(new Error('Script Worker 已销毁'))

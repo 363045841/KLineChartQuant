@@ -2,7 +2,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { isOhlcPlot, type Plot, type ScalarPlot } from '@363045841yyt/klinechart-plot-contracts'
 import type { Bar } from '../contracts/input.js'
-import { runQuickJSScript } from '../quickjs/impl/runQuickJSScript.js'
+import { runQuickJSScript } from './helpers/quickJSScript.js'
 import type { ScriptParamValue } from '../quickjs/types.js'
 import type { ScriptRequestContext } from '../request/types.js'
 import type { IndicatorSeries } from '@363045841yyt/klinechart-plot-contracts'

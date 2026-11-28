@@ -135,20 +135,22 @@ function __drawingDelta(reset: boolean): DrawingDelta {
   return { reset, upsert, remove }
 }
 
-/** 会话检查点：series 回滚下标、绘图对象快照与有状态库快照。 */
+/** 会话检查点：series 回滚下标、绘图对象快照、库快照与显式状态。 */
 function __checkpoint(): ScriptCheckpoint {
   return {
     index: __count(),
     drawings: __drawingCheckpoint(),
     libraries: __checkpointLibraries(),
+    states: __checkpointStates(),
   }
 }
 
-/** 回滚到会话检查点；只撤销检查点之后的缓存、绘图与库状态，不重建历史。 */
+/** 回滚到会话检查点；只撤销检查点之后的缓存、绘图、库与状态，不重建历史。 */
 function __rollback(checkpoint: ScriptCheckpoint): void {
   __rollbackSeries(checkpoint.index)
   __drawingRollback(checkpoint.drawings)
   __rollbackLibraries(checkpoint.libraries)
+  __rollbackStates(checkpoint.states)
 }
 
 Object.assign(globalThis, { line, box, label, chart, barstate })

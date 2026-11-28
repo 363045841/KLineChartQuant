@@ -6,20 +6,24 @@
 import { createPlotIndicatorDefinition, generateUUID } from '@363045841yyt/klinechart-core/node'
 import {
   type Bar,
-  type ComputeRange,
+  type ComputeChange,
   type IndicatorMarketContext,
   type IndicatorSourceDocument,
   type ScriptRunOptions,
 } from '@363045841yyt/klinechart-plot-contracts'
 import {
-  type PreparedScriptDefinition,
+  type QuickJSScriptDefinition,
   type QuickJSLibrary,
   resolveScriptLibraries,
 } from '@363045841yyt/klinechart-script'
 import type { ScriptRunResult, ScriptWorkerPoolFactory } from '@363045841yyt/klinechart-script/worker'
 import type { ScriptDocument } from '../types.js'
 import type { createScriptLog } from './createScriptLog.js'
-import { prepareScriptMarketData } from './prepareScriptMarketData.js'
+import {
+  prepareScriptMarketData,
+  type RequestSnapshotState,
+  type RequestSnapshots,
+} from './prepareScriptMarketData.js'
 import type { ScriptDocumentStore } from './scriptDocumentStore.js'
 
 type DefinitionCompute = Parameters<typeof createPlotIndicatorDefinition>[0]['compute']
@@ -27,7 +31,7 @@ type DefinitionCompute = Parameters<typeof createPlotIndicatorDefinition>[0]['co
 /** 一次编译的产物；提交成功前不进入运行表。 */
 export interface CompiledScript {
   readonly handle: string
-  readonly definition: PreparedScriptDefinition
+  readonly definition: QuickJSScriptDefinition
 }
 
 /** 生成指标定义所需的提交信息；与持久化文档一一对应。 */
@@ -68,6 +72,8 @@ export function createScriptExecutor(
   const definitions = new Map<string, string>()
   /** 计算句柄 → 日志频道；每次运行只登记一次。 */
   const executionOwners = new Map<string, string>()
+  /** 计算句柄 → 已加载的目标序列；Request 变化由此适配器描述一次。 */
+  const requestSnapshots = new Map<string, RequestSnapshots>()
   const executions = new Set<() => void>()
   let disposed = false
   const worker = createWorkerPool({
@@ -84,13 +90,24 @@ export function createScriptExecutor(
     bars: readonly Bar[],
     params: Readonly<Record<string, number | string | boolean>>,
     market?: IndicatorMarketContext,
-    range?: ComputeRange,
+    change: ComputeChange = { kind: 'reset', start: 0, revision: 0 },
     live?: boolean,
   ): Promise<ScriptRunResult> {
-    if (market === undefined)
-      return worker.run(handle, bars, params, undefined, range, undefined, live)
-    const context = await prepareScriptMarketData(worker, handle, params, market)
-    return worker.run(handle, bars, params, context, range, market.signal, live)
+    if (market === undefined) return worker.run(handle, { bars, change, params, live })
+    let snapshots = requestSnapshots.get(handle)
+    if (!snapshots) {
+      snapshots = new Map<string, RequestSnapshotState>()
+      requestSnapshots.set(handle, snapshots)
+    }
+    const context = await prepareScriptMarketData(worker, handle, params, market, snapshots)
+    return worker.run(handle, {
+      bars,
+      change,
+      params,
+      context,
+      live,
+      signal: market.signal,
+    })
   }
 
   /**
@@ -138,27 +155,22 @@ export function createScriptExecutor(
     if (!entry) throw new Error('脚本编译句柄已释放')
     const createCompute = (): DefinitionCompute => {
       const handle = generateUUID()
-      let preparation: Promise<PreparedScriptDefinition> | undefined
+      let preparation: Promise<QuickJSScriptDefinition> | undefined
       let released = false
       const release = (): void => {
         if (released) return
         released = true
         executions.delete(release)
         executionOwners.delete(handle)
-        if (preparation && !disposed) void worker.release(handle)
+        requestSnapshots.delete(handle)
+        if (preparation && !disposed) void worker.release(handle).catch(() => {})
       }
       executions.add(release)
       const run: DefinitionCompute = async (options) => {
         if (disposed) throw new Error('脚本服务已销毁')
         if (released) throw new Error('脚本执行会话已释放')
         executionOwners.set(handle, identity.id)
-        preparation ??= worker.prepare(
-          handle,
-          entry.source,
-          entry.libraries,
-          entry.trusted,
-          'execution',
-        )
+        preparation ??= worker.prepare(handle, entry.source, entry.libraries, entry.trusted)
         await preparation
         if (disposed) throw new Error('脚本服务已销毁')
         if (released) throw new Error('脚本执行会话已释放')
@@ -174,7 +186,7 @@ export function createScriptExecutor(
           options.bars,
           params,
           options.market,
-          options.range,
+          options.change,
           options.live,
         )
       }
@@ -252,6 +264,7 @@ export function createScriptExecutor(
     definitions.clear()
     compiled.clear()
     executionOwners.clear()
+    requestSnapshots.clear()
   }
 
   return {

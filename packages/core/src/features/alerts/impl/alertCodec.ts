@@ -2,14 +2,14 @@
  * 警报文档编解码。
  *
  * 只接受当前版本；结构不完整直接抛错，避免把损坏数据当成空文档。
- * 旧版本从未发布，因此不存在任何迁移分支。
+ * 当前落盘版本是 2；v1 是分支内从未发布的拆分文档格式，导入分支已删除。
  */
 import type { Alert, AlertFire } from '../types.js'
 import type { CalculationInputs, CalculationInputValue } from '../../../engine/calculation/index.js'
 import { isSymbolSpec } from '@/data/symbolSpecGuard.js'
 import { deepFreezeSnapshot } from '../../../foundation/utils/deepFreezeSnapshot.js'
 
-export const ALERT_DOCUMENT_VERSION = 1
+export const ALERT_DOCUMENT_VERSION = 2
 
 export interface AlertDocument {
   readonly version: typeof ALERT_DOCUMENT_VERSION

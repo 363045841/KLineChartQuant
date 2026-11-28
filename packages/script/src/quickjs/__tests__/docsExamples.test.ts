@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { barsFromCloses } from '../../__tests__/marketData.js'
-import { runQuickJSScript } from '../impl/runQuickJSScript.js'
+import { runQuickJSScript } from '../../__tests__/helpers/quickJSScript.js'
 
 const guide = readFileSync(
   fileURLToPath(new URL('../../../docs/indicator.md', import.meta.url)),

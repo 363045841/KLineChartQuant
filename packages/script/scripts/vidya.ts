@@ -1,5 +1,5 @@
 // VIDYA：用 CMO 的绝对值缩放 EMA 平滑系数，趋势强时快、震荡时慢。
-let vidya = Number.NaN
+const acc = state({ value: Number.NaN })
 
 defineIndicator({
   version: 2,
@@ -16,7 +16,9 @@ defineIndicator({
       return
     }
     const alpha = (2 / (period + 1)) * (Math.abs(cmo) / 100)
-    vidya = Number.isNaN(vidya) ? close[0] : alpha * close[0] + (1 - alpha) * vidya
-    plot.Line(vidya, 'vidya', { label: 'VIDYA', color: Color.teal })
+    acc.value = Number.isNaN(acc.value)
+      ? close[0]
+      : alpha * close[0] + (1 - alpha) * acc.value
+    plot.Line(acc.value, 'vidya', { label: 'VIDYA', color: Color.teal })
   },
 })

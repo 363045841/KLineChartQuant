@@ -1,28 +1,34 @@
-/** Worker 池：保留编译快照，按活动句柄安装运行态，空闲时立即清理已释放会话。 */
-import type { PreparedScriptDefinition, QuickJSLibrary } from '../../quickjs/types.js'
+/** Worker 池：任务排队、槽位上限与句柄所在线程的唯一归属。 */
+import type { QuickJSLibrary, QuickJSScriptDefinition } from '../../quickjs/types.js'
 import type { CompilationHost } from '../compiler/types.js'
 import { createCompilerHost } from '../compiler/impl/compilerHost.js'
-import type { ScriptThread, ScriptWorker, ScriptWorkerPool, ScriptWorkerPoolOptions } from '../types.js'
+import type {
+  ScriptWorker,
+  ScriptWorkerPool,
+  ScriptWorkerPoolOptions,
+} from '../types.js'
+import { ScriptThreadFailure } from '../types.js'
 import { createScriptWorker } from './createScriptWorker.js'
 
+/** 已注册句柄：源码快照与当前所在槽位；槽位丢失时下一次运行重新安装。 */
 interface Source {
   readonly code: string
   readonly libraries?: readonly QuickJSLibrary[]
   readonly trusted: boolean
-  readonly mode: 'metadata' | 'execution'
+  slot?: Slot
 }
-interface Compilation {
-  readonly source: Source
-  readonly definition: PreparedScriptDefinition
-}
+
 interface Slot {
   worker?: ScriptWorker
-  readonly compiled: Map<string, Compilation>
   active?: Job
-  maintenance?: Promise<void>
+  /** 本线程已安装的句柄；决定脚本驻留在哪条线程。 */
+  readonly ids: Set<string>
 }
+
 interface Job {
   readonly id: string
+  /** 有归属槽位时只能在该槽执行；无归属时可落到任意空闲槽。 */
+  readonly slot?: Slot
   start(slot: Slot): void
   cancel(): void
 }
@@ -41,58 +47,57 @@ export function createScriptWorkerPool(options: ScriptWorkerPoolOptions): Script
   const compiler: CompilationHost = createCompilerHost({
     createThread: options.createCompilerThread,
   })
-  const slots: Slot[] = Array.from({ length: size }, () => ({ compiled: new Map() }))
-  const sources = new Map<string, Source>()
+  const slots: Slot[] = Array.from({ length: size }, () => ({ ids: new Set() }))
+  const handles = new Map<string, Source>()
   const queue: Job[] = []
   let disposed = false
   const cancelled = () => new DOMException('Script task cancelled', 'AbortError')
 
-  /** 仅显式中断运行任务、线程故障或销毁会释放物理线程。 */
+  /** 线程失效：脚本运行态随线程消失，句柄失去归属，下一次运行重新安装。 */
   function reset(slot: Slot): void {
     slot.worker?.dispose()
     slot.worker = undefined
-    slot.compiled.clear()
+    for (const id of slot.ids) {
+      const source = handles.get(id)
+      if (source?.slot === slot) source.slot = undefined
+    }
+    slot.ids.clear()
   }
 
-  /** 空闲槽位立即领取队首任务；网络取数完全发生在池外。 */
+  /** 空闲槽位领取队首任务；有归属的任务只等自己的槽位，无归属的落到负载最低的槽。 */
   function pump(): void {
     if (disposed) return
-    for (const slot of slots) {
-      if (slot.active || slot.maintenance) continue
-      const stale = [...slot.compiled.keys()].filter((id) => !sources.has(id))
-      if (stale.length > 0) {
-        // 空闲槽位也必须立即归还失效句柄，不能等下一次计算才清理。
-        slot.maintenance = (async () => {
-          for (const id of stale) {
-            await slot.worker?.release(id)
-            slot.compiled.delete(id)
-          }
-          if (slot.compiled.size === 0) reset(slot)
-        })()
-          .catch(() => reset(slot))
-          .finally(() => {
-            slot.maintenance = undefined
-            pump()
-          })
-        continue
+    for (;;) {
+      let chosenIndex = -1
+      let chosenSlot: Slot | undefined
+      for (let index = 0; index < queue.length; index++) {
+        const job = queue[index]!
+        const candidates = slots.filter(
+          (slot) => !slot.active && (job.slot === undefined || job.slot === slot),
+        )
+        if (candidates.length === 0) continue
+        chosenIndex = index
+        chosenSlot = candidates.reduce((left, right) => (left.ids.size <= right.ids.size ? left : right))
+        break
       }
-      const job = queue.shift()
-      if (!job) return
-      slot.active = job
-      job.start(slot)
+      if (!chosenSlot) return
+      const [job] = queue.splice(chosenIndex, 1)
+      chosenSlot.active = job!
+      job!.start(chosenSlot)
     }
   }
 
   /** 一个任务独占槽位，跨 await 始终检查槽位身份，防止取消后继续使用新线程。 */
   function schedule<T>(
     id: string,
-    source: Source,
-    run: (worker: ScriptWorker, definition: PreparedScriptDefinition) => Promise<T>,
+    run: (worker: ScriptWorker, definition: QuickJSScriptDefinition | undefined) => Promise<T>,
     signal?: AbortSignal,
+    preferred?: Slot,
+    refresh = false,
   ): Promise<T> {
     if (disposed) return Promise.reject(new Error('Script Worker 池已销毁'))
     if (signal?.aborted) return Promise.reject(signal.reason)
-    return new Promise<T>((resolve, reject) => {
+    const task = new Promise<T>((resolve, reject) => {
       let settled = false
       let assigned: Slot | undefined
       const finish = (complete: () => void) => {
@@ -103,11 +108,9 @@ export function createScriptWorkerPool(options: ScriptWorkerPoolOptions): Script
         complete()
         pump()
       }
-      const check = () => {
-        if (settled || assigned?.active !== job || sources.get(id) !== source) throw cancelled()
-      }
       const job: Job = {
         id,
+        ...(preferred === undefined ? {} : { slot: preferred }),
         cancel() {
           const index = queue.indexOf(job)
           if (index >= 0) queue.splice(index, 1)
@@ -118,7 +121,7 @@ export function createScriptWorkerPool(options: ScriptWorkerPoolOptions): Script
           assigned = slot
           void Promise.resolve()
             .then(async () => {
-              check()
+              if (settled || assigned !== slot || slot.active !== job) throw cancelled()
               if (!slot.worker) {
                 slot.worker = createScriptWorker(
                   options.createThread(),
@@ -126,26 +129,13 @@ export function createScriptWorkerPool(options: ScriptWorkerPoolOptions): Script
                   compiler,
                 )
               }
-              const worker = slot.worker
-              let compiled = slot.compiled.get(id)
-              if (compiled?.source !== source) {
-                const definition = await worker.prepare(
-                  id,
-                  source.code,
-                  source.libraries,
-                  source.trusted,
-                  source.mode,
-                )
-                check()
-                compiled = { source, definition }
-                slot.compiled.set(id, compiled)
-              }
-              return run(worker, compiled.definition)
+              const definition = await install(slot, id, refresh)
+              return run(slot.worker, definition)
             })
             .then(
               (value) => finish(() => resolve(value)),
               (error) => {
-                if (!settled && error instanceof Error && 'workerFailure' in error) reset(slot)
+                if (!settled && error instanceof ScriptThreadFailure) reset(slot)
                 finish(() => reject(error))
               },
             )
@@ -155,6 +145,25 @@ export function createScriptWorkerPool(options: ScriptWorkerPoolOptions): Script
       queue.push(job)
       pump()
     })
+    // 宿主可能已经放弃这次计算；标记为已处理，但 await 仍能拿到真实错误。
+    void task.catch(() => {})
+    return task
+  }
+
+  /** 句柄在本线程缺失时安装一次；源码由池持有，线程只接收数据。 */
+  async function install(
+    slot: Slot,
+    id: string,
+    refresh: boolean,
+  ): Promise<QuickJSScriptDefinition | undefined> {
+    if (!refresh && slot.ids.has(id)) return undefined
+    const source = handles.get(id)
+    if (!source) throw new Error(`Script not prepared: ${id}`)
+    const definition = await slot.worker!.prepare(id, source.code, source.libraries, source.trusted)
+    if (source.slot && source.slot !== slot) throw new Error(`脚本已归属其它线程：${id}`)
+    source.slot = slot
+    slot.ids.add(id)
+    return definition
   }
 
   /** 句柄查找失败作为异步错误返回，不创建无源码的计算任务。 */
@@ -164,41 +173,64 @@ export function createScriptWorkerPool(options: ScriptWorkerPoolOptions): Script
     signal?: AbortSignal,
   ): Promise<T> {
     if (disposed) return Promise.reject(new Error('Script Worker 池已销毁'))
-    const source = sources.get(id)
+    const source = handles.get(id)
     return source
-      ? schedule(id, source, run, signal)
+      ? schedule(id, run, signal, source.slot)
       : Promise.reject(new Error(`Script not prepared: ${id}`))
   }
 
   return {
-    async prepare(id, code, libraries, trusted = false, mode = 'metadata') {
-      const source = { code, libraries, trusted, mode }
-      sources.set(id, source)
+    async prepare(id, code, libraries, trusted = false) {
+      const source: Source = { code, libraries, trusted }
+      handles.set(id, source)
       try {
-        return await schedule(id, source, async (_worker, definition) => definition)
+        const definition = await schedule(
+          id,
+          async (_worker, prepared) => prepared!,
+          undefined,
+          undefined,
+          true,
+        )
+        // 重新准备成功后清掉旧线程上的会话；句柄只归属一个线程。
+        await Promise.all(
+          slots.map((slot) => {
+            if (slot === source.slot || !slot.ids.delete(id)) return undefined
+            return slot.worker?.release(id)
+          }),
+        )
+        return definition
       } catch (error) {
-        if (sources.get(id) === source) sources.delete(id)
+        if (handles.get(id) === source) handles.delete(id)
         throw error
       }
     },
-    run: (id, bars, params, context, range, signal, live) =>
-      use(id, (worker) => worker.run(id, bars, params, context, range, live), signal),
-    requests: (id, params, symbol, signal) =>
-      use(id, (worker) => worker.requests(id, params, symbol), signal),
+
+    run: (id, input) => use(id, (worker) => worker.run(id, input), input.signal),
+
+    requests: (id, input) => use(id, (worker) => worker.requests(id, input), input.signal),
+
     async release(id) {
-      sources.delete(id)
+      const source = handles.get(id)
+      handles.delete(id)
       for (const job of [...queue, ...slots.flatMap((slot) => (slot.active ? [slot.active] : []))])
         if (job.id === id) job.cancel()
       pump()
-      await Promise.all(slots.map((slot) => slot.maintenance))
+      await Promise.all(
+        slots.map((slot) => {
+          if (!slot.ids.delete(id)) return undefined
+          if (source?.slot === slot) source.slot = undefined
+          return slot.worker?.release(id)
+        }),
+      )
     },
+
     dispose() {
       if (disposed) return
       disposed = true
       for (const job of [...queue, ...slots.flatMap((slot) => (slot.active ? [slot.active] : []))])
         job.cancel()
       for (const slot of slots) reset(slot)
-      sources.clear()
+      handles.clear()
       compiler.dispose()
     },
   }

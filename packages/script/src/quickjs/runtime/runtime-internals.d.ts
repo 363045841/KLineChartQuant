@@ -51,11 +51,12 @@ interface LibraryState {
   rollback(state: unknown): void
 }
 
-/** 会话检查点：series 缓存下标、绘图对象快照与库状态。 */
+/** 会话检查点：series 缓存下标、绘图对象快照、库状态与显式状态。 */
 interface ScriptCheckpoint {
   readonly index: number
   readonly drawings: DrawingCheckpoint
   readonly libraries: readonly unknown[]
+  readonly states: readonly unknown[]
 }
 
 /** 回滚全部派生序列到指定 bar 下标之前。 */

@@ -1,7 +1,7 @@
 /** 验证 ta.maxsum 的子段和、端点偏移、预热与 NaN 语义。 */
 import { describe, expect, it } from 'vitest'
 import { barsFromCloses, requireValues, scriptSource, wavyCloses } from '../../__tests__/marketData.js'
-import { runQuickJSScript } from '../impl/runQuickJSScript.js'
+import { runQuickJSScript } from '../../__tests__/helpers/quickJSScript.js'
 
 /** 窗口长度；脚本与参考实现共用同一个值。 */
 const WINDOW = 6

@@ -20,6 +20,7 @@ import {
   REQUEST_PRELUDE,
   ROLLING_PRELUDE,
   SCRIPT_PRELUDE,
+  STATE_PRELUDE,
   TIME_PRELUDE,
 } from '../../../quickjs/generated/runtime.js'
 import {
@@ -48,11 +49,12 @@ interface NativeDrawingCheckpoint {
   readonly sequence: number
 }
 
-/** 会话检查点：series 缓存下标、绘图快照与库状态。 */
+/** 会话检查点：series 缓存下标、绘图快照、库状态与显式状态。 */
 interface NativeCheckpoint {
   readonly index: number
   readonly drawings: NativeDrawingCheckpoint
   readonly libraries: readonly unknown[]
+  readonly states: readonly unknown[]
 }
 
 /** 原生运行时工厂的返回面；只暴露会话需要的入口。 */
@@ -65,9 +67,9 @@ interface NativeRuntime {
   checkpoint(): NativeCheckpoint
   rollback(checkpoint: NativeCheckpoint): void
   drawingDelta(reset: boolean): DrawingDelta
-  invalidateSeries(startIndex: number): void
   drawingCheckpoint(): NativeDrawingCheckpoint
   checkpointLibraries(): readonly unknown[]
+  checkpointStates(): readonly unknown[]
 }
 
 /** 运行时可变状态；所有 scope 函数读取同一份，避免闭包各自持有一份行情。 */
@@ -241,6 +243,7 @@ export function createNativeScriptRuntime(
         'use strict'
         ${LIBRARY_PRELUDE}
         ${SCRIPT_PRELUDE}
+        ${STATE_PRELUDE}
         ${REQUEST_PRELUDE}
         ${TIME_PRELUDE}
         ${ROLLING_PRELUDE}
@@ -250,7 +253,7 @@ export function createNativeScriptRuntime(
         ${PIVOT_PRELUDE}
         ${compiled.libraries.map((library) => `${library.source}\n;importLibrary(${JSON.stringify(library.name)});`).join('\n')}
         ${compiled.source}
-        ;return { metadata: __metadata, onBar: __onBar, drawings: __drawingSnapshot, requests: () => __requests, expression: (id) => __copyRequestValue(__requestExpressions.get(id)()), checkpoint: __checkpoint, rollback: __rollback, drawingDelta: __drawingDelta, invalidateSeries: __rollbackSeries, drawingCheckpoint: __drawingCheckpoint, checkpointLibraries: __checkpointLibraries }
+        ;return { metadata: __metadata, onBar: __onBar, drawings: __drawingSnapshot, requests: () => __requests, expression: (id) => __copyRequestValue(__requestExpressions.get(id)()), checkpoint: __checkpoint, rollback: __rollback, drawingDelta: __drawingDelta, drawingCheckpoint: __drawingCheckpoint, checkpointLibraries: __checkpointLibraries, checkpointStates: __checkpointStates }
       }).call(globalThis)
     }
   `,
@@ -263,6 +266,7 @@ export function createNativeScriptRuntime(
       index: state.checkpointIndex,
       drawings: runtime.drawingCheckpoint(),
       libraries: runtime.checkpointLibraries(),
+      states: runtime.checkpointStates(),
     }
   }
   const definition: QuickJSScriptDefinition = readDefinition(runtime.metadata(), compiled.hasAlertCall)
@@ -321,7 +325,6 @@ export function createNativeScriptRuntime(
     execute,
     checkpoint: () => runtime.checkpoint(),
     rollback: (checkpoint) => runtime.rollback(checkpoint),
-    invalidate: (startIndex) => runtime.invalidateSeries(startIndex),
     drawingDelta: (reset) => runtime.drawingDelta(reset),
     /** 原生运行态随闭包释放，不需要显式清理。 */
     dispose: () => {},

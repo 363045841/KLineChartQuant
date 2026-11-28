@@ -1,13 +1,9 @@
-/** 通信契约验收：真实转移、原地 tick、历史重排、跨周期释放和真实脚本绘图往返。 */
+/** 通信契约验收：显式变化编码、增量往返、历史替换与真实线程生命周期。 */
 import type { Bar, IndicatorSeries } from '@363045841yyt/klinechart-plot-contracts'
 import { describe, expect, it, vi } from 'vitest'
 import { prepareNative } from '../../__tests__/backends.js'
 import { createNodeScriptWorker } from './helpers/nodeScriptWorker.js'
-import {
-  inputTransferList,
-  WorkerInputReceiver,
-  WorkerInputSender,
-} from '../transport/impl/input.js'
+import { encodeRunInput, inputTransferList, WorkerInputReceiver } from '../transport/impl/input.js'
 import { packIndicatorSeries, unpackIndicatorSeries } from '../transport/impl/series.js'
 import { NodeScriptWorker } from './nodeWorker.js'
 
@@ -16,68 +12,140 @@ function bar(time: number, close = 10): Bar {
   return { time, open: 10, high: Math.max(10, close), low: Math.min(10, close), close, volume: 2 }
 }
 
+/** 把发送帧按结构化克隆的语义转移一次。 */
+function transfer(input: ReturnType<typeof encodeRunInput>) {
+  return structuredClone(input, { transfer: inputTransferList(input) })
+}
+
 describe('Worker input synchronization', () => {
-  it('transfers only changed tails and preserves the caller data', () => {
-    const sender = new WorkerInputSender()
+  it('sends the whole series on reset and only the changed tail on append', () => {
     const receiver = new WorkerInputReceiver()
     const bars = [bar(1), bar(2)]
-    const full = sender.encode(bars)
-    const transferred = structuredClone(full, { transfer: inputTransferList(full) })
-    expect(full.bars.buffer.byteLength).toBe(0)
-    expect(receiver.decode(transferred).bars).toStrictEqual(bars)
-    const unchanged = sender.encode(bars)
-    expect(unchanged.bars.buffer.byteLength).toBe(0)
-    bars[1]!.close = 11
-    bars[1]!.closed = false
-    const tick = sender.encode(bars)
-    expect(tick.bars.start).toBe(1)
-    expect(tick.bars.buffer.byteLength).toBe(7 * Float64Array.BYTES_PER_ELEMENT)
-    expect(receiver.decode(tick).bars).toStrictEqual(bars)
-    bars.push({ ...bar(3), closed: undefined })
-    const append = sender.encode(bars)
-    expect(append.bars.start).toBe(2)
-    expect(receiver.decode(append).bars).toStrictEqual(bars)
-    // 前置插入只发送新增前缀，不重发整段历史。
-    const prependedBars = [{ ...bar(0) }, ...bars]
-    const prepend = sender.encode(prependedBars)
-    expect(prepend.bars.prepended).toBe(1)
-    expect(prepend.bars.count).toBe(1)
-    expect(prepend.bars.buffer.byteLength).toBe(7 * Float64Array.BYTES_PER_ELEMENT)
-    expect(receiver.decode(prepend).bars).toStrictEqual(prependedBars)
+    const full = encodeRunInput(
+      { bars, change: { kind: 'reset', start: 0, revision: 0 } },
+      false,
+    )
+    expect(full.bars.buffer.byteLength).toBe(2 * 7 * Float64Array.BYTES_PER_ELEMENT)
+    expect(receiver.decode(transfer(full)).bars).toStrictEqual(bars)
+
+    const appended = [...bars, bar(3)]
+    const append = encodeRunInput(
+      { bars: appended, change: { kind: 'append', start: 2, revision: 1 } },
+      false,
+    )
+    expect(append.bars.change.start).toBe(2)
+    expect(append.bars.buffer.byteLength).toBe(7 * Float64Array.BYTES_PER_ELEMENT)
+    expect(receiver.decode(transfer(append)).bars).toStrictEqual(appended)
   })
 
-  it('handles history corrections, truncation, empty data and reset', () => {
-    const sender = new WorkerInputSender()
+  it('sends a single bar on update and keeps the receiver snapshot independent', () => {
     const receiver = new WorkerInputReceiver()
-    for (const bars of [[bar(2), bar(3)], [bar(2, 9), bar(3)], [bar(2, 9)], [], [bar(7, 20)]])
-      expect(receiver.decode(sender.encode(bars)).bars).toStrictEqual(bars)
-    sender.clear()
-    receiver.clear()
-    const reset = sender.encode([bar(7, 20)])
-    expect(reset.bars.start).toBe(0)
-    expect(receiver.decode(reset).bars).toStrictEqual([bar(7, 20)])
+    const bars = [bar(1), bar(2)]
+    receiver.decode(
+      transfer(encodeRunInput({ bars, change: { kind: 'reset', start: 0, revision: 0 } }, false)),
+    )
+    const changed = [bars[0]!, bar(2, 11)]
+    const update = encodeRunInput(
+      { bars: changed, change: { kind: 'update', start: 1, revision: 1 } },
+      false,
+    )
+    expect(update.bars.buffer.byteLength).toBe(7 * Float64Array.BYTES_PER_ELEMENT)
+    const decoded = receiver.decode(transfer(update)).bars
+    expect(decoded).toStrictEqual(changed)
+    // 调用方之后修改自己的数组，不应影响已解码的副本。
+    changed[1]!.close = 99
+    expect(decoded[1]!.close).toBe(11)
   })
 
-  it('prunes low-timeframe baselines and isolates physical workers', () => {
-    const sender = new WorkerInputSender()
+  it('sends the suffix on replace and the full series on reset', () => {
     const receiver = new WorkerInputReceiver()
-    const context = { symbol: 'BTCUSDT', snapshots: [{ id: 'minute', bars: [bar(1), bar(2)] }] }
-    expect(receiver.decode(sender.encode([bar(1)], context)).context).toStrictEqual(context)
-    expect(sender.encode([bar(1)], context).context?.snapshots[0]?.bars.buffer.byteLength).toBe(0)
-    receiver.decode(sender.encode([bar(1)]))
-    const restored = sender.encode([bar(1)], context)
-    expect(restored.context?.snapshots[0]?.bars.start).toBe(0)
-    expect(receiver.decode(restored).context).toStrictEqual(context)
-    const other = new WorkerInputSender().encode([bar(1)], context)
-    expect(other.bars.start).toBe(0)
-    expect(new WorkerInputReceiver().decode(other).context).toStrictEqual(context)
+    const bars = [bar(1), bar(2), bar(3)]
+    receiver.decode(
+      transfer(encodeRunInput({ bars, change: { kind: 'reset', start: 0, revision: 0 } }, false)),
+    )
+    const replaced = [bar(1, 20), bar(2, 21), bar(3, 22)]
+    const patch = encodeRunInput(
+      { bars: replaced, change: { kind: 'replace', start: 0, revision: 1 } },
+      false,
+    )
+    expect(patch.bars.buffer.byteLength).toBe(3 * 7 * Float64Array.BYTES_PER_ELEMENT)
+    expect(receiver.decode(transfer(patch)).bars).toStrictEqual(replaced)
+  })
+
+  it('encodes each request snapshot with its own change', () => {
+    const receiver = new WorkerInputReceiver()
+    const context = {
+      symbol: 'BTCUSDT',
+      snapshots: [
+        { id: 'minute', bars: [bar(1)], change: { kind: 'reset' as const, start: 0, revision: 0 } },
+      ],
+    }
+    const first = encodeRunInput(
+      { bars: [bar(1)], change: { kind: 'reset', start: 0, revision: 0 }, context },
+      false,
+    )
+    expect(receiver.decode(transfer(first)).context).toStrictEqual(context)
+
+    const nextContext = {
+      ...context,
+      snapshots: [
+        { id: 'minute', bars: [bar(1), bar(2)], change: { kind: 'append' as const, start: 1, revision: 1 } },
+      ],
+    }
+    const next = encodeRunInput(
+      { bars: [bar(1)], change: { kind: 'update', start: 0, revision: 1 }, context: nextContext },
+      false,
+    )
+    expect(next.context?.snapshots[0]?.bars.buffer.byteLength).toBe(
+      7 * Float64Array.BYTES_PER_ELEMENT,
+    )
+    expect(receiver.decode(transfer(next)).context?.snapshots[0]?.bars).toStrictEqual([
+      bar(1),
+      bar(2),
+    ])
   })
 })
 
 describe('Worker drawing transport', () => {
+  it('patches only the tail and preserves the untouched prefix', () => {
+    const plot = {
+      kind: 'line' as const,
+      id: 'line',
+      label: 'line',
+      visible: true,
+      offset: 0,
+      size: 'auto' as const,
+      dash: [] as number[],
+      data: [
+        { value: 1, color: 'inherit' },
+        { value: 2, color: 'inherit' },
+        { value: 3, color: 'inherit' },
+      ],
+    }
+    const series: IndicatorSeries = { plots: [plot], fills: [] }
+    const previous = unpackIndicatorSeries(packIndicatorSeries(series))
+    const next: IndicatorSeries = {
+      ...series,
+      plots: [
+        {
+          ...plot,
+          data: [plot.data[0], { value: 20, color: 'inherit' }, { value: 30, color: 'inherit' }],
+        },
+      ],
+    }
+    const patch = packIndicatorSeries(next, 1)
+    expect(patch.buffer.byteLength).toBeLessThan(packIndicatorSeries(next).buffer.byteLength)
+    const patched = unpackIndicatorSeries(patch, previous)
+    const prior = previous.plots[0]!
+    const result = patched.plots[0]!
+    if (result.kind !== 'line' || prior.kind !== 'line') throw new TypeError('expected line')
+    expect(result.data[0]).toBe(prior.data[0])
+    expect(result.data[1]).toMatchObject({ value: 20 })
+    expect(result.data[2]).toMatchObject({ value: 30 })
+  })
+
   it('roundtrips real script scalar, OHLC, fills, boxes, labels and lines', () => {
-    const script =
-      prepareNative(`defineIndicator({ version: 2,name:'Wire',position:Position.main,onBar(){
+    const script = prepareNative(`defineIndicator({ version: 2,name:'Wire',position:Position.main,onBar(){
       const a=plot.Line(close,'a');const b=plot.Line(close[0]+1,'b');
       fill(a,b,Color.red);plot.Candle(open,high,low,close,'ohlc');
       box.new({left:barIndex,right:barIndex+1,top:high[0],bottom:low[0]});
@@ -138,7 +206,7 @@ describe('Worker drawing transport', () => {
   })
 })
 
-it('keeps port-owned baselines correct across real thread calculations and failures', async () => {
+it('keeps revision continuity across real thread calculations and failures', async () => {
   const transfers: number[][] = []
   const detached: boolean[] = []
   class TransferWorker extends NodeScriptWorker {
@@ -164,35 +232,64 @@ it('keeps port-owned baselines correct across real thread calculations and failu
   }})`
   try {
     await worker.prepare('wire', source, [], true)
-    expect((await worker.run('wire', bars)).series.plots[0]?.data.at(-1)).toEqual({
-      value: 1499,
-      color: '@blue',
-    })
+    expect(
+      (
+        await worker.run('wire', {
+          bars,
+          change: { kind: 'reset', start: 0, revision: 0 },
+        })
+      ).series.plots[0]?.data.at(-1),
+    ).toEqual({ value: 1499, color: '@blue' })
     const fullBytes = transfers.at(-1)![0]!
     expect(fullBytes).toBeGreaterThan(0)
+
     bars[1499]!.close = 1500
-    expect((await worker.run('wire', bars)).series.plots[0]?.data.at(-1)).toEqual({
-      value: 1500,
-      color: '@blue',
-    })
-    // 后续 tick 只同步变化尾部，不再重发整段历史。
+    expect(
+      (
+        await worker.run('wire', {
+          bars,
+          change: { kind: 'update', start: 1499, revision: 1 },
+        })
+      ).series.plots[0]?.data.at(-1),
+    ).toEqual({ value: 1500, color: '@blue' })
     expect(transfers.at(-1)![0]).toBeLessThan(fullBytes)
+
     bars[1499]!.close = -1
-    await expect(worker.run('wire', bars)).rejects.toThrow('invalid-price')
+    await expect(
+      worker.run('wire', { bars, change: { kind: 'update', start: 1499, revision: 2 } }),
+    ).rejects.toThrow('invalid-price')
     bars[1499]!.close = 1501
-    expect((await worker.run('wire', bars)).series.plots[0]?.data.at(-1)).toEqual({
-      value: 1501,
-      color: '@blue',
-    })
+    expect(
+      (
+        await worker.run('wire', {
+          bars,
+          change: { kind: 'update', start: 1499, revision: 3 },
+        })
+      ).series.plots[0]?.data.at(-1),
+    ).toEqual({ value: 1501, color: '@blue' })
     expect(transfers.at(-1)![0]).toBeLessThan(fullBytes)
+
+    // 修订号断层：端口自动改发全量。
+    await worker.run('wire', {
+      bars,
+      change: { kind: 'update', start: 1499, revision: 99 },
+    })
+    expect(transfers.at(-1)![0]).toBe(fullBytes)
+
     await worker.release('wire')
     await worker.prepare('wire', source, [], true)
-    const context = { symbol: 'BTCUSDT', snapshots: [{ id: 'lower', bars }] }
-    await worker.run('wire', bars, {}, context)
+    const context = {
+      symbol: 'BTCUSDT',
+      snapshots: [
+        { id: 'lower', bars, change: { kind: 'reset' as const, start: 0, revision: 0 } },
+      ],
+    }
+    await worker.run('wire', {
+      bars,
+      change: { kind: 'reset', start: 0, revision: 0 },
+      context,
+    })
     expect(transfers.at(-1)).toHaveLength(2)
-    const before = transfers.length
-    await worker.run('wire', bars, {}, context)
-    expect(transfers).toHaveLength(before)
     expect(detached.every(Boolean)).toBe(true)
     expect(bars[1499]!.close).toBe(1501)
   } finally {

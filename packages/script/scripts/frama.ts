@@ -1,5 +1,5 @@
 // FRAMA：用收盘价区间的分形维数调整 EMA 平滑系数，逐 bar 递推。
-let frama = Number.NaN
+const acc = state({ value: Number.NaN })
 
 defineIndicator({
   version: 2,
@@ -45,7 +45,9 @@ defineIndicator({
       if (alpha > 1) alpha = 1
     }
     const current = close[0]
-    frama = Number.isNaN(frama) ? current : alpha * current + (1 - alpha) * frama
-    plot.Line(frama, 'frama', { label: 'FRAMA', color: Color.blue })
+    acc.value = Number.isNaN(acc.value)
+      ? current
+      : alpha * current + (1 - alpha) * acc.value
+    plot.Line(acc.value, 'frama', { label: 'FRAMA', color: Color.blue })
   },
 })

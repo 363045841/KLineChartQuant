@@ -79,16 +79,10 @@ export type { TechnicalAnalysisLibrary } from './Library/types.js'
 export { inspectScript, resolveScriptLibraries } from './language/impl/scriptLibraries.js'
 export { builtinScriptSources } from './quickjs/generated/builtinScripts.js'
 export { type BuiltinLibrary, builtinLibraries } from './quickjs/impl/builtinLibraries.js'
-export {
-  preloadQuickJS,
-  prepareQuickJSScript,
-  readQuickJSScriptDefinitionSync,
-  runQuickJSScript,
-  runQuickJSScriptSync,
-} from './quickjs/impl/runQuickJSScript.js'
+export { preloadQuickJS } from './quickjs/impl/runQuickJSModule.js'
 export type {
   PreparedScript,
-  PreparedScriptDefinition,
+  PreparedScriptRunInput,
   QuickJSLibrary,
   QuickJSRunOptions,
   QuickJSScriptDefinition,

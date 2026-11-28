@@ -1,7 +1,11 @@
 /** 使用完整脚本和已有行情构造验证双后端的跨周期计算与隔离。 */
 import { describe, expect, it } from 'vitest'
+
 import { BACKENDS } from '../../__tests__/backends.js'
+
 import { barsFromCloses, plotById } from '../../__tests__/marketData.js'
+
+const RESET_CHANGE = { kind: 'reset', start: 0, revision: 0 } as const
 
 describe.each(BACKENDS)('$name Request', ({ prepare }) => {
   it('目标周期独立计算均线，并按实际时间戳对齐', () => {
@@ -19,7 +23,7 @@ describe.each(BACKENDS)('$name Request', ({ prepare }) => {
     const result = script.run(
       bars,
       {},
-      { symbol: 'BTCUSDT', snapshots: [{ id: '0', bars: target }] },
+      { symbol: 'BTCUSDT', snapshots: [{ id: '0', bars: target, change: RESET_CHANGE }] },
     )
     const plot = plotById(result, 'ma')
     expect(plot.data.map((point) => point?.value)).toEqual([
@@ -50,7 +54,7 @@ describe.each(BACKENDS)('$name Request', ({ prepare }) => {
       plot.Candle(o,h,l,c,'candles')
     }})`)
     const bars = barsFromCloses([5, 10])
-    const result = script.run(bars, {}, { symbol: 'BTCUSDT', snapshots: [{ id: '0', bars }] })
+    const result = script.run(bars, {}, { symbol: 'BTCUSDT', snapshots: [{ id: '0', bars, change: RESET_CHANGE }] })
     expect(result.plots[0]?.data[1]).toMatchObject({ open: 10, close: 10 })
     expect(result.plots[0]?.data[0]).toMatchObject({ open: 5, close: 5 })
   })

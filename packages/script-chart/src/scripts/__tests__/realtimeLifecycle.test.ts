@@ -41,7 +41,6 @@ function definitionOf(id: string, runtime: ReturnType<typeof requireRuntime>): C
   return {
     definitionId: id,
     identity: runtime,
-    dependency: { kind: 'stateful' },
     compute,
     ...(runtime.createCompute
       ? {
@@ -133,7 +132,7 @@ describe('realtime script lifecycle', () => {
       dataRevision,
       data,
       timestamps,
-      change: { start: 0, end: data.length },
+      change: { kind: 'reset', start: 0, revision: dataRevision },
       live: true,
     })
     client.setPlan([

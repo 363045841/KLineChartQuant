@@ -14,11 +14,21 @@ it('returns live alerts from the worker and keeps history silent', async () => {
       { time: 1, open: 9, high: 9, low: 9, close: 9, volume: 1 },
       { time: 2, open: 10, high: 10, low: 10, close: 10, volume: 1 },
     ]
-    const history = await worker.run('alert', bars, {}, undefined, undefined, false)
+    const history = await worker.run('alert', {
+      bars,
+      change: { kind: 'reset', start: 0, revision: 0 },
+      params: {},
+      live: false,
+    })
     expect(history.alerts).toEqual([])
     expect(history.series.plots).toHaveLength(0)
 
-    const live = await worker.run('alert', bars, {}, undefined, undefined, true)
+    const live = await worker.run('alert', {
+      bars,
+      change: { kind: 'update', start: 1, revision: 1 },
+      params: {},
+      live: true,
+    })
     expect(live.alerts).toHaveLength(1)
     expect(live.alerts[0]).toEqual({
       message: 'hit 10',

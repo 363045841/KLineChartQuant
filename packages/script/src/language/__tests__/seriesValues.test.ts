@@ -1,7 +1,7 @@
 /** 使用真实编译器与 VM 验证数值语法糖和完整序列契约。 */
 import { describe, expect, it } from 'vitest'
 import { barsFromCloses, plotValues, scriptSource, values } from '../../__tests__/marketData.js'
-import { runQuickJSScript } from '../../quickjs/impl/runQuickJSScript.js'
+import { runQuickJSScript } from '../../__tests__/helpers/quickJSScript.js'
 
 describe('Series 当前值语法糖', () => {
   it('按 inputs 推导 typeof params 参数的数值上下文', async () => {

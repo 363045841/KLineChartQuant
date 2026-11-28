@@ -3,7 +3,7 @@ import { Color } from '@363045841yyt/klinechart-plot-contracts'
 import { describe, expect, it } from 'vitest'
 import { barsFromCloses, requireValues, scriptSource } from '../../__tests__/marketData.js'
 import { ScriptExecutionError } from '../../errors.js'
-import { runQuickJSScript } from '../impl/runQuickJSScript.js'
+import { runQuickJSScript } from '../../__tests__/helpers/quickJSScript.js'
 
 /** 标记类图形的一行用例：声明片段与逐 bar 期望输出。 */
 interface MarkerCase {

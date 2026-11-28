@@ -18,10 +18,10 @@ describe('脚本 alert 输出', () => {
     const bars = barsFromCloses([9, 10, 11])
 
     // 历史运行：整段都不是实时 bar，事件必须为空。
-    expect(script.output(bars, {}, undefined, undefined, false).alerts).toEqual([])
+    expect(script.output(bars, {}, undefined, false).alerts).toEqual([])
 
     // 实时运行：只有最后一根 bar 允许产生事件。
-    const live = script.output(bars, {}, undefined, undefined, true)
+    const live = script.output(bars, {}, undefined, true)
     expect(live.alerts).toHaveLength(1)
     expect(live.alerts[0]).toEqual({
       message: 'reach 11',
@@ -42,7 +42,7 @@ describe('脚本 alert 输出', () => {
         },
       })
     `)
-    const result = script.output(barsFromCloses([10]), {}, undefined, undefined, true)
+    const result = script.output(barsFromCloses([10]), {}, undefined, true)
     expect(result.alerts.map((event) => event.message)).toEqual(['first', 'second'])
   })
 
@@ -57,7 +57,7 @@ describe('脚本 alert 输出', () => {
         },
       })
     `)
-    expect(() => script.output(barsFromCloses([10]), {}, undefined, undefined, true)).toThrow(
+    expect(() => script.output(barsFromCloses([10]), {}, undefined, true)).toThrow(
       /defineAlert/,
     )
   })

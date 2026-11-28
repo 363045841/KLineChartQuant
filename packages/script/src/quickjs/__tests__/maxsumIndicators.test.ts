@@ -7,7 +7,7 @@ import {
   shippedSource,
 } from '../../__tests__/marketData.js'
 import type { Bar } from '../../contracts/input.js'
-import { runQuickJSScript } from '../impl/runQuickJSScript.js'
+import { runQuickJSScript } from '../../__tests__/helpers/quickJSScript.js'
 
 describe('maxsum 内置指标', () => {
   it('BIS 把最强子段的对数收益换算成累计涨幅', async () => {

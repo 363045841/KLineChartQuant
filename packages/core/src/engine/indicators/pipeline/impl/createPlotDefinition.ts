@@ -32,8 +32,8 @@ function resolveInputDefs<P>(inputs: InputSchema<P>): Record<string, IndicatorIn
 
 /** 把脚本侧 options 形式的 compute 适配成 Core 侧按位置传参的 compute。 */
 function adaptCompute(sourceCompute: IndicatorCompute<CalculationInputs>) {
-  const adaptedCompute: CalculationCompute = (data, params, market, range, live) =>
-    sourceCompute({ bars: data.map(toPlotBar), params, market, range, live })
+  const adaptedCompute: CalculationCompute = (data, params, market, change, live) =>
+    sourceCompute({ bars: data.map(toPlotBar), params, market, change, live })
   return Object.assign(adaptedCompute, { dispose: () => sourceCompute.dispose?.() })
 }
 
@@ -69,7 +69,6 @@ export function createPlotIndicatorDefinition(
     plots: { source: 'series', series: [], format: definition.format },
     runtime: {
       revision: definition.document?.revision,
-      dependency: definition.dependency ?? Object.freeze({ kind: 'stateful' } as const),
       defaultInputs: resolveInputDefaults(definition.inputs),
       inputDefs: resolveInputDefs(definition.inputs),
       createCompute: definition.createCompute && adaptComputeFactory(definition.createCompute),

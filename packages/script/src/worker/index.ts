@@ -22,11 +22,13 @@ export const COMPILER_NODE_WORKER_URL = new URL(
   import.meta.url,
 )
 export type {
+  ScriptRequestsInput,
+  ScriptRunInput,
   ScriptRunResult,
   ScriptThread,
   ScriptWorker,
   ScriptWorkerPool,
   ScriptWorkerPoolFactory,
   ScriptWorkerPoolOptions,
-  ScriptWorkerPoolRuntime,
 } from './types.js'
+export { ScriptThreadFailure } from './types.js'

@@ -52,6 +52,9 @@ declare function __timeframeSeconds(period: string): number
 /** 宿主注入的本次数据总根数，仅供末根判断。 */
 declare function __barCount(): number
 declare function __prevPrice(): number | undefined
+
+/** 登记跨 bar 状态；运行时按 bar 快照与回滚，脚本只读写返回的对象。 */
+declare function state<T extends Record<string, unknown>>(initial: T): T
 type DrawingBoxApi = import('@363045841yyt/klinechart-plot-contracts').DrawingBoxApi
 type DrawingLabelApi = import('@363045841yyt/klinechart-plot-contracts').DrawingLabelApi
 declare const createDrawingBoxApi: typeof import('@363045841yyt/klinechart-plot-contracts').createDrawingBoxApi

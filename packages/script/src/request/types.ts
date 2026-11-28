@@ -89,6 +89,8 @@ export interface SecurityRequest extends SecurityOptions {
 export interface RequestSnapshot {
   readonly id: string
   readonly bars: readonly Bar[]
+  /** 目标序列本次的变化；由宿主显式给出，消费端不再比较行情。 */
+  readonly change: import('@363045841yyt/klinechart-plot-contracts').ComputeChange
 }
 
 export interface ScriptRequestContext {

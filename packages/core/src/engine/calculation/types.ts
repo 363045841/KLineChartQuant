@@ -6,8 +6,6 @@
  */
 import type {
   ComputeChange,
-  ComputeDependency,
-  ComputeRange,
   IndicatorMarketContext,
   ScriptAlertEvent,
 } from '@363045841yyt/klinechart-plot-contracts'
@@ -27,7 +25,7 @@ export interface FeedSnapshot {
   readonly dataRevision: number
   readonly timestamps: readonly number[]
   readonly data: readonly KLineData[]
-  /** 本次行情的变化区间；执行器据此推导重算范围。 */
+  /** 本次行情的变化；执行器据此决定从哪根重算。 */
   readonly change: ComputeChange
   /** 最后一根 bar 是否为实时 bar；由行情提交者给出，历史加载与前插为 false。 */
   readonly live: boolean
@@ -111,7 +109,7 @@ export type CalculationCompute = (
   data: readonly KLineData[],
   inputs: CalculationInputs,
   market?: IndicatorMarketContext,
-  range?: ComputeRange,
+  change?: ComputeChange,
   live?: boolean,
 ) => CalculationOutput | Promise<CalculationOutput>
 
@@ -125,8 +123,6 @@ export interface CalculationDefinition {
    * 计算器可以复用；包装对象本身可以每次新建，不参与身份判断。
    */
   readonly identity: object
-  /** 计算对历史的依赖；缺省按有状态处理。 */
-  readonly dependency: ComputeDependency
   /** 有状态的独立计算会话；缺省使用无状态的 compute。 */
   readonly createCompute?: () => CalculationCompute & { dispose?(): void }
   readonly compute: CalculationCompute

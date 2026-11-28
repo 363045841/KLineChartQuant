@@ -92,7 +92,7 @@ describe('alert pipeline', () => {
       dataRevision: 1,
       timestamps: bars.map((bar) => bar.timestamp),
       data: bars,
-      change: { start: 0, end: bars.length },
+      change: { kind: 'reset', start: 0, revision: 1 },
       live: true,
     })
 
@@ -102,7 +102,7 @@ describe('alert pipeline', () => {
       dataRevision: 2,
       timestamps: [1, 2],
       data: updated,
-      change: { start: 1, end: 2 },
+      change: { kind: 'update', start: 1, revision: 2 },
       live: true,
     })
 

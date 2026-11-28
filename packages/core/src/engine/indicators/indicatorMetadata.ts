@@ -85,8 +85,6 @@ export interface IndicatorInputDisplay {
 export interface IndicatorRuntimeDescriptor {
   /** 定义版本属于计算身份，源码更新不依赖行情或参数变化。 */
   revision?: number
-  /** 计算对历史的依赖；缺省按有状态处理，正确性优先。 */
-  dependency?: import('@363045841yyt/klinechart-plot-contracts').ComputeDependency
   /** 每个执行器创建独立的增量 calculator；事件随输出返回。 */
   createCompute?: () => CalculationCompute & { dispose?(): void }
   /** 只影响 calculator 输出的默认参数，不包含 show* 等展示配置。 */

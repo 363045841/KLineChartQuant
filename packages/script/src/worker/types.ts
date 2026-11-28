@@ -1,15 +1,15 @@
 /** Script Worker 的异步执行接口与消息协议。 */
 import type {
   Bar,
-  ComputeRange,
+  ComputeChange,
   IndicatorSeries,
   ScriptAlertEvent,
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { LogEvent } from '../contracts/log.js'
 import type { CompiledScriptSources } from '../execution/types.js'
 import type {
-  PreparedScriptDefinition,
   QuickJSLibrary,
+  QuickJSScriptDefinition,
   ScriptParamValue,
 } from '../quickjs/types.js'
 import type { ScriptRequestContext, SecurityRequest } from '../request/types.js'
@@ -35,6 +35,23 @@ export interface ScriptThread {
   terminate(): void
 }
 
+/** 一次运行输入；变化由数据层给出，Worker 不再比较行情。 */
+export interface ScriptRunInput {
+  readonly bars: readonly Bar[]
+  readonly change: ComputeChange
+  readonly params?: Readonly<Record<string, ScriptParamValue>>
+  readonly context?: ScriptRequestContext
+  readonly live?: boolean
+  readonly signal?: AbortSignal
+}
+
+/** 一次请求计划求值输入。 */
+export interface ScriptRequestsInput {
+  readonly params: Readonly<Record<string, ScriptParamValue>>
+  readonly symbol: string
+  readonly signal?: AbortSignal
+}
+
 /** 一个客户端持有一个 Worker；同一脚本 ID 再次准备成功会替换旧定义。 */
 export interface ScriptWorker {
   prepare(
@@ -42,27 +59,17 @@ export interface ScriptWorker {
     source: string,
     libraries?: readonly QuickJSLibrary[],
     trusted?: boolean,
-    /** metadata 只读取参数与声明；执行会话在 execution 时同时安装运行态。 */
-    mode?: 'metadata' | 'execution',
-  ): Promise<PreparedScriptDefinition>
-  run(
-    id: string,
-    bars: readonly Bar[],
-    params?: Readonly<Record<string, ScriptParamValue>>,
-    context?: ScriptRequestContext,
-    range?: ComputeRange,
-    live?: boolean,
-  ): Promise<ScriptRunResult>
-  requests(
-    id: string,
-    params: Readonly<Record<string, ScriptParamValue>>,
-    symbol: string,
-  ): Promise<readonly SecurityRequest[]>
+  ): Promise<QuickJSScriptDefinition>
+  run(id: string, input: ScriptRunInput): Promise<ScriptRunResult>
+  requests(id: string, input: ScriptRequestsInput): Promise<readonly SecurityRequest[]>
   release(id: string): Promise<void>
   dispose(): void
 }
 
-/** 线程池只做资源上限与线程管理，不识别指标、行情版本或任务轻重。 */
+/** 线程池与单线程暴露同一组方法；signal 在输入对象里，不再有平行签名。 */
+export type ScriptWorkerPool = ScriptWorker
+
+/** 线程池选项：只做资源上限与线程管理。 */
 export interface ScriptWorkerPoolOptions {
   /** 执行线程数量；由宿主显式给出。 */
   readonly size: number
@@ -74,46 +81,29 @@ export interface ScriptWorkerPoolOptions {
   readonly onOutput: (id: string, events: readonly LogEvent[]) => void
 }
 
-export type ScriptWorkerPool = Omit<ScriptWorker, 'run' | 'requests'> & {
-  run(
-    id: string,
-    bars: Parameters<ScriptWorker['run']>[1],
-    params?: Parameters<ScriptWorker['run']>[2],
-    context?: Parameters<ScriptWorker['run']>[3],
-    range?: Parameters<ScriptWorker['run']>[4],
-    signal?: AbortSignal,
-    live?: Parameters<ScriptWorker['run']>[5],
-  ): ReturnType<ScriptWorker['run']>
-  requests(
-    id: string,
-    params: Parameters<ScriptWorker['requests']>[1],
-    symbol: string,
-    signal?: AbortSignal,
-  ): ReturnType<ScriptWorker['requests']>
-}
-
-/** 池创建时由执行器提供的运行期回调；宿主据此绑定自己的线程配置。 */
-export interface ScriptWorkerPoolRuntime {
-  readonly onOutput: (id: string, events: readonly LogEvent[]) => void
-}
-
 /** 宿主提供的 Worker 池工厂；浏览器用 Web Worker，Node 用 worker_threads。 */
-export type ScriptWorkerPoolFactory = (runtime: ScriptWorkerPoolRuntime) => ScriptWorkerPool
+export type ScriptWorkerPoolFactory = (
+  runtime: Pick<ScriptWorkerPoolOptions, 'onOutput'>,
+) => ScriptWorkerPool
 
 /** 仅传递数据；编译闭包始终留在 Worker 内。 */
 export type ScriptWorkerRequest = { readonly requestId: number; readonly id: string } & (
   | {
+      /** 只求值声明，读完立即释放运行态。 */
       readonly type: 'prepare'
       readonly module: CompiledScriptSources
       readonly trusted?: boolean
-      /** 读取声明后立即释放临时运行态，不安装计算会话。 */
-      readonly metadataOnly?: boolean
+    }
+  | {
+      /** 安装运行态；第一次运行前由端口发送一次。 */
+      readonly type: 'install'
+      readonly module: CompiledScriptSources
+      readonly trusted?: boolean
     }
   | {
       readonly type: 'run'
       readonly input: RunInputPatch
       readonly params?: Readonly<Record<string, ScriptParamValue>>
-      readonly range?: ComputeRange
       /** 最后一根 bar 是否为实时 bar；true 时只有最后一根允许产生警报。 */
       readonly live?: boolean
     }
@@ -145,7 +135,8 @@ export interface ScriptWorkerError {
 /** 请求 ID 关联一次响应，不增加握手或版本协商。 */
 export type ScriptWorkerResponse = { readonly requestId: number } & (
   | { readonly type: 'output'; readonly id: string; readonly events: readonly LogEvent[] }
-  | { readonly type: 'prepare'; readonly definition: PreparedScriptDefinition }
+  | { readonly type: 'prepare'; readonly definition: QuickJSScriptDefinition }
+  | { readonly type: 'install' }
   | {
       readonly type: 'run'
       readonly series: PackedIndicatorSeries
@@ -156,3 +147,8 @@ export type ScriptWorkerResponse = { readonly requestId: number } & (
   | { readonly type: 'release' }
   | { readonly type: 'error'; readonly error: ScriptWorkerError }
 )
+
+/** 线程失效：池据此重置槽位，调用方据此区分脚本错误与线程错误。 */
+export class ScriptThreadFailure extends Error {
+  readonly workerFailure = true
+}

@@ -1,11 +1,17 @@
 /** 低周期完整性和两种执行后端一致性；覆盖缺口、边界、元组及真实随包指标输出。 */
 import { readFileSync } from 'node:fs'
+
 import type { Bar, ScriptTimeContext } from '@363045841yyt/klinechart-plot-contracts'
+
 import { timeValue } from '@363045841yyt/klinechart-plot-contracts'
+
 import { beforeAll, describe, expect, it } from 'vitest'
+
 import { BACKENDS } from '../../__tests__/backends.js'
+
 import { requireValues } from '../../__tests__/marketData.js'
-import { preloadQuickJS } from '../../quickjs/impl/runQuickJSScript.js'
+
+import { preloadQuickJS } from '../../__tests__/helpers/quickJSScript.js'
 
 const context: ScriptTimeContext = {
   period: 'daily',
@@ -20,6 +26,8 @@ const day = Date.UTC(2026, 0, 5)
 function bar(time: number, volume: number): Bar {
   return { time, open: 10, high: 12, low: 9, close: 11, volume }
 }
+const RESET_CHANGE = { kind: 'reset', start: 0, revision: 0 } as const
+
 beforeAll(preloadQuickJS)
 
 describe.each(BACKENDS)('$name lower timeframe', ({ prepare }) => {
@@ -35,7 +43,7 @@ describe.each(BACKENDS)('$name lower timeframe', ({ prepare }) => {
     const output = script.run(
       main,
       {},
-      { symbol: 'TEST', time: context, snapshots: [{ id: '0', bars: details }] },
+      { symbol: 'TEST', time: context, snapshots: [{ id: '0', bars: details, change: RESET_CHANGE }] },
     )
     expect(requireValues(output, 'volume')).toEqual([30, 0, 40])
     expect(requireValues(output, 'count')).toEqual([2, 0, 1])
@@ -51,7 +59,7 @@ describe.each(BACKENDS)('$name lower timeframe', ({ prepare }) => {
       {
         symbol: 'TEST',
         time: context,
-        snapshots: [{ id: '0', bars: details }],
+        snapshots: [{ id: '0', bars: details, change: RESET_CHANGE }],
       },
     )
     expect(output.plots).toEqual([])
@@ -64,7 +72,7 @@ describe.each(BACKENDS)('$name lower timeframe', ({ prepare }) => {
     const repeated = script.run(
       [bar(day, 30), bar(day + 86400000, 40)],
       { rowSize: 4, periodUnit: 'day' },
-      { symbol: 'TEST', time: context, snapshots: [{ id: '0', bars: details }] },
+      { symbol: 'TEST', time: context, snapshots: [{ id: '0', bars: details, change: RESET_CHANGE }] },
     )
     expect(repeated).toEqual(output)
     expect(script.run([]).drawings).toEqual([])
@@ -80,18 +88,25 @@ describe.each(BACKENDS)('$name lower timeframe', ({ prepare }) => {
       bar(day + 172_800_000, 60),
     ]
     const bars = [bar(day, 30), bar(day + 86_400_000, 40), bar(day + 172_800_000, 60)]
-    const market = { symbol: 'TEST', time: context, snapshots: [{ id: '0', bars: details }] }
+    const market = { symbol: 'TEST', time: context, snapshots: [{ id: '0', bars: details, change: RESET_CHANGE }] }
     const config = { rowSize: 4, periodUnit: 'day' }
-    const first = script.output(bars, config, market, { start: 0, end: bars.length })
+    const first = script.output(bars, config, market, false, RESET_CHANGE)
     const nextDetails = [...details, bar(day + 172_800_000 + 60_000, 70)]
     const second = script.output(
       bars,
       config,
       {
         ...market,
-        snapshots: [{ id: '0', bars: nextDetails }],
+        snapshots: [
+          {
+            id: '0',
+            bars: nextDetails,
+            change: { kind: 'append', start: details.length, revision: 1 },
+          },
+        ],
       },
-      { start: bars.length - 1, end: bars.length },
+      false,
+      { kind: 'update', start: bars.length - 1, revision: 1 },
     )
     const completed = (output: typeof first) =>
       (output.drawings ?? []).filter(
@@ -121,7 +136,7 @@ describe.each(BACKENDS)('$name lower timeframe', ({ prepare }) => {
     const market = (items: readonly Bar[]) => ({
       symbol: 'TEST',
       time: context,
-      snapshots: [{ id: '0', bars: items }],
+      snapshots: [{ id: '0', bars: items, change: RESET_CHANGE }],
     })
     script.run(bars, config, market(details))
     const shrunk = details.map((item, index) =>
@@ -147,7 +162,7 @@ describe.each(BACKENDS)('$name lower timeframe', ({ prepare }) => {
     const market = (items: readonly Bar[]) => ({
       symbol: 'TEST',
       time: context,
-      snapshots: [{ id: '0', bars: items }],
+      snapshots: [{ id: '0', bars: items, change: RESET_CHANGE }],
     })
     script.run(bars, config, market(details))
     const corrected = details.map((item, index) => (index === 0 ? { ...item, volume: 100 } : item))
@@ -165,14 +180,14 @@ describe.each(BACKENDS)('$name lower timeframe', ({ prepare }) => {
       { time: day, open: 0, low: 0, high: 1, close: 1, volume: 70 },
       { time: day + 60000, open: 2, low: 1, high: 2, close: 1, volume: 30 },
     ]
-    const market = { symbol: 'TEST', time: context, snapshots: [{ id: '0', bars: details }] }
+    const market = { symbol: 'TEST', time: context, snapshots: [{ id: '0', bars: details, change: RESET_CHANGE }] }
     const result = script.run([bar(day, 100)], { rowSize: 4 }, market)
     const lines = result.drawings!.filter((drawing) => drawing.kind === 'trend-line')
     expect(lines.map((line) => line.anchors[0]!.price)).toEqual([0.25, 1.5, 0])
     const changed = script.run([bar(day, 100)], { rowSize: 4, showPoc: false }, market)
     expect(changed.drawings!.filter((drawing) => drawing.kind === 'trend-line')).toHaveLength(2)
     expect(() =>
-      script.run([bar(day, 100)], {}, { ...market, snapshots: [{ id: '0', bars: [] }] }),
+      script.run([bar(day, 100)], {}, { ...market, snapshots: [{ id: '0', bars: [], change: RESET_CHANGE }] }),
     ).toThrow('没有可用的低周期')
   })
 
@@ -183,7 +198,7 @@ describe.each(BACKENDS)('$name lower timeframe', ({ prepare }) => {
       const [t,v]=request.securityLowerTf(syminfo.tickerId,Timeframe.week,()=>[time,volume] as const,{ignoreInvalidTimeframe:${ignore}});
       plot.Line(t.length+v.length,'count');
     }})`
-    const market = { symbol: 'TEST', time: context, snapshots: [{ id: '0', bars: [bar(day, 1)] }] }
+    const market = { symbol: 'TEST', time: context, snapshots: [{ id: '0', bars: [bar(day, 1)], change: RESET_CHANGE }] }
     expect(() => prepare(source(false)).run([bar(day, 1)], {}, market)).toThrow('不能高于主图')
     expect(requireValues(prepare(source(true)).run([bar(day, 1)], {}, market), 'count')).toEqual([
       0,

@@ -1,70 +1,73 @@
-/** 脚本执行会话：常驻运行时、区间执行、依赖驱动的重置与 Request 增量对齐。 */
-import {
-  type Bar,
-  type ComputeDependency,
-  type DrawingObject,
-  type IndicatorSeries,
-  resolveComputeRange,
+/**
+ * 脚本执行会话：把数据层的变化翻译成重放区间，维护主运行时与 Request 运行时的运行态。
+ *
+ * 只做 tail 增量：追加与末根更新复用状态，历史回补、前置插入、参数或品种变化整段重建。
+ */
+import type {
+  Bar,
+  ComputeChange,
+  DrawingObject,
+  IndicatorSeries,
+  ScriptAlertEvent,
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { LogEvent } from '../../../contracts/log.js'
 import type { ScriptParamValue } from '../../../quickjs/types.js'
-import { createRequestAligner, type RequestAligner } from '../../../request/impl/requestAligner.js'
-import { CURRENT_SYMBOL } from '../../../request/impl/symbols.js'
 import type {
   RequestExecution,
+  RequestSnapshot,
   RequestValue,
   ScriptRequestContext,
   SecurityRequest,
 } from '../../../request/types.js'
+import { CURRENT_SYMBOL } from '../../../request/impl/symbols.js'
+import { createRequestAligner } from '../../../request/impl/requestAligner.js'
+import { applyDrawingDelta } from './drawingDelta.js'
 import type {
   ScriptExecutionSession,
   ScriptRuntime,
   ScriptRuntimeExecuteOptions,
-  ScriptRuntimeExecuteResult,
   ScriptRuntimeFactory,
   ScriptSessionOutput,
   ScriptSessionRunOptions,
 } from '../types.js'
-import { firstChangedBar } from './changeRange.js'
-import { applyDrawingDelta } from './drawingDelta.js'
 
-/** 会话装配选项；dependency 来自编译期推断，会话不再自行判断状态性。 */
+/** 会话创建参数；后端只提供运行时工厂与日志接收者。 */
 interface ScriptSessionOptions<Checkpoint> {
   readonly createRuntime: ScriptRuntimeFactory<Checkpoint>
-  readonly dependency: ComputeDependency
-  readonly replayOnUpdate: boolean
   readonly onLog?: (event: LogEvent) => void
 }
 
-/** 单个 Request 的常驻表达式运行时与对齐器。 */
+/** 每个 Request 的常驻运行时与对齐状态。 */
 interface RequestState<Checkpoint> {
   runtime: ScriptRuntime<Checkpoint>
-  aligner: RequestAligner
+  readonly aligner: ReturnType<typeof createRequestAligner>
   bars: readonly Bar[]
-  checkpoint?: Checkpoint
-  fresh: boolean
+  /** 末根之前的状态；末根更新时据此回滚。 */
+  rewind?: Checkpoint
 }
 
-/** 参数逐键比较；参数变化会改变顶层请求声明，必须重建运行时。 */
+/** 参数是否完全相同；键集合与值都参与比较。 */
 function sameParams(
-  previous: Readonly<Record<string, ScriptParamValue>> | undefined,
-  next: Readonly<Record<string, ScriptParamValue>>,
+  left: Readonly<Record<string, ScriptParamValue>> | undefined,
+  right: Readonly<Record<string, ScriptParamValue>>,
 ): boolean {
-  if (previous === undefined) return false
-  const previousKeys = Object.keys(previous)
-  const nextKeys = Object.keys(next)
-  return (
-    previousKeys.length === nextKeys.length &&
-    previousKeys.every((key) => previous[key] === next[key])
-  )
+  if (left === undefined) return Object.keys(right).length === 0
+  const leftKeys = Object.keys(left)
+  if (leftKeys.length !== Object.keys(right).length) return false
+  return leftKeys.every((key) => Object.is(left[key], right[key]))
 }
 
-/** 空集合也带绘图字段，宿主不必区分“无绘图”和“未计算”。 */
+/** 空序列；行情为空时仍返回完整结构，消费端不需要判空。 */
 function emptyCollection(): IndicatorSeries {
-  return { plots: [], fills: [], drawings: [] }
+  return { plots: [], fills: [], hlines: [], hlineFills: [], drawings: [] }
 }
 
-/** 创建一个脚本执行会话；主运行时在准备阶段建立，后续按区间执行。 */
+/**
+ * 创建脚本执行会话。
+ *
+ * @param options 运行时工厂与日志接收者
+ * @returns 宿主唯一入口
+ */
 export function createScriptExecutionSession<Checkpoint>(
   options: ScriptSessionOptions<Checkpoint>,
 ): ScriptExecutionSession {
@@ -72,17 +75,18 @@ export function createScriptExecutionSession<Checkpoint>(
   let mainParams: Readonly<Record<string, ScriptParamValue>> | undefined
   let mainSymbol = CURRENT_SYMBOL
   let plan: readonly SecurityRequest[] = []
-  let previousBars: readonly Bar[] = []
-  let lastLiveBar: { readonly time: number; readonly price: number } | undefined
-  let checkpoint: Checkpoint | undefined
+  let rewind: Checkpoint | undefined
   let retainedDrawings: readonly DrawingObject[] = []
-  let runtimeFresh = true
+  let lastLiveBar: { readonly time: number; readonly price: number } | undefined
   /** 上次运行失败后运行态不可信；下一次调用先重建，避免沿用半完成的 bar。 */
   let dirty = false
   const requests = new Map<string, RequestState<Checkpoint>>()
 
-  /** 重建主运行时与全部 Request 运行时；参数、品种或历史失效时使用。 */
-  function resetMain(params: Readonly<Record<string, ScriptParamValue>>, symbol: string): void {
+  /** 重建主运行时与全部 Request 运行时；参数、品种或不可恢复的变化使用。 */
+  function resetMain(
+    params: Readonly<Record<string, ScriptParamValue>>,
+    symbol: string,
+  ): void {
     if (symbol !== mainSymbol) lastLiveBar = undefined
     main?.dispose()
     for (const state of requests.values()) state.runtime.dispose()
@@ -91,132 +95,122 @@ export function createScriptExecutionSession<Checkpoint>(
     mainParams = { ...params }
     mainSymbol = symbol
     plan = main.requests()
-    previousBars = []
-    checkpoint = undefined
+    rewind = undefined
     retainedDrawings = []
-    runtimeFresh = true
+    dirty = false
   }
 
-  /** 解析并更新所有 Request 对齐结果；主图区间起点决定尾部重算范围。 */
-  function resolveRequestExecution(input: {
-    bars: readonly Bar[]
-    params: Readonly<Record<string, ScriptParamValue>>
-    context: ScriptRequestContext | undefined
-    startIndex: number
-    symbol: string
-  }): { execution: RequestExecution; historyChanged: boolean } {
-    if (plan.length === 0) {
-      return {
-        execution: { symbol: input.symbol, time: input.context?.time, results: {} },
-        historyChanged: false,
+  /** 对齐一个 Request 快照；返回本次主图可直接使用的取值。 */
+  function resolveRequest(
+    request: SecurityRequest,
+    snapshot: RequestSnapshot,
+    params: Readonly<Record<string, ScriptParamValue>>,
+    bars: readonly Bar[],
+    context: ScriptRequestContext,
+    execution: RequestExecution,
+  ): readonly RequestValue[] {
+    let state = requests.get(request.id)
+    if (!state) {
+      state = {
+        runtime: options.createRuntime({
+          expressionId: request.id,
+          params,
+          symbol: request.symbol,
+        }),
+        aligner: createRequestAligner(request),
+        bars: [],
       }
+      requests.set(request.id, state)
+    }
+    const change = snapshot.change
+    let start: number
+    if (change.kind === 'append' && state.bars.length > 0) {
+      start = change.start
+    } else if (
+      change.kind === 'update' &&
+      change.start === state.bars.length - 1 &&
+      state.rewind !== undefined
+    ) {
+      state.runtime.rollback(state.rewind)
+      start = change.start
+    } else {
+      state.runtime.dispose()
+      state.runtime = options.createRuntime({
+        expressionId: request.id,
+        params,
+        symbol: request.symbol,
+      })
+      state.rewind = undefined
+      start = 0
+    }
+    const executeFrom = (from: number, end: number): readonly RequestValue[] =>
+      state!.runtime.execute({
+        bars: snapshot.bars,
+        startIndex: from,
+        endIndex: end,
+        params,
+        execution,
+      }).values
+    let values: readonly RequestValue[]
+    if (snapshot.bars.length > 1) {
+      if (start < snapshot.bars.length - 1) executeFrom(start, snapshot.bars.length - 1)
+      state.rewind = state.runtime.checkpoint()
+      values = executeFrom(snapshot.bars.length - 1, snapshot.bars.length)
+    } else {
+      state.rewind = state.runtime.checkpoint()
+      values = executeFrom(0, snapshot.bars.length)
+    }
+    state.bars = snapshot.bars
+    return state.aligner.update({
+      bars,
+      target: snapshot.bars,
+      values,
+      startIndex: start,
+      context,
+    })
+  }
+
+  /** 解析全部 Request，并组装主运行时的执行上下文。 */
+  function resolveRequests(input: {
+    readonly bars: readonly Bar[]
+    readonly params: Readonly<Record<string, ScriptParamValue>>
+    readonly context: ScriptRequestContext | undefined
+    readonly symbol: string
+  }): RequestExecution {
+    if (plan.length === 0) {
+      return { symbol: input.symbol, time: input.context?.time, results: {} }
     }
     if (!input.context) throw new Error('Request 需要宿主提供行情上下文')
-    // 目标周期历史被修正时，之前的主图对齐结果全部可能失效；保守地整段重算。
-    let historyChanged = false
-    for (const request of plan) {
-      const state = requests.get(request.id)
-      if (!state || state.bars.length === 0) continue
-      const snapshot = input.context.snapshots.find((item) => item.id === request.id)
-      if (!snapshot) throw new Error(`Request 缺少行情快照：${request.id}`)
-      if (firstChangedBar(state.bars, snapshot.bars) < state.bars.length - 1) historyChanged = true
+    const execution: RequestExecution = {
+      symbol: input.symbol,
+      time: input.context.time,
+      results: {},
     }
-    const alignerStart = historyChanged ? 0 : input.startIndex
-    const results: Record<string, readonly RequestValue[]> = {}
+    const results = execution.results as Record<string, readonly RequestValue[]>
     for (const request of plan) {
       const snapshot = input.context.snapshots.find((item) => item.id === request.id)
       if (!snapshot) throw new Error(`Request 缺少行情快照：${request.id}`)
-      let state = requests.get(request.id)
-      if (!state) {
-        state = {
-          runtime: options.createRuntime({
-            expressionId: request.id,
-            params: input.params,
-            symbol: request.symbol,
-          }),
-          aligner: createRequestAligner(request),
-          bars: [],
-          fresh: true,
-        }
-        requests.set(request.id, state)
-      }
-      const change = firstChangedBar(state.bars, snapshot.bars)
-      let from: number
-      if (state.fresh || state.bars.length === 0) {
-        from = 0
-        state.fresh = false
-      } else if (change >= state.bars.length - 1 && state.checkpoint !== undefined) {
-        from = Math.min(change, state.bars.length - 1)
-        state.runtime.rollback(state.checkpoint)
-      } else {
-        state.runtime.dispose()
-        state.runtime = options.createRuntime({
-          expressionId: request.id,
-          params: input.params,
-          symbol: request.symbol,
-        })
-        state.checkpoint = undefined
-        from = 0
-      }
-      const execution: RequestExecution = {
-        symbol: request.symbol,
-        time: input.context.time,
-        results: {},
-      }
-      let values: readonly RequestValue[]
-      if (snapshot.bars.length > 1) {
-        state.runtime.execute({
-          bars: snapshot.bars,
-          startIndex: from,
-          endIndex: snapshot.bars.length - 1,
-          params: input.params,
-          execution,
-        })
-        state.checkpoint = state.runtime.checkpoint()
-        values = state.runtime.execute({
-          bars: snapshot.bars,
-          startIndex: snapshot.bars.length - 1,
-          endIndex: snapshot.bars.length,
-          params: input.params,
-          execution,
-        }).values
-      } else {
-        state.checkpoint = state.runtime.checkpoint()
-        values = state.runtime.execute({
-          bars: snapshot.bars,
-          startIndex: 0,
-          endIndex: snapshot.bars.length,
-          params: input.params,
-          execution,
-        }).values
-      }
-      results[request.id] = state.aligner.update({
-        bars: input.bars,
-        target: snapshot.bars,
-        values,
-        startIndex: alignerStart,
-        context: input.context,
-      })
-      state.bars = snapshot.bars.slice()
+      results[request.id] = resolveRequest(
+        request,
+        snapshot,
+        input.params,
+        input.bars,
+        input.context,
+        execution,
+      )
     }
-    return {
-      execution: { symbol: input.symbol, time: input.context.time, results },
-      historyChanged,
-    }
+    return execution
   }
 
   /** 提交一次主运行结果：应用绘图增量并保留上一轮未变化的绘图对象。 */
   function commit(
-    result: ScriptRuntimeExecuteResult<Checkpoint>,
+    result: { readonly series: IndicatorSeries; readonly alerts: readonly ScriptAlertEvent[] },
     reset: boolean,
-    bars: readonly Bar[],
     params: Readonly<Record<string, ScriptParamValue>>,
   ): ScriptSessionOutput {
     const drawingDelta = main.drawingDelta(reset)
     retainedDrawings = applyDrawingDelta(retainedDrawings, drawingDelta)
-    previousBars = bars.slice()
     mainParams = { ...params }
-    runtimeFresh = false
     return {
       ...result.series,
       drawings: retainedDrawings,
@@ -225,51 +219,39 @@ export function createScriptExecutionSession<Checkpoint>(
     }
   }
 
-  /** 有状态执行：从 from 起跑到末根；最后一根单独提交检查点。 */
-  function runStateful(
-    from: number,
+  /** 从指定下标执行到末根；末根前记录回滚点，供下一次末根更新复用。 */
+  function executeFrom(
+    start: number,
     bars: readonly Bar[],
     params: Readonly<Record<string, ScriptParamValue>>,
     execution: RequestExecution,
     realtime: Pick<ScriptRuntimeExecuteOptions, 'liveBarIndex' | 'prevPrice'>,
+    reset: boolean,
   ): ScriptSessionOutput {
-    const reset = runtimeFresh
-    if (bars.length > 1) {
+    if (bars.length > 1 && start < bars.length - 1) {
       main.execute({
         bars,
-        startIndex: from,
+        startIndex: start,
         endIndex: bars.length - 1,
         params,
         execution,
         emit: options.onLog,
       })
-      checkpoint = main.checkpoint()
-      const result = main.execute({
-        bars,
-        startIndex: bars.length - 1,
-        endIndex: bars.length,
-        params,
-        execution,
-        emit: options.onLog,
-        checkpointIndex: bars.length - 1,
-        ...realtime,
-      })
-      checkpoint = result.checkpoint ?? checkpoint
-      return commit(result, reset, bars, params)
     }
-    checkpoint = main.checkpoint()
+    rewind = main.checkpoint()
     const result = main.execute({
       bars,
-      startIndex: 0,
-      endIndex: 1,
+      startIndex: bars.length - 1,
+      endIndex: bars.length,
       params,
       execution,
       emit: options.onLog,
-      checkpointIndex: 0,
+      checkpointIndex: bars.length - 1,
       ...realtime,
     })
-    checkpoint = result.checkpoint ?? checkpoint
-    return commit(result, reset, bars, params)
+    // 库在完成期提交的检查点包含已完成绘图；下一次末根更新从它回滚。
+    rewind = result.checkpoint ?? rewind
+    return commit(result, reset, params)
   }
 
   resetMain({}, CURRENT_SYMBOL)
@@ -280,102 +262,57 @@ export function createScriptExecutionSession<Checkpoint>(
     },
 
     requests(params, symbol) {
-      if (dirty || !sameParams(mainParams, params) || symbol !== mainSymbol) {
+      if (dirty || !sameParams(mainParams, params) || symbol !== mainSymbol)
         resetMain(params, symbol)
-        dirty = false
-      }
       return plan
     },
 
     run(input: ScriptSessionRunOptions): ScriptSessionOutput {
       const params = input.params ?? {}
       const symbol = input.context?.symbol ?? mainSymbol
-      if (dirty || !sameParams(mainParams, params) || symbol !== mainSymbol) {
+      const bars = input.bars
+      const change: ComputeChange = input.change
+      if (dirty || !sameParams(mainParams, params) || symbol !== mainSymbol)
         resetMain(params, symbol)
-        dirty = false
-      }
-      try {
-        const bars = input.bars
-        if (bars.length === 0) {
-          lastLiveBar = undefined
-          if (!runtimeFresh) resetMain(params, symbol)
-          return {
-            ...emptyCollection(),
-            drawingDelta: { reset: true, upsert: [], remove: [] },
-            alerts: [],
-          }
+
+      if (!input.live && change.kind === 'reset') lastLiveBar = undefined
+      if (bars.length === 0) {
+        if (rewind !== undefined) resetMain(params, symbol)
+        return {
+          ...emptyCollection(),
+          drawingDelta: { reset: true, upsert: [], remove: [] },
+          alerts: [],
         }
-        // 只有最后一根 bar 允许产生警报；其余（包括历史段）一律视为历史。
-        if (!input.live && input.range?.reset) lastLiveBar = undefined
+      }
+
+      let start: number
+      let reset = false
+      try {
+        if (change.kind === 'reset' || change.kind === 'replace') {
+          resetMain(params, symbol)
+          reset = true
+          start = 0
+        } else if (change.kind === 'append') {
+          start = change.start
+        } else if (rewind === undefined || change.start < bars.length - 1) {
+          // 末根之外的修订没有可用回滚点，整段重放。
+          resetMain(params, symbol)
+          reset = true
+          start = 0
+        } else {
+          main.rollback(rewind)
+          start = bars.length - 1
+        }
+
+        const execution = resolveRequests({ bars, params, context: input.context, symbol })
         const liveBar = input.live ? bars[bars.length - 1] : undefined
         const prevPrice =
           liveBar && lastLiveBar?.time === liveBar.time ? lastLiveBar.price : undefined
+        if (liveBar) lastLiveBar = { time: liveBar.time, price: liveBar.close }
         const realtime = liveBar
           ? { liveBarIndex: bars.length - 1, ...(prevPrice === undefined ? {} : { prevPrice }) }
           : {}
-        if (liveBar) lastLiveBar = { time: liveBar.time, price: liveBar.close }
-        const dependency = options.dependency
-        const lastIndex = previousBars.length - 1
-        // 会话可能跳过中间行情版本，按上次实际执行的快照验证下标是否还能复用。
-        const firstChange = firstChangedBar(previousBars, bars)
-        const reuseTail =
-          !input.range?.reset &&
-          !options.replayOnUpdate &&
-          lastIndex >= 0 &&
-          bars.length > lastIndex &&
-          firstChange >= lastIndex &&
-          previousBars[lastIndex]?.time === bars[lastIndex]?.time &&
-          (dependency.kind !== 'stateful' || checkpoint !== undefined)
-        if (!reuseTail && !runtimeFresh) resetMain(params, symbol)
-
-        let startIndex = 0
-        if (reuseTail) {
-          if (dependency.kind === 'stateful') {
-            startIndex = lastIndex
-          } else {
-            const change = { start: Math.min(firstChange, bars.length - 1), end: bars.length }
-            const tail = resolveComputeRange(change, dependency, bars.length)
-            startIndex = Math.min(tail.start, input.range?.start ?? tail.start)
-          }
-        }
-
-        let requestResult = resolveRequestExecution({
-          bars,
-          params,
-          context: input.context,
-          startIndex,
-          symbol,
-        })
-        if (requestResult.historyChanged) {
-          resetMain(params, symbol)
-          startIndex = 0
-          requestResult = resolveRequestExecution({
-            bars,
-            params,
-            context: input.context,
-            startIndex,
-            symbol,
-          })
-        }
-        const execution = requestResult.execution
-
-        if (dependency.kind === 'stateful') {
-          if (checkpoint !== undefined) main.rollback(checkpoint)
-          return runStateful(startIndex, bars, params, execution, realtime)
-        }
-
-        // 无状态尾部重算保留起点之前的结果。
-        main.invalidate(startIndex)
-        const result = main.execute({
-          bars,
-          startIndex,
-          endIndex: bars.length,
-          params,
-          execution,
-          emit: options.onLog,
-          ...realtime,
-        })
-        return commit(result, runtimeFresh, bars, params)
+        return executeFrom(start, bars, params, execution, realtime, reset)
       } catch (error) {
         dirty = true
         throw error

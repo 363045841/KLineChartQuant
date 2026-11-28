@@ -19,7 +19,7 @@ test('restores a rule before the source is ready and persists one real worker re
   const gate = Promise.withResolvers()
   const streamed = Promise.withResolvers()
   const seed = createSqliteDriver({ filename: databasePath })
-  await seed.transaction(['alerts'], 'readwrite', (tx) => tx.put('alerts', { version: 1, alerts: [rule], fires: [] }, 'state'))
+  await seed.transaction(['alerts'], 'readwrite', (tx) => tx.put('alerts', { version: 2, alerts: [rule], fires: [] }, 'state'))
   await seed.dispose()
   await writeFile(join(directory, 'workspace.json'), JSON.stringify({ scripts: [script], folders: [] }))
 

@@ -2,6 +2,16 @@
 import { expect, it } from 'vitest'
 import { decodeAlertDocument } from '../impl/alertCodec.js'
 
-it.each([0, 2])('rejects version %s', (version) => {
-  expect(() => decodeAlertDocument({ version, alerts: [], fires: [] })).toThrow('Unsupported alert document version')
+it('accepts the current document version', () => {
+  expect(decodeAlertDocument({ version: 2, alerts: [], fires: [] })).toEqual({
+    version: 2,
+    alerts: [],
+    fires: [],
+  })
+})
+
+it.each([0, 1, 3])('rejects version %s', (version) => {
+  expect(() => decodeAlertDocument({ version, alerts: [], fires: [] })).toThrow(
+    'Unsupported alert document version',
+  )
 })

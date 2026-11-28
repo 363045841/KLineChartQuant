@@ -100,8 +100,8 @@ export interface IndicatorComputeOptions<P> {
   readonly params: P
   /** 跨品种与跨周期取数的上下文。 */
   readonly market?: IndicatorMarketContext
-  /** 需要重算的区间；缺省为整段。 */
-  readonly range?: import('./compute.js').ComputeRange
+  /** 本次行情变化；缺省按 reset 处理。 */
+  readonly change?: import('./compute.js').ComputeChange
   /** 最后一根 bar 是否为实时 bar；只有实时运行可以产生警报。 */
   readonly live?: boolean
 }
@@ -136,8 +136,6 @@ export type IndicatorDefinition<P> = ScriptDefinitionKind & {
   readonly document?: IndicatorSourceDocument
   /** 输入参数声明。 */
   readonly inputs: InputSchema<P>
-  /** 计算对历史的依赖；缺省按有状态处理，正确性优先。 */
-  readonly dependency?: import('./compute.js').ComputeDependency
   /** 有状态的独立计算会话；最后一个消费者退出时释放运行态。 */
   readonly createCompute?: () => IndicatorCompute<P>
   readonly compute: IndicatorCompute<P>

@@ -1,6 +1,5 @@
 // VWAP：按交易日锚定的成交量加权均价；成交量不可用时留空，不用典型价冒充。
-let sumPriceVolume = 0
-let sumVolume = 0
+const acc = state({ priceVolume: 0, volume: 0 })
 
 defineIndicator({
   version: 2,
@@ -11,8 +10,8 @@ defineIndicator({
   onBar() {
     // 交易日切换时清零；首根 bar 也返回 true，与 Pine 的 na(src[1]) 分支一致。
     if (timeframe.change('D')) {
-      sumPriceVolume = 0
-      sumVolume = 0
+      acc.priceVolume = 0
+      acc.volume = 0
     }
     const typical = (high + low + close) / 3
     const barVolume = volume[0]
@@ -21,13 +20,13 @@ defineIndicator({
       plot.Line(null, 'vwap', { label: 'VWAP', color: Color.orange })
       return
     }
-    sumPriceVolume += typical * barVolume
-    sumVolume += barVolume
-    plot.Line(sumVolume > 0 ? sumPriceVolume / sumVolume : null, 'vwap', {
+    acc.priceVolume += typical * barVolume
+    acc.volume += barVolume
+    plot.Line(acc.volume > 0 ? acc.priceVolume / acc.volume : null, 'vwap', {
       label: 'VWAP',
       color: Color.orange,
     })
-    if (barstate.isLast && sumVolume === 0)
+    if (barstate.isLast && acc.volume === 0)
       console.error('VWAP：数据源未提供成交量，无法计算 VWAP。')
   },
 })

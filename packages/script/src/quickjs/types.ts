@@ -1,7 +1,6 @@
 /** QuickJS 脚本执行的输入与选项契约。 */
 
 import type {
-  ComputeDependency,
   Format,
   ScriptDefinitionKind,
   InputSchema,
@@ -71,11 +70,6 @@ export type QuickJSScriptDefinition = ScriptDefinitionKind & {
   readonly inputs: InputSchema<Record<string, ScriptParamValue>>
 }
 
-/** 编译产物：VM 元数据 + 编译期推断的计算依赖。 */
-export type PreparedScriptDefinition = QuickJSScriptDefinition & {
-  readonly dependency: ComputeDependency
-}
-
 /** 一次 QuickJS 脚本运行的配置。 */
 export interface QuickJSRunOptions {
   readonly onLog?: (event: LogEvent) => void
@@ -84,6 +78,8 @@ export interface QuickJSRunOptions {
   readonly source: string
   /** 已加载的行情，按时间升序。 */
   readonly bars: readonly Bar[]
+  /** 本次行情变化；缺省按 reset 处理。 */
+  readonly change?: import('@363045841yyt/klinechart-plot-contracts').ComputeChange
   /** 脚本参数，作为全局 `params` 注入。 */
   readonly params?: Readonly<Record<string, ScriptParamValue>>
   readonly libraries?: readonly QuickJSLibrary[]
@@ -91,20 +87,23 @@ export interface QuickJSRunOptions {
   readonly timeoutMs?: number
 }
 
+/** 一次常驻运行的输入；变化由数据层显式给出。 */
+export interface PreparedScriptRunInput {
+  readonly bars: readonly Bar[]
+  readonly change: import('@363045841yyt/klinechart-plot-contracts').ComputeChange
+  readonly params?: Readonly<Record<string, ScriptParamValue>>
+  readonly context?: ScriptRequestContext
+  readonly live?: boolean
+}
+
 /** 一个源码版本的常驻执行会话；编译与运行态跨 tick 复用，释放时统一销毁。 */
 export interface PreparedScript {
-  readonly definition: PreparedScriptDefinition
+  readonly definition: QuickJSScriptDefinition
   requests(
     params?: Readonly<Record<string, ScriptParamValue>>,
     symbol?: string,
   ): readonly SecurityRequest[]
   /** 完整会话输出：完整绘图 + 本次增量 + 实时警报事件。 */
-  run(
-    bars: readonly Bar[],
-    params?: Readonly<Record<string, ScriptParamValue>>,
-    context?: ScriptRequestContext,
-    range?: import('@363045841yyt/klinechart-plot-contracts').ComputeRange,
-    live?: boolean,
-  ): ScriptSessionOutput
+  run(input: PreparedScriptRunInput): ScriptSessionOutput
   dispose(): void
 }

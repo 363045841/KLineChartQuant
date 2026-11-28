@@ -3,7 +3,9 @@
  */
 
 import { seriesSelectionKey } from '@/data/buffer/seriesSelection.js'
-import { DATA_CHANGE_KINDS } from '@/data/buffer/types.js'
+import { DATA_CHANGE_KINDS, type DataChange, type DataChangeKind } from '@/data/buffer/types.js'
+import type { KLineData } from '@/foundation/types/price.js'
+import type { ComputeChange } from '@363045841yyt/klinechart-plot-contracts'
 import { createMarketDataService } from '@/data/service/index.js'
 import { applyMarketSessions } from '@/foundation/config/marketSession/applyMarketSessions.js'
 import { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry.js'
@@ -11,6 +13,25 @@ import { createCalculationHub } from '../../calculation/index.js'
 import { createCalculationMarket } from '../../calculation/market/index.js'
 import { toCalculationDefinition } from '../../indicators/instances/assembly/toCalculationDefinition.js'
 import type { MarketRuntime, MarketRuntimeOptions } from '../types.js'
+
+const CHANGE_KINDS: Readonly<Record<DataChangeKind, ComputeChange['kind']>> = {
+  [DATA_CHANGE_KINDS.append]: 'append',
+  [DATA_CHANGE_KINDS.tail]: 'update',
+  [DATA_CHANGE_KINDS.correct]: 'update',
+  [DATA_CHANGE_KINDS.prepend]: 'replace',
+  [DATA_CHANGE_KINDS.extend]: 'replace',
+  [DATA_CHANGE_KINDS.replace]: 'reset',
+}
+
+/** 把数据层的变化翻译成计算层的变化；start 是首个受影响下标。 */
+function toComputeChange(change: DataChange<KLineData>, revision: number): ComputeChange {
+  const kind = CHANGE_KINDS[change.kind]
+  return {
+    kind,
+    start: kind === 'append' || kind === 'update' ? change.start : 0,
+    revision,
+  }
+}
 
 /** 创建共享运行时；所有资源由本对象持有并释放。 */
 export function createMarketRuntime(options: MarketRuntimeOptions): MarketRuntime {
@@ -51,14 +72,7 @@ export function createMarketRuntime(options: MarketRuntimeOptions): MarketRuntim
       dataRevision: revision,
       timestamps: change.data.map((bar) => bar.timestamp),
       data: change.data,
-      change: {
-        start: change.start,
-        end: change.end,
-        reset:
-          change.kind === DATA_CHANGE_KINDS.replace ||
-          change.kind === DATA_CHANGE_KINDS.prepend ||
-          change.kind === DATA_CHANGE_KINDS.extend,
-      },
+      change: toComputeChange(change, revision),
       live: liveBarTime !== undefined && liveBarTime === change.data.at(-1)?.timestamp,
       ...(closedBarTime === undefined ? {} : { closedBarTime }),
       market: { selection, instrument },

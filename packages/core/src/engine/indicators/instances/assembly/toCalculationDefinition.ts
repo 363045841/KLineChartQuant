@@ -4,7 +4,6 @@
  * 会话级定义仓库与图表装配共用这一份换算；不存在第二条执行链。
  */
 import type { CalculationDefinition } from '../../../calculation/index.js'
-import { STATEFUL } from '@363045841yyt/klinechart-plot-contracts'
 import type { IndicatorMetadata } from '../../indicatorMetadata.js'
 
 /**
@@ -24,7 +23,6 @@ export function toCalculationDefinition(
     definitionId: item.name,
     // 版本身份直接取自注册表元数据；替换定义时注册表会换新对象。
     identity: item,
-    dependency: runtime.dependency ?? STATEFUL,
     compute: runtime.compute,
     ...(runtime.createCompute ? { createCompute: runtime.createCompute } : {}),
   })

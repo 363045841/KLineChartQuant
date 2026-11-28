@@ -37,7 +37,7 @@ function feed(dataRevision: number): FeedSnapshot {
     dataRevision,
     timestamps: BARS.map((bar) => bar.timestamp),
     data: BARS,
-    change: { start: 0, end: BARS.length },
+    change: { kind: 'reset', start: 0, revision: dataRevision },
     live: true,
   }
 }
@@ -58,7 +58,6 @@ function definition(
   return {
     definitionId: options.definitionId ?? 'ma',
     identity: options.identity,
-    dependency: { kind: 'stateful' },
     compute,
     ...(options.createCompute === undefined ? {} : { createCompute: options.createCompute }),
   }

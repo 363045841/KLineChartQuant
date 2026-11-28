@@ -9,7 +9,7 @@ import {
   shippedSource,
   wavyCloses,
 } from '../../__tests__/marketData.js'
-import { runQuickJSScript } from '../impl/runQuickJSScript.js'
+import { runQuickJSScript } from '../../__tests__/helpers/quickJSScript.js'
 
 /** 只在最后一根 bar 输出的脚本：前缀运行会落在另一根上，不参与前缀比较。 */
 function lastBarOnly(name: string): boolean {

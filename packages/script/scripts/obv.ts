@@ -1,5 +1,5 @@
 // OBV：按收盘价涨跌方向逐根累加成交量。
-let obv = 0
+const acc = state({ value: 0 })
 
 defineIndicator({
   version: 2,
@@ -11,9 +11,9 @@ defineIndicator({
   onBar() {
     const previous = close[1]
     if (!Number.isNaN(previous)) {
-      if (close > previous) obv += volume
-      else if (close < previous) obv -= volume
+      if (close > previous) acc.value += volume
+      else if (close < previous) acc.value -= volume
     }
-    plot.Line(obv, 'obv', { label: 'OBV', color: Color.blue })
+    plot.Line(acc.value, 'obv', { label: 'OBV', color: Color.blue })
   },
 })

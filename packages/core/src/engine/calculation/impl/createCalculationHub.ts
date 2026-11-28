@@ -4,7 +4,6 @@
  * 不持有图表、Pane、视口或实例身份；消费者注册计划，Hub 只负责：
  * 合并同一计算键、按行情需要保留更新顺序、提交结果。
  */
-import { type ComputeRange, resolveComputeRange } from '@363045841yyt/klinechart-plot-contracts'
 import { seriesSelectionKey } from '@/data/buffer/seriesSelection.js'
 import type { KLineData } from '@/foundation/types/price.js'
 import type {
@@ -210,24 +209,13 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
         }),
       })
     }
-    let range: ComputeRange
-    try {
-      range = resolveComputeRange(feed.change, calculator.dependency, feed.data.length)
-    } catch (error) {
-      return Object.freeze({
-        ...base,
-        series: undefined,
-        alerts: Object.freeze([]),
-        error: toFailure(error),
-      })
-    }
     const context = options.marketData?.(feed.data, feed.market)
     try {
       const output = await calculator.compute(
         feed.data,
         request.inputs,
         context ? { ...context, signal } : undefined,
-        range,
+        feed.change,
         feed.live,
       )
       if (signal.aborted) return null

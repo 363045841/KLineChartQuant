@@ -7,7 +7,7 @@ import {
   scriptSource,
   wavyCloses,
 } from '../../__tests__/marketData.js'
-import { runQuickJSScript } from '../impl/runQuickJSScript.js'
+import { runQuickJSScript } from '../../__tests__/helpers/quickJSScript.js'
 
 describe('组合指标与派生序列', () => {
   it('derive 不预填历史，同 key 复用首次回调，self 递推遇到历史边界结束', async () => {

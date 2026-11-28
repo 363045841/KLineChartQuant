@@ -122,21 +122,28 @@ function writeAnchor(
   writer.put(anchor.price ?? 0)
 }
 
-/** 打包全部大数组；hlines 等图表级小声明仍保持共享契约。 */
-export function packIndicatorSeries(series: IndicatorSeries): PackedIndicatorSeries {
+/** 打包全部大数组；from 之后的点才写入 buffer，之前的点由消费端保留。 */
+export function packIndicatorSeries(series: IndicatorSeries, from = 0): PackedIndicatorSeries {
   let length = 0
-  for (const plot of series.plots)
-    length += plot.data.length * (isOhlcPlot(plot) ? OHLC_WIDTH : SCALAR_WIDTH)
-  for (const fill of series.fills) length += fill.colors.length
+  for (const plot of series.plots) {
+    const start = Math.min(from, plot.data.length)
+    length += (plot.data.length - start) * (isOhlcPlot(plot) ? OHLC_WIDTH : SCALAR_WIDTH)
+  }
+  for (const fill of series.fills) {
+    const start = Math.min(from, fill.colors.length)
+    length += fill.colors.length - start
+  }
   for (const drawing of series.drawings ?? [])
     length += DRAWING_WIDTH + drawing.anchors.length * ANCHOR_WIDTH
   const writer = new NumberWriter(length)
   const texts = new TextWriter()
   const plots: PackedPlot[] = series.plots.map((plot) => {
     const offset = writer.offset
+    const start = Math.min(from, plot.data.length)
     if (isOhlcPlot(plot)) {
       const { data, ...metadata } = plot
-      for (const point of data) {
+      for (let index = start; index < data.length; index++) {
+        const point = data[index]
         writer.put(point === undefined ? 0 : 1)
         writer.put(point?.open ?? 0)
         writer.put(point?.high ?? 0)
@@ -146,10 +153,11 @@ export function packIndicatorSeries(series: IndicatorSeries): PackedIndicatorSer
         writer.put(texts.code(point?.wickColor))
         writer.put(texts.code(point?.borderColor))
       }
-      return { type: 'ohlc', metadata, offset, length: data.length }
+      return { type: 'ohlc', metadata, start, offset, length: data.length }
     }
     const { data, ...metadata } = plot
-    for (const point of data) {
+    for (let index = start; index < data.length; index++) {
+      const point = data[index]
       const flags =
         point === undefined
           ? PointFlag.Missing
@@ -161,12 +169,13 @@ export function packIndicatorSeries(series: IndicatorSeries): PackedIndicatorSer
       writer.put(texts.code(point?.color))
       writer.put(texts.code(point?.textColor))
     }
-    return { type: 'scalar', metadata, offset, length: data.length }
+    return { type: 'scalar', metadata, start, offset, length: data.length }
   })
   const fills = series.fills.map(({ colors, ...metadata }) => {
     const offset = writer.offset
-    for (const color of colors) writer.put(texts.code(color))
-    return { ...metadata, offset, length: colors.length }
+    const start = Math.min(from, colors.length)
+    for (let index = start; index < colors.length; index++) writer.put(texts.code(colors[index]))
+    return { ...metadata, start, offset, length: colors.length }
   })
   const drawingOffset = writer.offset
   const metadata: DrawingMetadata[] = []
@@ -269,46 +278,70 @@ function readAnchor(
   }
 }
 
-/** 只在消费端重建领域对象；一个响应的 buffer 不被协议层长期持有。 */
-export function unpackIndicatorSeries(packed: PackedIndicatorSeries): IndicatorSeries {
+/** 只在消费端重建领域对象；from 之前的点保留上一轮数组内容。 */
+export function unpackIndicatorSeries(
+  packed: PackedIndicatorSeries,
+  previous?: IndicatorSeries,
+): IndicatorSeries {
   const values = new Float64Array(packed.buffer)
   const { strings } = packed
+  const previousPlots = new Map((previous?.plots ?? []).map((plot) => [plot.id, plot]))
   const plots: Plot[] = packed.plots.map((plot) => {
+    const prior = previousPlots.get(plot.metadata.id)
     if (plot.type === 'ohlc') {
-      const data: (OhlcPlotPoint | undefined)[] = Array.from(
-        { length: plot.length },
-        (_, index) => {
-          const offset = plot.offset + index * OHLC_WIDTH
-          if (values[offset] === 0) return undefined
-          return {
-            open: values[offset + 1]!,
-            high: values[offset + 2]!,
-            low: values[offset + 3]!,
-            close: values[offset + 4]!,
-            color: nullableText(strings, values[offset + 5]!),
-            wickColor: nullableText(strings, values[offset + 6]!),
-            borderColor: nullableText(strings, values[offset + 7]!),
-          }
-        },
-      )
+      const data =
+        prior !== undefined && (prior.kind === 'candle' || prior.kind === 'bar')
+          ? (prior.data as (OhlcPlotPoint | undefined)[])
+          : new Array<OhlcPlotPoint | undefined>(plot.length)
+      data.length = plot.length
+      for (let index = plot.start; index < plot.length; index++) {
+        const offset = plot.offset + (index - plot.start) * OHLC_WIDTH
+        if (values[offset] === 0) {
+          data[index] = undefined
+          continue
+        }
+        data[index] = {
+          open: values[offset + 1]!,
+          high: values[offset + 2]!,
+          low: values[offset + 3]!,
+          close: values[offset + 4]!,
+          color: nullableText(strings, values[offset + 5]!),
+          wickColor: nullableText(strings, values[offset + 6]!),
+          borderColor: nullableText(strings, values[offset + 7]!),
+        }
+      }
       return { ...plot.metadata, data }
     }
-    const data: (PlotPoint | undefined)[] = Array.from({ length: plot.length }, (_, index) => {
-      const offset = plot.offset + index * SCALAR_WIDTH
+    const data =
+      prior !== undefined && prior.kind !== 'candle' && prior.kind !== 'bar'
+        ? (prior.data as (PlotPoint | undefined)[])
+        : new Array<PlotPoint | undefined>(plot.length)
+    data.length = plot.length
+    for (let index = plot.start; index < plot.length; index++) {
+      const offset = plot.offset + (index - plot.start) * SCALAR_WIDTH
       const flags = values[offset]!
-      if (flags === PointFlag.Missing) return undefined
-      return {
-        value: values[offset + 1]!,
-        color: textAt(strings, values[offset + 2]!),
-        ...(flags & PointFlag.TextColor ? { textColor: textAt(strings, values[offset + 3]!) } : {}),
-      }
-    })
+      data[index] =
+        flags === PointFlag.Missing
+          ? undefined
+          : {
+              value: values[offset + 1]!,
+              color: textAt(strings, values[offset + 2]!),
+              ...(flags & PointFlag.TextColor
+                ? { textColor: textAt(strings, values[offset + 3]!) }
+                : {}),
+            }
+    }
     return { ...plot.metadata, data }
   })
-  const fills = packed.fills.map(({ offset, length, ...metadata }) => ({
-    ...metadata,
-    colors: Array.from({ length }, (_, index) => nullableText(strings, values[offset + index]!)),
-  }))
+  const previousFills = new Map((previous?.fills ?? []).map((fill) => [fill.id, fill]))
+  const fills = packed.fills.map(({ start, offset, length, ...metadata }) => {
+    const prior = previousFills.get(metadata.id)
+    const colors = prior ? (prior.colors as (string | null)[]) : new Array<string | null>(length)
+    colors.length = length
+    for (let index = start; index < length; index++)
+      colors[index] = nullableText(strings, values[offset + index - start]!)
+    return { ...metadata, colors } as IndicatorSeries['fills'][number]
+  })
   const drawings: DrawingObject[] = []
   if (packed.drawings) {
     let offset = packed.drawings.offset
@@ -342,5 +375,6 @@ export function unpackIndicatorSeries(packed: PackedIndicatorSeries): IndicatorS
     drawings: batch,
     ...rest
   } = packed
-  return { ...rest, plots, fills, ...(batch === undefined ? {} : { drawings }) }
+  const nextDrawings = batch === undefined ? previous?.drawings : drawings
+  return { ...rest, plots, fills, ...(nextDrawings === undefined ? {} : { drawings: nextDrawings }) }
 }

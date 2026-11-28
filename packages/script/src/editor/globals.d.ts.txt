@@ -226,6 +226,12 @@ declare global {
   /** 读取已注册的库，内置名称由统一库类型目录提供。 */
   function importLibrary<K extends keyof LibraryModules>(name: K): LibraryModules[K]
 
+  /**
+   * Register cross-bar state; the runtime snapshots and restores it per bar.
+   * Only plain data is accepted: numbers, strings, booleans, null, arrays and plain objects.
+   */
+  function state<T extends Record<string, unknown>>(initial: T): T
+
   // 参数契约与示例只在 ../request/types.ts 的 ScriptRequest.security 维护，这里不复制第二份。
   /** 获取指定品种周期的数据；`syminfo.tickerId` 是当前图表品种。 */
   const request: ScriptRequest

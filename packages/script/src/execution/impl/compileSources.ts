@@ -1,11 +1,7 @@
 /** 唯一的脚本编译入口；执行模块不得导入本文件。 */
-import {
-  analyzeScriptDependency,
-  requiresFullReplay,
-  hasDirectAlertCall,
-} from '../../quickjs/impl/analyzeDependency.js'
 import { builtinLibraries } from '../../quickjs/impl/builtinLibraries.js'
 import { compileScript } from '../../quickjs/impl/compileScript.js'
+import { hasDirectAlertCall } from '../../quickjs/impl/hasAlertCall.js'
 import type { QuickJSLibrary } from '../../quickjs/types.js'
 import type { CompiledScriptSources } from '../types.js'
 
@@ -14,13 +10,6 @@ export function compileSources(
   source: string,
   libraries: readonly QuickJSLibrary[] = [],
 ): CompiledScriptSources {
-  const analysisLibraries: QuickJSLibrary[] = [
-    ...builtinLibraries.map(({ name, source: librarySource }) => ({
-      name,
-      source: librarySource,
-    })),
-    ...libraries,
-  ]
   return {
     source: compileScript(source, libraries),
     libraries: [
@@ -33,8 +22,6 @@ export function compileSources(
         source: `(() => {\n${compileScript(library.source, libraries)}\n})();`,
       })),
     ],
-    dependency: analyzeScriptDependency(source, analysisLibraries),
-    replayOnUpdate: requiresFullReplay(source, analysisLibraries),
     hasAlertCall: hasDirectAlertCall(source),
   }
 }

@@ -14,9 +14,7 @@ export function prepareNativeModule(
   const session = createScriptExecutionSession({
     createRuntime: ({ expressionId, params, symbol }) =>
       createNativeScriptRuntime(compiled, { expressionId, onLog, params, symbol }),
-    dependency: compiled.dependency,
-    replayOnUpdate: compiled.replayOnUpdate,
     onLog,
   })
-  return createPreparedScript(session, compiled.dependency)
+  return createPreparedScript(session)
 }

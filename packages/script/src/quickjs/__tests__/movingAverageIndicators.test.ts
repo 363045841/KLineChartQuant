@@ -8,7 +8,7 @@ import {
   shippedSource,
   wavyCloses,
 } from '../../__tests__/marketData.js'
-import { runQuickJSScript } from '../impl/runQuickJSScript.js'
+import { runQuickJSScript } from '../../__tests__/helpers/quickJSScript.js'
 
 describe('均线与通道脚本', () => {
   it.each([

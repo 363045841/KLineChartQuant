@@ -50,6 +50,7 @@ import {
   REQUEST_PRELUDE,
   ROLLING_PRELUDE,
   SCRIPT_PRELUDE,
+  STATE_PRELUDE,
   TIME_PRELUDE,
 } from '../generated/runtime.js'
 import type { PreparedScript, QuickJSScriptDefinition, ScriptParamValue } from '../types.js'
@@ -480,6 +481,7 @@ function createQuickJSScriptRuntime(
     ).dispose()
     evalOrThrow(vm, LIBRARY_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, SCRIPT_PRELUDE, 'compile', timeout).dispose()
+    evalOrThrow(vm, STATE_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, REQUEST_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, TIME_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, ROLLING_PRELUDE, 'compile', timeout).dispose()
@@ -528,12 +530,12 @@ function createQuickJSScriptRuntime(
     handles.push(rollbackFn)
     const patchFn = evalOrThrow(vm, '__drawingDelta', 'compile', timeout)
     handles.push(patchFn)
-    const invalidateFn = evalOrThrow(vm, '__rollbackSeries', 'compile', timeout)
-    handles.push(invalidateFn)
     const drawingCheckpointFn = evalOrThrow(vm, '__drawingCheckpoint', 'compile', timeout)
     handles.push(drawingCheckpointFn)
     const checkpointLibrariesFn = evalOrThrow(vm, '__checkpointLibraries', 'compile', timeout)
     handles.push(checkpointLibrariesFn)
+    const checkpointStatesFn = evalOrThrow(vm, '__checkpointStates', 'compile', timeout)
+    handles.push(checkpointStatesFn)
 
     /** 库在完成期渲染后提交检查点；活动期绘图不进入该检查点。 */
     const commitFn = vm.newFunction('__commitCheckpoint', () => {
@@ -550,14 +552,24 @@ function createQuickJSScriptRuntime(
         drawings.value.dispose()
         throw new ScriptExecutionError('run', message)
       }
+      const states = vm.callFunction(checkpointStatesFn, vm.undefined)
+      if (states.error) {
+        const message = describeFailure(vm, states.error, timeout)
+        states.error.dispose()
+        drawings.value.dispose()
+        libraries.value.dispose()
+        throw new ScriptExecutionError('run', message)
+      }
       const checkpoint = vm.newObject()
       const index = vm.newNumber(state.checkpointIndex)
       vm.setProp(checkpoint, 'index', index)
       index.dispose()
       vm.setProp(checkpoint, 'drawings', drawings.value)
       vm.setProp(checkpoint, 'libraries', libraries.value)
+      vm.setProp(checkpoint, 'states', states.value)
       drawings.value.dispose()
       libraries.value.dispose()
+      states.value.dispose()
       checkpointHandle?.dispose()
       checkpointHandle = checkpoint
       state.committedCheckpoint = { handle: checkpoint }
@@ -646,17 +658,6 @@ function createQuickJSScriptRuntime(
         checkpoint.handle.dispose()
         if (checkpointHandle === checkpoint.handle) checkpointHandle = undefined
       },
-      invalidate(startIndex) {
-        const start = vm.newNumber(startIndex)
-        const result = vm.callFunction(invalidateFn, vm.undefined, start)
-        start.dispose()
-        if (result.error) {
-          const message = describeFailure(vm, result.error, timeout)
-          result.error.dispose()
-          throw new ScriptExecutionError('run', message)
-        }
-        result.value.dispose()
-      },
       drawingDelta(reset) {
         const result = vm.callFunction(patchFn, vm.undefined, reset ? vm.true : vm.false)
         if (result.error) {
@@ -692,9 +693,7 @@ export function prepareQuickJSModule(
   const session = createScriptExecutionSession({
     createRuntime: ({ expressionId, params, symbol }) =>
       createQuickJSScriptRuntime(compiled, { expressionId, onLog, params, symbol, timeoutMs }),
-    dependency: compiled.dependency,
-    replayOnUpdate: compiled.replayOnUpdate,
     onLog,
   })
-  return createPreparedScript(session, compiled.dependency)
+  return createPreparedScript(session)
 }

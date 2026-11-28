@@ -1,5 +1,6 @@
-/** Worker 私有传输契约；领域对象只在计算端与消费端存在，通信使用增量数值块。 */
+/** Worker 私有传输契约；领域对象只在计算端与消费端存在，通信使用数值块。 */
 import type {
+  ComputeChange,
   DrawingObject,
   IndicatorSeries,
   OhlcPlot,
@@ -7,16 +8,12 @@ import type {
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { ScriptRequestContext } from '../../request/types.js'
 
-/** 行情增量：prepended 表示在旧首根之前插入的根数；count 为本块根数。 */
+/** 行情增量：从变化起点到序列末尾的一段数值块。 */
 export interface BarPatch {
-  /** 新序列中本块的起点。 */
-  readonly start: number
-  /** 本块根数。 */
-  readonly count: number
+  readonly change: ComputeChange
   /** 新序列总长度。 */
   readonly length: number
-  /** 在旧首根之前插入的根数；其它情况为 0。 */
-  readonly prepended: number
+  /** bars[change.start, length) 的数值块。 */
   readonly buffer: ArrayBuffer
 }
 
@@ -30,8 +27,11 @@ export interface RunInputPatch {
 /** 分布式 Omit 保留每一种 Plot 自己的声明字段。 */
 type PlotMetadata<T> = T extends unknown ? Omit<T, 'data'> : never
 export type PackedPlot = {
-  readonly offset: number
+  /** 本次携带的起始下标；之前的点沿用消费端已有值。 */
+  readonly start: number
+  /** 完整列长度。 */
   readonly length: number
+  readonly offset: number
 } & (
   | { readonly type: 'scalar'; readonly metadata: PlotMetadata<ScalarPlot> }
   | { readonly type: 'ohlc'; readonly metadata: PlotMetadata<OhlcPlot> }
@@ -45,6 +45,7 @@ export interface PackedIndicatorSeries
   readonly strings: readonly string[]
   readonly plots: readonly PackedPlot[]
   readonly fills: readonly (Omit<IndicatorSeries['fills'][number], 'colors'> & {
+    readonly start: number
     readonly offset: number
     readonly length: number
   })[]
