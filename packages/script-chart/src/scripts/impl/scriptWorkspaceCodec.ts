@@ -24,7 +24,7 @@ function requireRevision(value: unknown, message: string): number {
 function decodeFolder(value: unknown): ScriptFolder {
   if (typeof value !== 'object' || value === null) throw new Error('用户脚本文件夹格式错误')
   const record = value as Record<string, unknown>
-  if (record.kind !== 'indicator' && record.kind !== 'library')
+  if (record.kind !== 'indicator' && record.kind !== 'alert' && record.kind !== 'library')
     throw new Error('用户脚本文件夹类型错误')
   const path = normalizeFolderPath(requireString(record.path, '用户脚本文件夹路径格式错误'))
   if (path === '') throw new Error('用户脚本文件夹路径格式错误')

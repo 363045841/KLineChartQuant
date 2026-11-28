@@ -9,6 +9,8 @@ import { isKLineChartError } from '../../../errors.js'
 import { createDocumentStore } from '../impl/documentStore.js'
 import { createIndexedDbDocumentStore } from '../impl/indexedDbDocumentStore.js'
 import { createMemoryDocumentStore } from '../impl/memoryDocumentStore.js'
+import { ensureStore } from '../migration/impl/database.js'
+import type { DatabaseDefinition } from '../migration/types.js'
 import type {
   DocumentDriver,
   DocumentKey,
@@ -19,6 +21,13 @@ import type {
 const DATABASE_NAME = '@363045841yyt/persistence-contract-test'
 const STORE_NAME = 'records'
 const KEY = 'current'
+
+/** 测试库定义：IndexedDB 适配器只接受已定义好的库。 */
+const database: DatabaseDefinition = {
+  name: DATABASE_NAME,
+  storeName: STORE_NAME,
+  steps: [{ version: 1, execute: (connection) => ensureStore(connection, STORE_NAME) }],
+}
 
 const codec: PersistenceCodec<string[]> = {
   decode: (value) =>
@@ -98,9 +107,7 @@ function indexedDbHarness(): StoreHarness {
     name: 'IndexedDB adapter',
     createStore<T>(storeCodec: PersistenceCodec<T>) {
       const store = createIndexedDbDocumentStore<T>({
-        databaseName: DATABASE_NAME,
-        version: 1,
-        storeName: STORE_NAME,
+        database,
         key: KEY,
         codec: storeCodec,
       })
@@ -229,9 +236,7 @@ describe('driver ownership', () => {
 
   it('closes the connection it created itself', async () => {
     const store = createIndexedDbDocumentStore<string[]>({
-      databaseName: DATABASE_NAME,
-      version: 1,
-      storeName: STORE_NAME,
+      database,
       key: KEY,
       codec,
     })

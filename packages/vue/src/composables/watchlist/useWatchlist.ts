@@ -7,6 +7,7 @@ import {
 } from '@363045841yyt/klinechart-core'
 import type { SearchableSymbol } from '@vue-src/composables/symbol/useSymbolSearch.js'
 import { symbolIdentityKey } from '@vue-src/composables/symbol/useSymbolSearch.js'
+import { watchlistDatabase } from './watchlistDatabase.js'
 import {
   type ComputedRef,
   computed,
@@ -21,9 +22,6 @@ import {
   toRaw,
 } from 'vue'
 
-export const WATCHLIST_DATABASE_NAME = '@363045841yyt/klinechart'
-const WATCHLIST_DATABASE_VERSION = 1
-const WATCHLIST_STORE_NAME = 'watchlist'
 const WATCHLIST_ITEMS_KEY = 'items'
 const WATCHLIST_GROUPING_KEY = 'grouping'
 
@@ -64,9 +62,7 @@ let watchlistPersistence: DocumentStore<SearchableSymbol[]> | null = null
 /** 按需创建自选列表仓库；模块导入不打开数据库。 */
 function watchlistStore(): DocumentStore<SearchableSymbol[]> {
   watchlistPersistence ??= createIndexedDbDocumentStore<SearchableSymbol[]>({
-    databaseName: WATCHLIST_DATABASE_NAME,
-    version: WATCHLIST_DATABASE_VERSION,
-    storeName: WATCHLIST_STORE_NAME,
+    database: watchlistDatabase,
     key: WATCHLIST_ITEMS_KEY,
     codec: watchlistCodec,
   })
@@ -92,9 +88,7 @@ let watchlistGroupingPersistence: DocumentStore<WatchlistGrouping> | null = null
 /** 按需创建分组偏好仓库。 */
 function watchlistGroupingStore(): DocumentStore<WatchlistGrouping> {
   watchlistGroupingPersistence ??= createIndexedDbDocumentStore<WatchlistGrouping>({
-    databaseName: WATCHLIST_DATABASE_NAME,
-    version: WATCHLIST_DATABASE_VERSION,
-    storeName: WATCHLIST_STORE_NAME,
+    database: watchlistDatabase,
     key: WATCHLIST_GROUPING_KEY,
     codec: watchlistGroupingCodec,
   })

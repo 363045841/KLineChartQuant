@@ -13,6 +13,7 @@ import {
   type NamedLayoutDocument,
 } from '../types.js'
 import { migrateLayoutDrawingLabels } from './migrateDrawingLabels.js'
+import { layoutDatabase } from './layoutDatabase.js'
 
 const DEFAULT_LAYOUT_ID = 'default'
 const DEFAULT_LAYOUT_NAME = '默认布局'
@@ -103,9 +104,7 @@ export class LayoutManager implements LayoutApi {
     private readonly options: { restore?: boolean; storageId?: string } = {},
   ) {
     this.archiveStore = createIndexedDbDocumentStore<LayoutArchive>({
-      databaseName: '@363045841yyt/klinechart-layouts',
-      version: LAYOUT_DOCUMENT_VERSION,
-      storeName: 'layouts',
+      database: layoutDatabase,
       // 每个工作区独立占用自己的归档键，避免跨工作区写入覆盖。
       key: options.storageId === undefined ? 'documents' : ['documents', options.storageId],
       codec: { decode: decodeArchive, encode: (value) => value },

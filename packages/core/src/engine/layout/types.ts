@@ -18,7 +18,7 @@ import type { IndicatorInstanceConfig } from '../state/indicatorState.js'
 import type { SystemObjectSnapshot } from '../state/systemObjectState.js'
 
 /** Alpha 布局只接受当前版本，不迁移旧文档。 */
-export const LAYOUT_DOCUMENT_VERSION = 4
+export const LAYOUT_DOCUMENT_VERSION = 5
 
 /** 单个数据视图可恢复的横向位置：锚点时间 + 相对偏移 + 缩放等级。 */
 /** 单个视图可恢复的横向位置：锚点时间 + 锚点槽位偏移（以槽位计）+ 缩放等级。 */

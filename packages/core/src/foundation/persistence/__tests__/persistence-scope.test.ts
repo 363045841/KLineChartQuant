@@ -2,6 +2,8 @@
 import 'fake-indexeddb/auto'
 import { afterEach, expect, it, vi } from 'vitest'
 import type { KeyValueStorage } from '../impl/localStoragePersistence.js'
+import { ensureStore } from '../migration/impl/database.js'
+import type { DatabaseDefinition } from '../migration/types.js'
 import type { PersistenceCodec } from '../types.js'
 
 const values = new Map<string, string>()
@@ -19,6 +21,13 @@ const codec: PersistenceCodec<string> = {
   encode: (value) => value,
 }
 
+/** 作用域隔离用例使用的最小库定义。 */
+const database: DatabaseDefinition = {
+  name: 'scope-regression',
+  storeName: 'layouts',
+  steps: [{ version: 1, execute: (connection) => ensureStore(connection, 'layouts') }],
+}
+
 /** 模拟一次新页面启动，同一存储后端保留之前工作区的数据。 */
 async function boot(scope: string) {
   vi.resetModules()
@@ -30,9 +39,7 @@ async function boot(scope: string) {
     configureBrowserPersistenceScope,
     local: createLocalStoragePersistence({ key: 'settings', storage, codec }),
     database: createIndexedDbDocumentStore({
-      databaseName: 'scope-regression',
-      version: 1,
-      storeName: 'layouts',
+      database,
       key: 'current',
       codec,
     }),

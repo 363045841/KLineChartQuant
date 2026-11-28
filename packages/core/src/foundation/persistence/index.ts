@@ -11,6 +11,13 @@ export {
   type CreateIndexedDbDriverOptions,
 } from './impl/indexedDbDriver.js'
 export {
+  createDatabaseDriver,
+  databaseVersion,
+  ensureStore,
+  upgradeTo,
+} from './migration/impl/database.js'
+export type { DatabaseDefinition, MigrationStep } from './migration/types.js'
+export {
   bindSnapshotPersistence,
   type CreateLocalStoragePersistenceOptions,
   createLocalStoragePersistence,

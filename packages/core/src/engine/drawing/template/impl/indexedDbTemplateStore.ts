@@ -10,16 +10,12 @@ import {
 import type { DrawingKind } from '../../types.js'
 import type { DrawingTemplate, DrawingTemplateStore } from '../types.js'
 import { templateCodec, toPlainTemplate } from './codec.js'
-
-const DATABASE_NAME = '@363045841yyt/klinechart-drawing-templates'
-const STORE_NAME = 'templates'
+import { drawingTemplateDatabase } from './drawingTemplateDatabase.js'
 
 /** 取某类图元的持久化仓库；同类图元共享同一连接。 */
 function persistence(kind: DrawingKind): DocumentStore<DrawingTemplate[]> {
   return createIndexedDbDocumentStore<DrawingTemplate[]>({
-    databaseName: DATABASE_NAME,
-    version: 1,
-    storeName: STORE_NAME,
+    database: drawingTemplateDatabase,
     key: kind,
     codec: templateCodec,
   })

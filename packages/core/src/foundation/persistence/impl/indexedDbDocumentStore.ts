@@ -1,49 +1,34 @@
 /**
  * IndexedDB 文档仓库：浏览器组合根使用的自包含入口。
  *
- * 驱动由仓库自己创建并独占，`dispose()` 同时关闭仓库与连接；需要共享连接的调用方
- * 直接使用 `createDocumentStore` 并自行管理驱动。
+ * 库的结构与迁移由 `DatabaseDefinition` 拥有；仓库只负责单文档读写，
+ * 释放时一并关闭连接。
  */
-import type { DocumentStore, PersistenceCodec } from '../types.js'
+import type { DatabaseDefinition } from '../migration/types.js'
+import { createDatabaseDriver } from '../migration/impl/database.js'
+import type { DocumentKey, DocumentStore, PersistenceCodec } from '../types.js'
 import { createDocumentStore } from './documentStore.js'
-import { createIndexedDbDriver } from './indexedDbDriver.js'
 
-/** 创建 IndexedDB 文档仓库的选项；数据库名与版本只在这一层出现。 */
+/** 创建 IndexedDB 文档仓库的选项；库名、store 与迁移由定义提供。 */
 export interface CreateIndexedDbDocumentStoreOptions<T> {
-  readonly databaseName: string
-  readonly version: number
-  readonly upgrade?: (
-    database: IDBDatabase,
-    transaction: IDBTransaction,
-    oldVersion: number,
-  ) => void
-  readonly storeName: string
-  readonly key: string | readonly string[]
+  readonly database: DatabaseDefinition
+  readonly key: DocumentKey
   readonly codec: PersistenceCodec<T>
 }
 
 /**
  * 创建自包含的 IndexedDB 文档仓库。
  *
- * @param options - 数据库、store 与编解码配置
- * @returns 释放时一并关闭连接
+ * @param options - 数据库定义、文档键与编解码
+ * @returns 释放时一并关闭连接的仓库
  */
 export function createIndexedDbDocumentStore<T>(
   options: CreateIndexedDbDocumentStoreOptions<T>,
 ): DocumentStore<T> {
-  const driver = createIndexedDbDriver({
-    databaseName: options.databaseName,
-    version: options.version,
-    upgrade: (database, transaction, oldVersion) => {
-      // 仓库级入口必须保证自己的 store 存在；调用方的升级逻辑随后执行。
-      if (!database.objectStoreNames.contains(options.storeName))
-        database.createObjectStore(options.storeName)
-      options.upgrade?.(database, transaction, oldVersion)
-    },
-  })
+  const driver = createDatabaseDriver(options.database)
   const store = createDocumentStore<T>({
     driver,
-    storeName: options.storeName,
+    storeName: options.database.storeName,
     key: options.key,
     codec: options.codec,
   })

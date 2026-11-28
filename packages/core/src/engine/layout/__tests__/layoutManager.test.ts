@@ -13,6 +13,7 @@ import { MAIN_PANE_ID } from '../../pane/types.js'
 import { PRICE_SERIES_AXIS_ID } from '../../renderers/rendererIds.js'
 import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel.js'
 import { LayoutManager } from '../impl/layoutManager.js'
+import { layoutDatabase } from '../impl/layoutDatabase.js'
 import { LAYOUT_DOCUMENT_VERSION } from '../types.js'
 
 /** 本用例独立的定义注册表。 */
@@ -47,9 +48,7 @@ function createManager(restore = true, storageId?: string) {
 /** 绕过当前文档编码，模拟浏览器里已有的旧记录。 */
 function createRawLayoutStorage() {
   return createIndexedDbDocumentStore<unknown>({
-    databaseName: '@363045841yyt/klinechart-layouts',
-    version: LAYOUT_DOCUMENT_VERSION,
-    storeName: 'layouts',
+    database: layoutDatabase,
     key: 'documents',
     codec: { decode: (value) => value ?? null, encode: (value) => value },
   })
@@ -772,6 +771,36 @@ it.each([true, false])('restore: %s 控制启动恢复，手动切换始终生�
   } finally {
     await target.manager.dispose()
     target.kernel.dispose()
+  }
+})
+
+it('drops layout documents written before the current document version', async () => {
+  const { manager } = createManager()
+  const storage = createRawLayoutStorage()
+  try {
+    await storage.write({
+      activeId: 'legacy',
+      autoSave: true,
+      documents: {
+        legacy: {
+          version: LAYOUT_DOCUMENT_VERSION - 1,
+          id: 'legacy',
+          name: 'Old chart',
+          workspaces: {},
+          panePriceAxisModes: {},
+        },
+      },
+    })
+  } finally {
+    await storage.dispose()
+  }
+
+  try {
+    await manager.initialize()
+    expect(manager.layouts.peek().map((layout) => layout.id)).toEqual(['default'])
+    expect(manager.activeLayoutId.peek()).toBe('default')
+  } finally {
+    await manager.dispose()
   }
 })
 

@@ -30,6 +30,7 @@ import {
   type NamedIndicatorTemplate,
   type TemplateWorkspaces,
 } from '../types.js'
+import { indicatorTemplateDatabase } from './indicatorTemplateDatabase.js'
 import { collectTemplateIndicatorIds, selectTemplateIndicators } from './templateExtract.js'
 import {
   countWorkspaceInstances,
@@ -80,9 +81,7 @@ function requireName(name: string): string {
 export class IndicatorTemplateManager implements IndicatorTemplateApi {
   private readonly archiveStore: DocumentStore<IndicatorTemplateArchive> =
     createIndexedDbDocumentStore<IndicatorTemplateArchive>({
-      databaseName: '@363045841yyt/klinechart-indicator-templates',
-      version: INDICATOR_TEMPLATE_VERSION,
-      storeName: 'templates',
+      database: indicatorTemplateDatabase,
       key: 'archive',
       codec: { decode: decodeArchive, encode: (value) => value },
     })
