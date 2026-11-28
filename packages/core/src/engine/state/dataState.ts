@@ -1,7 +1,7 @@
 /** 主图数据 buffer 业务状态：activeBuffer、数据版本与 symbol 目录。 */
 
-import type { SymbolInfo } from '../../controllers/types.js'
 import type { SymbolSpec } from '@/data/symbolSpec.js'
+import type { SymbolInfo } from '../../controllers/types.js'
 import {
   type BarsSelection,
   SERIES_SELECTION_KIND,
@@ -11,7 +11,7 @@ import type { TimeShareRange } from '../../data/provider/types.js'
 import { EMPTY_TRADE_SNAPSHOT, type TradeSnapshot } from '../../data/trades/types.js'
 import { batch, createSubState } from '../../foundation/reactivity/signal.js'
 import type { KLineData, TimeShareData } from '../../foundation/types/price.js'
-import type { ReadyMarketSession } from '../data/series/types.js'
+import type { ReadyMarketIdentity } from '../data/series/types.js'
 
 export interface DataDeps {
   /** placeholder — for future visibleRange computed */
@@ -100,7 +100,7 @@ export function createDataState(_deps: DataDeps = {}) {
   const { signals, readonly } = createSubState(
     {
       activeBuffer: emptyActiveBufferSnapshot(),
-      readyMarket: null as ReadyMarketSession | null,
+      readyMarket: null as ReadyMarketIdentity | null,
       trades: EMPTY_TRADE_SNAPSHOT,
       symbols: [] as ReadonlyArray<SymbolSpec>,
       symbolCatalog: [] as ReadonlyArray<SymbolInfo>,
@@ -161,7 +161,7 @@ export function createDataState(_deps: DataDeps = {}) {
        */
       applyActiveBufferSnapshot(
         snapshot: ActiveBufferSnapshotInput,
-        readyMarket: ReadyMarketSession | null = null,
+        readyMarket: ReadyMarketIdentity | null = null,
       ) {
         const previous = readonly.activeBuffer.peek()
         const dataChanged =

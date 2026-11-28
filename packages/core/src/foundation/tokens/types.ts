@@ -501,8 +501,6 @@ export interface TypographyTokens {
   readonly fontSizeSm: CssLength // '10px' (axis ticks)
   readonly fontSizeMd: CssLength // '12px' (default body)
   readonly fontSizeLg: CssLength // '14px' (legends)
-  /** @deprecated Use foundation.fontWeight.ui for UI text. */
-  readonly fontWeightBold: number
   readonly lineHeightTight: number // 1.2
   readonly lineHeightStandard: number // 1.4
 }

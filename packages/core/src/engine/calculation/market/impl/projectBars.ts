@@ -8,11 +8,11 @@ import {
 } from '@363045841yyt/klinechart-plot-contracts'
 import type { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry.js'
 import type { KLineData } from '@/foundation/types/price.js'
-import type { ScriptMarketSession } from '../../../data/series/types.js'
+import type { ScriptMarketIdentity } from '../../../data/series/types.js'
 
 /** 从就绪行情取得脚本可读的市场时间上下文。 */
 export function marketClock(
-  session: ScriptMarketSession,
+  session: ScriptMarketIdentity,
   sessions: MarketSessionRegistry,
 ): ScriptTimeContext | undefined {
   const id = session.instrument.sessionId
@@ -25,7 +25,7 @@ export function marketClock(
 export function projectIndicatorBars(
   bars: readonly KLineData[],
   request: IndicatorBarsRequest,
-  session: ScriptMarketSession,
+  session: ScriptMarketIdentity,
   clock: ScriptTimeContext | undefined,
   to: number,
 ): readonly Bar[] {

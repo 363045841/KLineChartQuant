@@ -4,18 +4,15 @@ import { systemClock } from '@363045841yyt/klinechart-core'
 import type {
   ChartController,
   ChartControllerFactory,
-  ReadonlySignal,
   SymbolSpec,
+  WritableSignal,
 } from '@363045841yyt/klinechart-core'
+import { createDefinitionRegistry, createMarketRuntime } from '@363045841yyt/klinechart-core'
+import { createMarketDataHost } from '@363045841yyt/klinechart-core/market-data'
 import { act, render, waitFor } from '@testing-library/react'
 import { Component, createElement, createRef, type ReactNode, StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-
-import { createDefinitionRegistry, createMarketRuntime } from '@363045841yyt/klinechart-core'
-import { createMarketDataHost } from '@363045841yyt/klinechart-core/market-data'
 import { KLineChart, type KLineChartHandle, useCoreSignal } from '../index'
-
-type WritableSignal<T> = ReadonlySignal<T> & { set: (next: T) => void }
 
 /** 最小可写 signal，行为与 Core 一致：Object.is 相等时不通知。 */
 function fakeSignal<T>(initial: T): WritableSignal<T> {
@@ -88,7 +85,8 @@ describe('KLineChart', () => {
   let runtime: ReturnType<typeof createMarketRuntime>
 
   beforeEach(() => {
-    runtime = createMarketRuntime({ clock: systemClock,
+    runtime = createMarketRuntime({
+      clock: systemClock,
       market: createMarketDataHost(),
       definitions: createDefinitionRegistry(),
     })
@@ -163,12 +161,15 @@ describe('KLineChart', () => {
     rerender(createElement(KLineChart, { runtime, factory, symbols: second }))
     expect(fake?.controller.setPrimaryMarket).toHaveBeenCalledWith(second[0])
 
-    rerender(createElement(KLineChart, { runtime, factory, symbols: second, settings: { theme: 'dark' } }))
+    rerender(
+      createElement(KLineChart, { runtime, factory, symbols: second, settings: { theme: 'dark' } }),
+    )
     expect(fake?.controller.updateSettingsFacade).toHaveBeenCalledOnce()
     expect(fake?.controller.setTheme).toHaveBeenLastCalledWith('dark')
 
     rerender(
-      createElement(KLineChart, { runtime,
+      createElement(KLineChart, {
+        runtime,
         factory,
         symbols: second,
         settings: { theme: 'dark' },
@@ -229,7 +230,9 @@ describe('KLineChart', () => {
     expect(hooked.fakes[0]?.controller.handlePointerEvent.mock.calls[0]?.[1]).toBe(intercept)
 
     const manual = deferredFactory()
-    const second = render(createElement(KLineChart, { runtime, factory: manual.factory, input: false }))
+    const second = render(
+      createElement(KLineChart, { runtime, factory: manual.factory, input: false }),
+    )
     await waitFor(() => expect(manual.factory).toHaveBeenCalledOnce())
     await manual.resolveAll()
     second.container.firstElementChild?.dispatchEvent(

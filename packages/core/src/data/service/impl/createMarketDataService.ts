@@ -5,16 +5,17 @@
  */
 import type { SymbolSpec } from '@/data/symbolSpec.js'
 import type { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry.js'
-import { asReadonlySignal, createSignal, type WritableSignal } from '@/foundation/reactivity/signal.js'
+import {
+  asReadonlySignal,
+  createSignal,
+  type WritableSignal,
+} from '@/foundation/reactivity/signal.js'
 import { formatDateInTimeZone } from '@/foundation/time/index.js'
-import type { MarketDataHealth } from '../../management/impl/health.js'
-import type { Clock } from '@/foundation/utils/clock.js'
 import type { KLineData } from '@/foundation/types/price.js'
-import type { KLineBuffer } from '../../buffer/types.js'
+import type { Clock } from '@/foundation/utils/clock.js'
 import { DataBuffer } from '../../buffer/impl/dataBuffer.js'
-import type { BarsCacheQuery, BarsCacheResult } from '../../buffer/types.js'
 import { MarketDataCache } from '../../buffer/impl/marketDataCache.js'
-import { TimeShareBuffer as TimeShareBufferImpl } from '../../buffer/impl/timeShareBuffer.js'
+import { TimeShareBufferImpl } from '../../buffer/impl/timeShareBuffer.js'
 import {
   type BarsSelection,
   instrumentKeyFromSpec,
@@ -24,12 +25,14 @@ import {
   type TimeShareSelection,
   type TradesSelection,
 } from '../../buffer/seriesSelection.js'
+import type { BarsCacheQuery, BarsCacheResult, KLineBuffer } from '../../buffer/types.js'
+import type { MarketDataHealth } from '../../management/impl/health.js'
 import type { MarketDataProviderRegistry } from '../../provider/registry.js'
 import {
+  type BarAggregation,
   isKLineAdjustment,
   isKLinePeriod,
   OLDER_DATA_STATUS,
-  type BarAggregation,
   type TradingDate,
 } from '../../provider/types.js'
 import type { StreamHub, StreamSubscription } from '../../stream/types.js'
@@ -94,11 +97,14 @@ interface TradesEntry {
 /** 每次获取都有自己的释放权，序列及信号仍由复用条目持有。 */
 function lease<T extends { dispose(): void }>(handle: T): T {
   let released = false
-  return { ...handle, dispose() {
-    if (released) return
-    released = true
-    handle.dispose()
-  } }
+  return {
+    ...handle,
+    dispose() {
+      if (released) return
+      released = true
+      handle.dispose()
+    },
+  }
 }
 
 /** 校验周期与复权，拒绝靠缺省值猜的调用。 */
@@ -141,7 +147,10 @@ function tradesSelection(spec: SymbolSpec): TradesSelection {
 /** 创建唯一行情服务。 */
 export function createMarketDataService(options: MarketDataServiceOptions): MarketDataService {
   const bars = new Map<string, BarsEntry>()
-  const cache = new MarketDataCache(options.registry, (selection) => bars.get(seriesSelectionKey(selection))?.buffer.getRawData() ?? [])
+  const cache = new MarketDataCache(
+    options.registry,
+    (selection) => bars.get(seriesSelectionKey(selection))?.buffer.getRawData() ?? [],
+  )
   const timeShares = new Map<string, TimeShareEntry>()
   const trades = new Map<string, TradesEntry>()
   const barListeners = new Set<(selection: BarsSelection, update: BarsUpdate | null) => void>()
@@ -149,10 +158,20 @@ export function createMarketDataService(options: MarketDataServiceOptions): Mark
   let disposed = false
 
   /** 一次写入只公布一份修订，实时元数据始终来自原帧。 */
-  function publishBars(entry: BarsEntry, before: BarsUpdate['change'], frame?: Pick<BarsUpdate, 'liveBarTime' | 'closedBarTime'>): void {
+  function publishBars(
+    entry: BarsEntry,
+    before: BarsUpdate['change'],
+    frame?: Pick<BarsUpdate, 'liveBarTime' | 'closedBarTime'>,
+  ): void {
     const change = entry.buffer.data.peek()
     if (change === before) return
-    const update: BarsUpdate = { selection: entry.selection, instrument: entry.instrument, revision: ++revision, change, ...frame }
+    const update: BarsUpdate = {
+      selection: entry.selection,
+      instrument: entry.instrument,
+      revision: ++revision,
+      change,
+      ...frame,
+    }
     for (const listener of barListeners) listener(entry.selection, update)
   }
 
@@ -185,7 +204,9 @@ export function createMarketDataService(options: MarketDataServiceOptions): Mark
       adjustment,
       barAggregation: request.aggregation,
       limit: request.limit,
-      ...(request.beforeTimestamp === undefined ? {} : { beforeTimestamp: request.beforeTimestamp }),
+      ...(request.beforeTimestamp === undefined
+        ? {}
+        : { beforeTimestamp: request.beforeTimestamp }),
       ...(request.signal === undefined ? {} : { signal: request.signal }),
     })
     return {
@@ -205,7 +226,9 @@ export function createMarketDataService(options: MarketDataServiceOptions): Mark
       adjustment: request.adjustment,
       barAggregation: request.aggregation,
       limit: request.limit,
-      ...(request.beforeTimestamp === undefined ? {} : { beforeTimestamp: request.beforeTimestamp }),
+      ...(request.beforeTimestamp === undefined
+        ? {}
+        : { beforeTimestamp: request.beforeTimestamp }),
       ...(request.signal === undefined ? {} : { signal: request.signal }),
     })
     return {
@@ -229,7 +252,9 @@ export function createMarketDataService(options: MarketDataServiceOptions): Mark
       adjustment,
       barAggregation: request.aggregation,
       limit: request.limit,
-      ...(request.beforeTimestamp === undefined ? {} : { beforeTimestamp: request.beforeTimestamp }),
+      ...(request.beforeTimestamp === undefined
+        ? {}
+        : { beforeTimestamp: request.beforeTimestamp }),
       ...(request.signal === undefined ? {} : { signal: request.signal }),
     })
     return {
@@ -243,8 +268,11 @@ export function createMarketDataService(options: MarketDataServiceOptions): Mark
   /** 序列是否声明了实时 K 线；源与品种都必须是明确支持。 */
   function supportsLiveBars(spec: SymbolSpec): boolean {
     const provider = options.registry.get(spec.instrument.source)
-    return provider?.source.capabilities?.liveBars === true &&
-      options.registry.getConfig(spec.instrument.source).enabled && spec.instrument.capabilities.liveBars !== false
+    return (
+      provider?.source.capabilities?.liveBars === true &&
+      options.registry.getConfig(spec.instrument.source).enabled &&
+      spec.instrument.capabilities.liveBars !== false
+    )
   }
 
   /** 建立实时订阅；重连后先补历史，再按序重放期间收到的增量。 */
@@ -267,7 +295,11 @@ export function createMarketDataService(options: MarketDataServiceOptions): Mark
       !entry.disposed && !entry.controller.signal.aborted && entry.subscription === subscription
 
     /** 增量写入：缓冲是唯一事实来源，收盘标记同步更新。 */
-    const write = (incoming: readonly KLineData[], liveBarTime?: number, closedBarTime?: number): void => {
+    const write = (
+      incoming: readonly KLineData[],
+      liveBarTime?: number,
+      closedBarTime?: number,
+    ): void => {
       if (!current() || incoming.length === 0) return
       if (entry.resyncing) {
         entry.queued.push({ bars: incoming, liveBarTime, closedBarTime })
@@ -301,7 +333,8 @@ export function createMarketDataService(options: MarketDataServiceOptions): Mark
       } finally {
         entry.resyncing = false
       }
-      for (const frame of entry.queued.splice(0)) write(frame.bars, frame.liveBarTime, frame.closedBarTime)
+      for (const frame of entry.queued.splice(0))
+        write(frame.bars, frame.liveBarTime, frame.closedBarTime)
     }
 
     subscription.onFrame((frame) => {
@@ -311,7 +344,11 @@ export function createMarketDataService(options: MarketDataServiceOptions): Mark
         return
       }
       if (frame.type === 'bar') {
-        write([frame.bar], frame.bar.timestamp, frame.state === 'closed' ? frame.bar.timestamp : undefined)
+        write(
+          [frame.bar],
+          frame.bar.timestamp,
+          frame.state === 'closed' ? frame.bar.timestamp : undefined,
+        )
         return
       }
       if (frame.type === 'status' && frame.status === 'upstream-error') {
@@ -340,34 +377,36 @@ export function createMarketDataService(options: MarketDataServiceOptions): Mark
       throw new TypeError('[MarketDataService] loadOlder limit must be a positive integer')
     }
     if (entry.loadingOlder) return entry.loadingOlder
-    const task = entry.ready.then(async () => {
-      if (entry.disposed) return 'superseded'
-      if (entry.buffer.olderData === OLDER_DATA_STATUS.EXHAUSTED) return 'exhausted'
-      const before = entry.buffer.loadedTimeRange?.earliestTs
-      try {
-        const page = await readPage({
-          spec: entry.spec,
-          aggregation: entry.selection.barAggregation,
-          limit,
-          ...(before === undefined ? {} : { beforeTimestamp: before }),
-          signal: entry.controller.signal,
-        })
+    const task = entry.ready
+      .then(async () => {
         if (entry.disposed) return 'superseded'
-        entry.instrument = page.instrument
-        const previous = entry.buffer.data.peek()
-        entry.buffer.mergePage(page.data, page.older, page.timezone)
-        publishBars(entry, previous)
-        const after = entry.buffer.loadedTimeRange?.earliestTs
-        return after === undefined || after === before ? 'exhausted' : 'covered'
-      } catch (error) {
-        if (entry.disposed || entry.controller.signal.aborted) return 'superseded'
-        entry.buffer.setError(error instanceof Error ? error.message : String(error))
-        return 'exhausted'
-      }
-    }).finally(() => {
-      entry.loadingOlder = null
-      entry.buffer.setLoading(false)
-    })
+        if (entry.buffer.olderData === OLDER_DATA_STATUS.EXHAUSTED) return 'exhausted'
+        const before = entry.buffer.loadedTimeRange?.earliestTs
+        try {
+          const page = await readPage({
+            spec: entry.spec,
+            aggregation: entry.selection.barAggregation,
+            limit,
+            ...(before === undefined ? {} : { beforeTimestamp: before }),
+            signal: entry.controller.signal,
+          })
+          if (entry.disposed) return 'superseded'
+          entry.instrument = page.instrument
+          const previous = entry.buffer.data.peek()
+          entry.buffer.mergePage(page.data, page.older, page.timezone)
+          publishBars(entry, previous)
+          const after = entry.buffer.loadedTimeRange?.earliestTs
+          return after === undefined || after === before ? 'exhausted' : 'covered'
+        } catch (error) {
+          if (entry.disposed || entry.controller.signal.aborted) return 'superseded'
+          entry.buffer.setError(error instanceof Error ? error.message : String(error))
+          return 'exhausted'
+        }
+      })
+      .finally(() => {
+        entry.loadingOlder = null
+        entry.buffer.setLoading(false)
+      })
     entry.loadingOlder = task
     entry.buffer.setLoading(true)
     return task
@@ -378,7 +417,7 @@ export function createMarketDataService(options: MarketDataServiceOptions): Mark
     await entry.ready
     while (!entry.disposed) {
       const missing = entry.initialBars - entry.buffer.getRawData().length
-      if (missing <= 0 || await loadOlder(entry, missing) !== 'covered') return
+      if (missing <= 0 || (await loadOlder(entry, missing)) !== 'covered') return
     }
   }
 
@@ -397,7 +436,11 @@ export function createMarketDataService(options: MarketDataServiceOptions): Mark
   }
 
   /** 创建 K 线序列；同一选择在服务内只存在一份缓冲与一条连接。 */
-  function createBarsEntry(spec: SymbolSpec, selection: BarsSelection, opts: BarsOptions): BarsEntry {
+  function createBarsEntry(
+    spec: SymbolSpec,
+    selection: BarsSelection,
+    opts: BarsOptions,
+  ): BarsEntry {
     const buffer = new DataBuffer()
     buffer.setSymbol(spec)
     const controller = new AbortController()
@@ -463,13 +506,23 @@ export function createMarketDataService(options: MarketDataServiceOptions): Mark
       data: buffer.data,
       loading: buffer.loading,
       lastError: buffer.lastError,
-      get loadedTimeRange() { return buffer.loadedTimeRange },
-      get olderData() { return buffer.olderData },
-      get timezone() { return buffer.timezone },
-      get instrument() { return entry.instrument },
-      get capabilities() { return registry.get(selection.source)?.source.capabilities ?? null },
+      get loadedTimeRange() {
+        return buffer.loadedTimeRange
+      },
+      get olderData() {
+        return buffer.olderData
+      },
+      get timezone() {
+        return buffer.timezone
+      },
+      get instrument() {
+        return entry.instrument
+      },
+      get capabilities() {
+        return registry.get(selection.source)?.source.capabilities ?? null
+      },
       getRawData: () => buffer.getRawData(),
-      loadOlder: (limit) => released ? Promise.resolve('superseded') : loadOlder(entry, limit),
+      loadOlder: (limit) => (released ? Promise.resolve('superseded') : loadOlder(entry, limit)),
       dispose() {
         if (released) return
         released = true

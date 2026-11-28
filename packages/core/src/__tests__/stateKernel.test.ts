@@ -12,7 +12,6 @@ import {
   effect,
   type ReadonlySignal,
   type WritableSignal,
-  writableRef,
 } from '../foundation/reactivity/signal'
 
 describe('ReadonlySignal type boundary', () => {
@@ -21,13 +20,6 @@ describe('ReadonlySignal type boundary', () => {
     expect(typeof s.set).toBe('function')
     s.set(42)
     expect(s()).toBe(42)
-  })
-
-  it('writableRef is an alias for createSignal', () => {
-    const r = writableRef('hello')
-    expect(r()).toBe('hello')
-    r.set('world')
-    expect(r()).toBe('world')
   })
 
   it('computed returns ReadonlySignal that reads derived value', () => {

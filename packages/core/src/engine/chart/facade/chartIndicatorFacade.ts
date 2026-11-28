@@ -5,7 +5,7 @@
  * Pane 只是实例的布局容器，不再是调用方的入口。图例、宿主与 Agent 共用
  * 同一组命令，绘图历史失效等宿主副作用也只在这里处理一次。
  */
-import type { Computed } from '../../../foundation/reactivity/signal.js'
+import type { ReadonlySignal } from '../../../foundation/reactivity/signal.js'
 import type { IndicatorInstance, SubPaneInfo } from '../../chart/index.js'
 import type { ChartIndicatorManager } from '../../indicators/chartIndicatorManager.js'
 import type {
@@ -29,12 +29,12 @@ export class ChartIndicatorFacade {
   constructor(private readonly deps: ChartIndicatorFacadeDependencies) {}
 
   /** 返回全部指标实例的派生信号。 */
-  get instances(): Computed<ReadonlyArray<IndicatorInstance>> {
+  get instances(): ReadonlySignal<ReadonlyArray<IndicatorInstance>> {
     return this.deps.manager.indicatorsComputed
   }
 
   /** 返回副图指标信息的派生信号。 */
-  get subPanes(): Computed<ReadonlyArray<SubPaneInfo>> {
+  get subPanes(): ReadonlySignal<ReadonlyArray<SubPaneInfo>> {
     return this.deps.manager.subPanesComputed
   }
 

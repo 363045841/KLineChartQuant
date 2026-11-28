@@ -24,7 +24,8 @@ const tooltipBoxStyle = {
 }
 
 /** 编辑区、行号、选区和补全面板共用图表的界面颜色。 */
-const editorTheme = EditorView.theme({
+/** 编辑器共享样式扩展，CSS 变量变更时无需重建文档或视图。 */
+export const scriptEditorTheme = EditorView.theme({
   '&': {
     height: '100%',
     backgroundColor: 'var(--klc-color-ui-background)',
@@ -307,6 +308,3 @@ const editorTheme = EditorView.theme({
     borderRadius: 'var(--klc-radius-sm, 4px)',
   },
 })
-
-/** 编辑器共享样式扩展，CSS 变量变更时无需重建文档或视图。 */
-export const scriptEditorTheme = editorTheme

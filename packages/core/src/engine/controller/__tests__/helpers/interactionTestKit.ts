@@ -5,7 +5,7 @@ import { SCALE_X_STRATEGIES } from '@/engine/scale'
 import { createInteractionState } from '@/engine/state/interactionState'
 import { createPaneState } from '@/engine/state/paneState'
 import { KLINE_GAP_RATIOS } from '@/foundation/config/chartSettings'
-import { writableRef } from '@/foundation/reactivity/signal'
+import { createSignal } from '@/foundation/reactivity/signal'
 import { type ChartDataView, ChartDataViewId } from '@/foundation/types/chartView'
 import type { ChartSeriesDatum, KLineData, TimeShareData } from '@/foundation/types/price'
 import { ASHARE_MARKET_SESSION } from '@/foundation/utils/timeShareAxisLabels'
@@ -13,9 +13,9 @@ import { ASHARE_MARKET_SESSION } from '@/foundation/utils/timeShareAxisLabels'
 /** 交互内核替身：直接复用生产实现，测试不再手抄 snapshot 字段。 */
 export function createMockInteractionState() {
   return createInteractionState({
-    visibleRange$: writableRef({ start: 0, end: 0 }),
-    scrollLeftLogical$: writableRef(0),
-    dpr$: writableRef(1),
+    visibleRange$: createSignal({ start: 0, end: 0 }),
+    scrollLeftLogical$: createSignal(0),
+    dpr$: createSignal(1),
     scheduleDraw: () => {},
   })
 }

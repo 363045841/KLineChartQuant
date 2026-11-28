@@ -12,6 +12,8 @@
 
 import type { Bar, IndicatorMarketContext } from '@363045841yyt/klinechart-plot-contracts'
 import { createFootprintRuntime } from '@/components/footprint/runtime/impl/createFootprintRuntime.js'
+import { seriesSelectionKey } from '@/data/buffer/seriesSelection.js'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
 import { layoutAxisColumns } from '@/engine/axisWidth/impl/axisColumns.js'
 import { symbolSpecIdentityKey } from '@/engine/data/symbolIdentity.js'
 import { filterDrawingsInScope } from '@/engine/drawing/model/impl/drawingScope.js'
@@ -25,19 +27,17 @@ import { resolvePaneAxes } from '@/engine/pane/axisResolver.js'
 import type { AxisSpec, ObjectAxesApi, ObjectAxisSpec } from '@/engine/pane/axisTypes.js'
 import { createObjectAxesApi } from '@/engine/pane/impl/objectAxes.js'
 import type { PaneAxisColumn } from '@/engine/pane/types.js'
+import { formatPlotValue } from '@/engine/plots/impl/plotValueFormat.js'
 import { CANDLE_LAYER_ID, PRICE_SERIES_AXIS_ID } from '@/engine/renderers/rendererIds.js'
 import { RuntimeProjectionCoordinator } from '@/engine/runtimeProjection/impl/runtimeProjectionCoordinator.js'
 import type { RuntimeProjectionSnapshot } from '@/engine/runtimeProjection/types.js'
 import { resolveChartWorkspaceId } from '@/foundation/types/chartView.js'
-
 import {
   CHART_RENDERERS_SERVICE,
   type ChartRendererAccess,
 } from '../../../controllers/renderers/index.js'
 import type { ChartFrameCaptureContext } from '../../../controllers/screenshot/types.js'
 import { isTimeSharePeriod, type SymbolInfo } from '../../../controllers/types.js'
-import type { SymbolSpec } from '@/data/symbolSpec.js'
-import type { MarketDataService } from '../../../data/service/index.js'
 import { resolveMarketDataCacheMaxBytes } from '../../../data/buffer/impl/marketDataPolicy.js'
 import type { CoverageResult } from '../../../data/buffer/types.js'
 import { type MarketDataContext } from '../../../data/management/context.js'
@@ -48,10 +48,8 @@ import {
   DEFAULT_KLINE_ADJUSTMENT,
   DEFAULT_KLINE_PERIOD,
 } from '../../../data/provider/types.js'
+import type { MarketDataService } from '../../../data/service/index.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
-import type { CalculationHub } from '../../calculation/index.js'
-import { seriesSelectionKey } from '@/data/buffer/seriesSelection.js'
-import { formatPlotValue } from '@/engine/plots/impl/plotValueFormat.js'
 import {
   type ChartSettings,
   resolveKLineGapRatio,
@@ -61,7 +59,6 @@ import { MarketSessionRegistry } from '../../../foundation/config/marketSession/
 import { resolveSymbolMarketSession } from '../../../foundation/config/marketSession/resolveSymbolMarketSession.js'
 import type { PriceAxisRangeMode } from '../../../foundation/config/priceAxisRangeMode.js'
 import { availablePriceRangeModes } from '../../../foundation/config/priceAxisRangeMode.js'
-import type { DefinitionRegistry } from '../../indicators/registry/index.js'
 import type { RenderContext } from '../../../foundation/plugin/index.js'
 import {
   createPluginHost,
@@ -74,8 +71,6 @@ import {
   createSignal,
   effect,
   type ReadonlySignal,
-  type Signal,
-  type WritableSignal,
 } from '../../../foundation/reactivity/signal.js'
 import { resolveDisplayTimeZone } from '../../../foundation/time/index.js'
 import { resolveThemeColors } from '../../../foundation/tokens/index.js'
@@ -94,6 +89,7 @@ import type {
 } from '../../../rendering/scene/types.js'
 // ===== 普通 imports，按路径字母排序 =====
 import { resolveAxisWidth } from '../../axisWidth/impl/axisWidths.js'
+import type { CalculationHub } from '../../calculation/index.js'
 import {
   type ChartDataView,
   ChartDataViewId,
@@ -118,6 +114,7 @@ import {
 import { ChartRenderer } from '../../frame/index.js'
 import { ChartIndicatorManager } from '../../indicators/chartIndicatorManager.js'
 import { toPlotBar } from '../../indicators/plotBars.js'
+import type { DefinitionRegistry } from '../../indicators/registry/index.js'
 import type { LayoutViewportSnapshot } from '../../layout/index.js'
 import { LegendManager } from '../../legend/impl/LegendManager.js'
 import { createObjectTree } from '../../objects/impl/createObjectTree.js'
@@ -148,6 +145,11 @@ import {
   resolveWindowFrame,
 } from '../../viewport/rangePreset.js'
 import { ViewportScrollBridge } from '../../viewport/viewportScrollBridge.js'
+import { ChartDrawingFacade } from '../facade/chartDrawingFacade.js'
+import { ChartIndicatorFacade } from '../facade/chartIndicatorFacade.js'
+import { ChartPaneFacade } from '../facade/chartPaneFacade.js'
+import { ChartThemeFacade } from '../facade/chartThemeFacade.js'
+import { ChartZoomFacade } from '../facade/chartZoomFacade.js'
 import type {
   ChartDom,
   ChartOptions,
@@ -156,11 +158,6 @@ import type {
   Viewport,
   ViewportState,
 } from '../types.js'
-import { ChartDrawingFacade } from '../facade/chartDrawingFacade.js'
-import { ChartIndicatorFacade } from '../facade/chartIndicatorFacade.js'
-import { ChartPaneFacade } from '../facade/chartPaneFacade.js'
-import { ChartThemeFacade } from '../facade/chartThemeFacade.js'
-import { ChartZoomFacade } from '../facade/chartZoomFacade.js'
 
 export type { InteractionSnapshot }
 
@@ -455,7 +452,10 @@ export class Chart {
           this.zoomController.stopAnimation()
         },
         projectIndicatorFeed: (selection, displayTimestamps) => {
-          this.indicatorManager.projectFeed(selection === null ? null : seriesSelectionKey(selection), displayTimestamps)
+          this.indicatorManager.projectFeed(
+            selection === null ? null : seriesSelectionKey(selection),
+            displayTimestamps,
+          )
         },
         publishSymbols: (symbols) => this.kernel.actions.setSymbols(symbols),
       },
@@ -776,8 +776,7 @@ export class Chart {
       hasPrimarySymbol: () => this.dataManager.symbols.peek().length > 0,
       getPricePaneId: () => this.kernel.systemObjects.readonly.pricePaneId.peek(),
       // 仅脚本指标提供代码编辑入口，普通指标不展示该按钮。
-      isScriptIndicator: (definitionId) =>
-        !!this.definitions.getDefinition(definitionId)?.document,
+      isScriptIndicator: (definitionId) => !!this.definitions.getDefinition(definitionId)?.document,
       requestRender: () => this.scheduleDraw(),
     })
     this.objects = createObjectTree({
@@ -1010,9 +1009,14 @@ export class Chart {
           axisId: groupAxis(instance.paneId, groupKey),
           visible: instance.hidden !== true,
           decimals: definition?.scale?.decimals ?? 2,
-          format: definition?.scale?.format ?? (definition?.plots?.format && definition.plots.format !== 'price'
-            ? ((format) => (value: number) => formatPlotValue(format, value))(definition.plots.format)
-            : undefined),
+          format:
+            definition?.scale?.format ??
+            (definition?.plots?.format && definition.plots.format !== 'price'
+              ? (
+                  (format) => (value: number) =>
+                    formatPlotValue(format, value)
+                )(definition.plots.format)
+              : undefined),
         }
       })
     const seriesState = this.kernel.systemObjects.readonly.state()
@@ -1164,9 +1168,7 @@ export class Chart {
     this.unlockAxisWidth()
     if (prev.tooltipPosition !== next.tooltipPosition) this.interaction.resetTooltipPlacement()
     if (prev.marketDataCacheMaxMiB !== next.marketDataCacheMaxMiB) {
-      this.dataManager.setCacheMaxBytes(
-        resolveMarketDataCacheMaxBytes(next.marketDataCacheMaxMiB),
-      )
+      this.dataManager.setCacheMaxBytes(resolveMarketDataCacheMaxBytes(next.marketDataCacheMaxMiB))
     }
     if (prev.rendererBackend !== next.rendererBackend) {
       void this.rendererHost.switchTo(next.rendererBackend as RendererBackend).then(() => {

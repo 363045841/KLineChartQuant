@@ -31,13 +31,13 @@ import {
 } from '@363045841yyt/klinechart-core/config'
 import type { LegendTemplateContext } from '@363045841yyt/klinechart-core/controllers'
 import { MAIN_PANE_ID } from '@363045841yyt/klinechart-core/controllers'
-import type { Signal } from '@363045841yyt/klinechart-core/reactivity'
+import type { WritableSignal } from '@363045841yyt/klinechart-core/reactivity'
 
 // ---------------------------------------------------------------------------
 // 内联 mini-signal：Object.is 相等性短路、同步通知，仅用于测试替身。
 // ---------------------------------------------------------------------------
 
-type TestSignal<T> = Signal<T> & { subscriberCount: () => number }
+type TestSignal<T> = WritableSignal<T> & { subscriberCount: () => number }
 
 /** `updateOptionsFacade` 接收的 chart options 补丁。 */
 type OptionsFacadePatch = Parameters<ChartController['updateOptionsFacade']>[0]
@@ -483,6 +483,6 @@ export function createMockChartController(
 }
 
 /** Signal helper used by reactivity bridge tests. */
-export function createTestSignal<T>(initial: T): Signal<T> {
+export function createTestSignal<T>(initial: T): WritableSignal<T> {
   return createSignal(initial)
 }

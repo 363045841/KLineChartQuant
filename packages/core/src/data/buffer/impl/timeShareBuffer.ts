@@ -15,7 +15,7 @@ import {
   type DataBufferLike,
   type DataChange,
   type LoadedTimeRange,
-  type TimeShareBuffer as TimeShareBufferType,
+  type TimeShareBuffer,
 } from '../types.js'
 import { UniqueTimestampIndex } from './uniqueTimestampIndex.js'
 
@@ -62,7 +62,7 @@ function flatten(content: Content): ReadonlyArray<TimeShareData> {
 }
 
 /** 分时图表快照；不负责 Provider 请求、重试或日期加载策略。 */
-export class TimeShareBuffer implements TimeShareBufferType, DataBufferLike<TimeShareData> {
+export class TimeShareBufferImpl implements TimeShareBuffer, DataBufferLike<TimeShareData> {
   private readonly content = createSignal<Content>(EMPTY_CONTENT)
   private readonly flatData = computed(() => flatten(this.content()))
   // 分时每次写入都是整段快照替换，点列下标不具备跨快照含义。

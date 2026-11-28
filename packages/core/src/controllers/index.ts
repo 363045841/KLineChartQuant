@@ -31,6 +31,16 @@ export {
   createChartToolCatalog,
   SCRIPT_REFERENCE_TOPICS,
 } from '../features/agent/index.js'
+export type {
+  Alert,
+  AlertChannel,
+  AlertDraft,
+  AlertFire,
+  AlertFrequency,
+  AlertId,
+  AlertService,
+  AlertStatus,
+} from '../features/alerts/types.js'
 export {
   FIVE_DAY_TIME_SHARE_PERIOD,
   isTimeSharePeriod,
@@ -47,16 +57,6 @@ export type {
   RendererBackendStatus,
 } from '../rendering/render/rendererHost.js'
 export { createChartController } from './chart/index.js'
-export type {
-  Alert,
-  AlertChannel,
-  AlertDraft,
-  AlertFire,
-  AlertFrequency,
-  AlertId,
-  AlertService,
-  AlertStatus,
-} from '../features/alerts/types.js'
 export type { ActiveIndicator, IndicatorSelectorController } from './indicatorSelector/index.js'
 export { createIndicatorSelectorController } from './indicatorSelector/index.js'
 export type { ChartRendererAccess } from './renderers/index.js'
@@ -86,7 +86,6 @@ export type {
   IndicatorInputDef,
   IndicatorInstance,
   IndicatorLoadingMode,
-  IndicatorPaneRole,
   IndicatorRole,
   InstanceMoveTarget,
   InteractionSnapshot,
@@ -122,7 +121,6 @@ export {
   createIndicatorCatalog,
   findIndicatorDefinition,
 } from '../controllers/indicatorCatalog/index.js'
-export type { DefinitionRegistry } from '../engine/indicators/registry/index.js'
 export type {
   BarAggregation,
   BarCapability,
@@ -152,6 +150,7 @@ export type {
   MarketDataSourceStatus,
   MarketTrade,
   ProviderRef,
+  ProviderTimeShareSeries,
   SourceProbeResult,
   StreamBar,
   StreamChannel,
@@ -170,7 +169,6 @@ export type {
   StreamTransportHandlers,
   TimeShareDataSource,
   TimeShareQuery,
-  ProviderTimeShareSeries,
   TradeBatch,
   TradeDataSource,
   TradeFrame,
@@ -212,6 +210,7 @@ export {
   MagnetMode,
 } from '../engine/drawing/index.js'
 export { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins.js'
+export type { DefinitionRegistry } from '../engine/indicators/registry/index.js'
 export type {
   LayoutApi,
   LayoutDocument,

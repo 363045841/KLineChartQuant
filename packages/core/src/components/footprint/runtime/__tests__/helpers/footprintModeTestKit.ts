@@ -3,7 +3,7 @@ import { onTestFinished } from 'vitest'
 import { type BarsSelection, SERIES_SELECTION_KIND } from '@/data/buffer/seriesSelection.js'
 import type { SourceCapabilities } from '@/data/provider/types.js'
 import { tradeInstrument } from '@/data/trades/__tests__/helpers/tradeTestKit.js'
-import type { ReadyMarketSession } from '@/engine/data/series/types.js'
+import type { ReadyMarketIdentity } from '@/engine/data/series/types.js'
 import { createTestChartStateKernel } from '@/engine/state/__tests__/helpers/createTestChartStateKernel.js'
 import { ACTIVE_BUFFER_KIND } from '@/engine/state/dataState.js'
 import { data } from '../../../__tests__/helpers/footprintTestKit.js'
@@ -38,7 +38,7 @@ export function createFootprintHarness() {
       adjustment: 'none',
       barAggregation: 'original',
     }
-    const market: ReadyMarketSession = {
+    const market: ReadyMarketIdentity = {
       selection,
       instrument: tradeInstrument,
       capabilities,

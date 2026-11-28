@@ -210,7 +210,8 @@ export function parseProviderErrorDetails(body: string): ProviderErrorDetails | 
  * @param signal 取消信号。
  * @returns 在延时完成后兑现的 Promise。
  */
-function defaultSleep(milliseconds: number, signal?: AbortSignal): Promise<void> {
+/** 默认可取消延时；请求重试与超时共享同一实现。 */
+export function sleepWithSignal(milliseconds: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
       reject(signal.reason)
@@ -227,9 +228,6 @@ function defaultSleep(milliseconds: number, signal?: AbortSignal): Promise<void>
     )
   })
 }
-
-/** 默认的可取消延时实现，供请求重试复用。 */
-export const sleepWithSignal = defaultSleep
 
 /**
  * 合并调用方取消信号与单次请求超时信号。

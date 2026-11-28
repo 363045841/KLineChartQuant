@@ -11,10 +11,9 @@ import type {
   IndicatorMarketContext,
   ScriptAlertEvent,
 } from '@363045841yyt/klinechart-plot-contracts'
-
-import type { KLineData } from '@/foundation/types/price.js'
-import type { ScriptMarketSession } from '../data/series/types.js'
 import type { BarsSelection } from '@/data/buffer/seriesSelection.js'
+import type { KLineData } from '@/foundation/types/price.js'
+import type { ScriptMarketIdentity } from '../data/series/types.js'
 
 /** 行情序列键；结果仓库与调度都按它隔离不同数据。 */
 export type FeedKey = string
@@ -35,7 +34,7 @@ export interface FeedSnapshot {
   /** 本次更新明确确认收盘的 K 线时间。 */
   readonly closedBarTime?: number
   /** 品种独立于活动图表时提供该行情的取数上下文。 */
-  readonly marketSession?: ScriptMarketSession
+  readonly market?: ScriptMarketIdentity
 }
 
 /** 可递归编码为计算身份的输入值。 */
@@ -135,7 +134,8 @@ export interface CalculationDefinition {
 
 /** 计算级行情上下文端口；只供执行器读取，不承载调度状态。 */
 export type CalculationMarketData = (
-  bars: readonly KLineData[], session?: ScriptMarketSession,
+  bars: readonly KLineData[],
+  market?: ScriptMarketIdentity,
 ) => IndicatorMarketContext
 
 export interface CalculationHubOptions {
@@ -166,7 +166,11 @@ export interface CalculationHub {
   /** 移除一份行情；该序列的结果、任务与租约一并释放。 */
   removeFeed(feed: FeedKey): void
   /** 预览计算：不进入任何消费者的提交，结果按 LRU 保留。 */
-  submit(feed: FeedKey, request: CalculationRequest, signal: AbortSignal): Promise<CalculationResult>
+  submit(
+    feed: FeedKey,
+    request: CalculationRequest,
+    signal: AbortSignal,
+  ): Promise<CalculationResult>
   /** 读取已存结果；不会触发计算，也不保证该行情上的全部请求都已就绪。 */
   peek(feed: FeedKey, key: CalculationKey): CalculationResult | undefined
   /** 定义被替换时丢弃对应结果与计算器，并让消费者重新提交。 */

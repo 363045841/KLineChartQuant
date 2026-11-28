@@ -4,17 +4,17 @@
  * 只读历史、不建立订阅；同一页的缓存与在途请求由行情服务负责合并。
  */
 import {
+  type Bar,
   DEFAULT_INTRABAR_LIMIT,
   DEFAULT_REQUEST_BARS,
-  type Bar,
   type IndicatorBarsRequest,
   timeValue,
 } from '@363045841yyt/klinechart-plot-contracts'
-import { OLDER_DATA_STATUS, KLINE_PERIODS, type KLineAdjustment } from '@/data/provider/types.js'
+import { KLINE_PERIODS, type KLineAdjustment, OLDER_DATA_STATUS } from '@/data/provider/types.js'
 import type { MarketDataService } from '@/data/service/index.js'
 import type { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry.js'
 import type { KLineData } from '@/foundation/types/price.js'
-import type { ScriptMarketSession } from '../../../data/series/types.js'
+import type { ScriptMarketIdentity } from '../../../data/series/types.js'
 import { marketClock, projectIndicatorBars } from './projectBars.js'
 import { assertSecurityPeriod, requestPeriod } from './requestPeriod.js'
 
@@ -28,7 +28,7 @@ export async function readIndicatorBars(
   deps: IndicatorBarsDependencies,
   bars: readonly KLineData[],
   request: IndicatorBarsRequest,
-  session: ScriptMarketSession | null,
+  session: ScriptMarketIdentity | null,
   signal?: AbortSignal,
 ): Promise<readonly Bar[]> {
   signal?.throwIfAborted()
@@ -51,7 +51,8 @@ export async function readIndicatorBars(
   const adjustment: KLineAdjustment = session.selection.adjustment
   const aggregation = session.selection.barAggregation
   const budget = Math.min(request.calcBarsCount, DEFAULT_INTRABAR_LIMIT)
-  const limit = request.mode === 'lower_tf' ? Math.min(DEFAULT_REQUEST_BARS, budget) : request.calcBarsCount
+  const limit =
+    request.mode === 'lower_tf' ? Math.min(DEFAULT_REQUEST_BARS, budget) : request.calcBarsCount
   const clock = marketClock(session, deps.sessions)
   if (request.mode === 'lower_tf' && !clock) {
     throw new Error('低周期明细需要品种的市场时段配置')

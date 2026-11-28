@@ -90,11 +90,9 @@ export function createIndicatorSelectorController(
   // -------------------------------------------------------------------
   // Computed (derived views)
   //
-  // The interface types these as Signal<T>, but they are derived state. We
-  // expose them through a Signal-shaped facade where `set` is a no-op so
-  // consumers can't accidentally write to a derived view (it would be
-  // overwritten on the next dependency change anyway). The read/peek/
-  // subscribe semantics match a real Signal exactly.
+  // Derived views are exposed as ReadonlySignal: consumers can read and
+  // subscribe but cannot write, since every value is rebuilt from catalog()
+  // and searchQuery() when either dependency changes.
   // -------------------------------------------------------------------
   const matches = computed(() => {
     const query = searchQuery()

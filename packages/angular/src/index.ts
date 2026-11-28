@@ -11,7 +11,7 @@ import type {
   ChartControllerFactory,
   ChartMountOptions,
   ChartViewport,
-  Signal as CoreSignal,
+  ReadonlySignal as CoreSignal,
   DrawingControllerCallbacks,
   IndicatorInstance,
   InteractionSnapshot,
@@ -95,7 +95,7 @@ export function provideKLineChart(opts: ProvideKLineChartOptions = {}): Provider
 }
 
 // ---------------------------------------------------------------------------
-// Signal bridge: core Signal<T> -> Angular Signal<T>
+// Signal bridge: core ReadonlySignal<T> -> Angular Signal<T>
 // ---------------------------------------------------------------------------
 
 /**

@@ -21,7 +21,11 @@
  *   `append incrementally matches full recompute` pins this.
  */
 
-import { asReadonlySignal, createSignal, type Signal } from '@/foundation/reactivity/index.js'
+import {
+  asReadonlySignal,
+  createSignal,
+  type WritableSignal,
+} from '@/foundation/reactivity/index.js'
 import type {
   ActiveAnchor,
   AnchorDefinition,
@@ -68,7 +72,9 @@ export function createAnchoredVwapController(
   // -------------------------------------------------------------------
   // Public signal — re-emitted on every structural change.
   // -------------------------------------------------------------------
-  const anchors: Signal<ReadonlyArray<ActiveAnchor>> = createSignal<ReadonlyArray<ActiveAnchor>>([])
+  const anchors: WritableSignal<ReadonlyArray<ActiveAnchor>> = createSignal<
+    ReadonlyArray<ActiveAnchor>
+  >([])
 
   /**
    * Rebuild the public signal value from the current `anchorStates`. We

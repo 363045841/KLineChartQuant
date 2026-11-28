@@ -61,7 +61,6 @@ describe('themeToCssVars', () => {
     ['--klc-color-palette-i1', lightTheme.colors.palette.i1],
     ['--klc-color-ui-danger', lightTheme.colors.ui.danger],
     ['--klc-spacing-md', lightTheme.spacing.md],
-    ['--klc-typography-font-weight-bold', String(lightTheme.typography.fontWeightBold)],
   ])('%s 取自主题对应字段', (name, value) => {
     expect(themeToCssVars(lightTheme)[name]).toBe(value)
   })

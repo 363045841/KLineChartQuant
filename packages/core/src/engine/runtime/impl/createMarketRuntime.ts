@@ -1,11 +1,12 @@
 /**
  * 共享运行时工厂：组合行情、定义、计算与取数服务，不创建任何消费者。
  */
+
+import { seriesSelectionKey } from '@/data/buffer/seriesSelection.js'
+import { DATA_CHANGE_KINDS } from '@/data/buffer/types.js'
 import { createMarketDataService } from '@/data/service/index.js'
 import { applyMarketSessions } from '@/foundation/config/marketSession/applyMarketSessions.js'
 import { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry.js'
-import { DATA_CHANGE_KINDS } from '@/data/buffer/types.js'
-import { seriesSelectionKey } from '@/data/buffer/seriesSelection.js'
 import { createCalculationHub } from '../../calculation/index.js'
 import { createCalculationMarket } from '../../calculation/market/index.js'
 import { toCalculationDefinition } from '../../indicators/instances/assembly/toCalculationDefinition.js'
@@ -50,10 +51,17 @@ export function createMarketRuntime(options: MarketRuntimeOptions): MarketRuntim
       dataRevision: revision,
       timestamps: change.data.map((bar) => bar.timestamp),
       data: change.data,
-      change: { start: change.start, end: change.end, reset: change.kind === DATA_CHANGE_KINDS.replace || change.kind === DATA_CHANGE_KINDS.prepend || change.kind === DATA_CHANGE_KINDS.extend },
+      change: {
+        start: change.start,
+        end: change.end,
+        reset:
+          change.kind === DATA_CHANGE_KINDS.replace ||
+          change.kind === DATA_CHANGE_KINDS.prepend ||
+          change.kind === DATA_CHANGE_KINDS.extend,
+      },
       live: liveBarTime !== undefined && liveBarTime === change.data.at(-1)?.timestamp,
       ...(closedBarTime === undefined ? {} : { closedBarTime }),
-      marketSession: { selection, instrument },
+      market: { selection, instrument },
     })
   })
 

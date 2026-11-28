@@ -9,11 +9,12 @@
  */
 
 import type { Bar, IndicatorMarketContext } from '@363045841yyt/klinechart-plot-contracts'
-import type { InstrumentCapabilities, InstrumentType } from '../data/provider/types.js'
 import type { SymbolSpec } from '@/data/symbolSpec.js'
+import type { InstrumentCapabilities, InstrumentType } from '../data/provider/types.js'
 import type { KLineData } from '../foundation/types/bar.js'
 
 export type { KLineData }
+
 import type {
   IndicatorInstance,
   IndicatorRole,
@@ -25,12 +26,12 @@ import type {
   CreateDrawingInput,
   DrawingLabelPosition,
   DrawingLabelTarget,
+  DrawingObject,
   DrawingStyle,
   DrawingStyleKey,
   DrawingTimeframeVisibility,
   DrawingToolId,
   PersistedDrawingAnchor,
-  DrawingObject as PluginDrawingObject,
   UpdateDrawingPatch,
 } from '../engine/drawing/index.js'
 import type { IndicatorTemplateApi } from '../engine/indicatorTemplate/types.js'
@@ -92,19 +93,17 @@ export interface ChartIndicatorConfig {
   params?: Record<string, unknown>
 }
 
-export type DrawingObject = PluginDrawingObject
 export type {
   BatchDrawingPatch,
   CreateDrawingInput,
   DrawingLabelPosition,
   DrawingLabelTarget,
+  DrawingObject,
   DrawingStyle,
   DrawingStyleKey,
   DrawingTimeframeVisibility,
   UpdateDrawingPatch,
-}
-
-export type IndicatorPaneRole = IndicatorRole
+} from '../engine/drawing/index.js'
 
 // ---------------------------------------------------------------------------
 // Data shapes (mirror src/types/price.ts — single source of truth lives here
@@ -156,7 +155,7 @@ export interface IndicatorDefinition {
   label: string
   name?: string
   description?: string
-  role: IndicatorPaneRole
+  role: IndicatorRole
   inputs: ReadonlyArray<IndicatorInputDef>
   /** 脚本身份：内置只读或用户可编辑；原生指标没有该字段。 */
   documentIdentity?: import('../engine/indicators/pipeline/types.js').IndicatorDocumentIdentity

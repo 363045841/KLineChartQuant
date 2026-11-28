@@ -22,7 +22,12 @@
  */
 
 import { createDisposeGuard } from '@/foundation/lifecycle/disposeGuard.js'
-import { asReadonlySignal, batch, createSignal, type Signal } from '@/foundation/reactivity/index.js'
+import {
+  asReadonlySignal,
+  batch,
+  createSignal,
+  type WritableSignal,
+} from '@/foundation/reactivity/index.js'
 import type {
   VolumeProfileBar,
   VolumeProfileConfig,
@@ -60,8 +65,10 @@ export function createVolumeProfileController(
   if (initialConfig.valueAreaPercent > 1) initialConfig.valueAreaPercent = 1
   if (initialConfig.binCount < 1) initialConfig.binCount = 1
 
-  const config: Signal<VolumeProfileConfig> = createSignal(Object.freeze(initialConfig))
-  const state: Signal<VolumeProfileState | null> = createSignal<VolumeProfileState | null>(null)
+  const config: WritableSignal<VolumeProfileConfig> = createSignal(Object.freeze(initialConfig))
+  const state: WritableSignal<VolumeProfileState | null> = createSignal<VolumeProfileState | null>(
+    null,
+  )
 
   // -------------------------------------------------------------------
   // ingest — full recompute
@@ -120,7 +127,9 @@ export function createVolumeProfileController(
     const valPrice = binMin + va.valIndex * binSize
 
     const next: VolumeProfileState = Object.freeze({
-      get buckets() { return buckets.slice() },
+      get buckets() {
+        return buckets.slice()
+      },
       binMin,
       binSize,
       poc: pocPrice,

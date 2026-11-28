@@ -1,7 +1,8 @@
 /** Chart 业务状态的 composition root：组合全部子状态并暴露派生信号。 */
 
-import type { SymbolInfo } from '../../controllers/types.js'
 import type { SymbolSpec } from '@/data/symbolSpec.js'
+import { isSymbolSpec } from '@/data/symbolSpecGuard.js'
+import type { SymbolInfo } from '../../controllers/types.js'
 import {
   type ChartSettings,
   normalizeSettings,
@@ -30,7 +31,6 @@ import {
   resolveChartWorkspaceId,
 } from '../chartModel/index.js'
 import { symbolSpecIdentityKey } from '../data/symbolIdentity.js'
-import { isSymbolSpec } from '@/data/symbolSpecGuard.js'
 import type { DrawingToolId } from '../drawing/index.js'
 import { belongsToDrawingSymbol, bindDrawingSymbol } from '../drawing/model/impl/drawingScope.js'
 import { createIndicatorLayerId } from '../indicators/indicatorLayerNaming.js'
@@ -352,7 +352,11 @@ export class ChartStateKernel extends StateKernel {
           name,
           layerId: makePluginLayerId(name),
         })),
-        ...resolveIndicatorRenderers(dataView, this.indicator.readonly.instances(), this.definitions),
+        ...resolveIndicatorRenderers(
+          dataView,
+          this.indicator.readonly.instances(),
+          this.definitions,
+        ),
       ]
       // 原生比较 Layer 由功能集合派生，不注册成图表模式或指标实例。
       if (dataView === ChartDataViewId.KLine && this.comparison.readonly.active()) {
@@ -704,5 +708,3 @@ export class ChartStateKernel extends StateKernel {
     this.renderer.dispose()
   }
 }
-
-export type ChartStateKernelModule = ChartStateKernel

@@ -5,14 +5,14 @@
  */
 
 import type { ReadonlySignal } from '../../foundation/reactivity/index.js'
-import type { IndicatorDefinition, IndicatorPaneRole } from '../types.js'
+import type { IndicatorDefinition, IndicatorRole } from '../types.js'
 
 export interface ActiveIndicator {
   id: string
   definitionId: string
   label: string
   name: string
-  role: IndicatorPaneRole
+  role: IndicatorRole
   params: Readonly<Record<string, number | string | boolean>>
 }
 

@@ -4,13 +4,13 @@ import type { BarsSelection } from '@/data/buffer/seriesSelection.js'
 import type { InstrumentDescriptor, SourceCapabilities } from '@/data/provider/types.js'
 
 /** 脚本计算需要的最小行情身份；能力位不参与时间与投影换算。 */
-export interface ScriptMarketSession {
+export interface ScriptMarketIdentity {
   readonly selection: BarsSelection
   readonly instrument: InstrumentDescriptor
 }
 
 /** 已确认来源且已加载首批 K 线的活动行情；null 表示尚未就绪或非 K 线视图。 */
-export interface ReadyMarketSession extends ScriptMarketSession {
+export interface ReadyMarketIdentity extends ScriptMarketIdentity {
   readonly capabilities: SourceCapabilities
 }
 
@@ -22,7 +22,7 @@ export interface ReadyMarketSession extends ScriptMarketSession {
  * @param session - 已就绪的活动行情
  * @returns 会话源、品种原始成交与实时流三项能力是否齐备
  */
-export function supportsRawTradeStream(session: ReadyMarketSession): boolean {
+export function supportsRawTradeStream(session: ReadyMarketIdentity): boolean {
   const { instrument } = session
   return Boolean(
     session.capabilities.trades?.live &&

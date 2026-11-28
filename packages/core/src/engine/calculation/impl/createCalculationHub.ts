@@ -4,15 +4,9 @@
  * 不持有图表、Pane、视口或实例身份；消费者注册计划，Hub 只负责：
  * 合并同一计算键、按行情需要保留更新顺序、提交结果。
  */
-import {
-  type ComputeRange,
-  resolveComputeRange,
-} from '@363045841yyt/klinechart-plot-contracts'
-
-import type { KLineData } from '@/foundation/types/price.js'
-
+import { type ComputeRange, resolveComputeRange } from '@363045841yyt/klinechart-plot-contracts'
 import { seriesSelectionKey } from '@/data/buffer/seriesSelection.js'
-import { createCalculationKey } from './canonical.js'
+import type { KLineData } from '@/foundation/types/price.js'
 import type {
   CalculationClient,
   CalculationClientHandlers,
@@ -27,6 +21,7 @@ import type {
   FeedPlan,
   FeedSnapshot,
 } from '../types.js'
+import { createCalculationKey } from './canonical.js'
 
 /** 预览结果保留份数；超出后按最久未使用淘汰。 */
 const PREVIEW_RESULT_LIMIT = 16
@@ -64,10 +59,7 @@ interface Lane {
 
 /** 判断已提交结果是否仍对应当前行情修订。 */
 function isFresh(result: CalculationResult | undefined, feed: FeedSnapshot): boolean {
-  return (
-    result !== undefined &&
-    result.dataRevision === feed.dataRevision
-  )
+  return result !== undefined && result.dataRevision === feed.dataRevision
 }
 
 /** 冻结消费者计划，防止提交后外部修改。 */
@@ -178,8 +170,9 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
     if (!entry) return
     for (const clientId of entry.clients) {
       const client = clients.get(clientId)
-      const owners = client?.plan.find((plan) => plan.feed === entry.feed)?.requests
-        .filter((request) => request.key === entry.request.key)
+      const owners = client?.plan
+        .find((plan) => plan.feed === entry.feed)
+        ?.requests.filter((request) => request.key === entry.request.key)
         .flatMap((request) => request.owners ?? [])
       if (owners?.length) client?.handlers.onPending?.(owners, pending)
     }
@@ -228,7 +221,7 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
         error: toFailure(error),
       })
     }
-    const context = options.marketData?.(feed.data, feed.marketSession)
+    const context = options.marketData?.(feed.data, feed.market)
     try {
       const output = await calculator.compute(
         feed.data,
@@ -283,13 +276,11 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
   }
 
   /** 创建一次待执行任务；取消只回滚本任务，不污染已提交结果。 */
-  function createWork(
-    feedKey: FeedKey,
-    feed: FeedSnapshot,
-    request: CalculationRequest,
-  ): Work {
+  function createWork(feedKey: FeedKey, feed: FeedSnapshot, request: CalculationRequest): Work {
     let complete!: Work['complete']
-    const completion = new Promise<CalculationResult | null>((resolve) => { complete = resolve })
+    const completion = new Promise<CalculationResult | null>((resolve) => {
+      complete = resolve
+    })
     return {
       internalKey: internalKey(feedKey, request.key),
       feedKey,
@@ -359,11 +350,13 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
   ): Work {
     const existing = lanes.get(internal)
     if (existing?.running) {
-      const matching = [existing.running, ...existing.queued].find((work) =>
-        work.snapshot.dataRevision === feed.dataRevision,
+      const matching = [existing.running, ...existing.queued].find(
+        (work) => work.snapshot.dataRevision === feed.dataRevision,
       )
       if (matching) return matching
-      const ordered = [...(desired.get(internal)?.clients ?? [])].some((id) => clients.get(id)?.handlers.onResult)
+      const ordered = [...(desired.get(internal)?.clients ?? [])].some(
+        (id) => clients.get(id)?.handlers.onResult,
+      )
       if (!ordered && !previewKeys.has(internal)) {
         for (const work of existing.queued.splice(0)) work.complete(null)
       }
@@ -486,7 +479,9 @@ export function createCalculationHub(options: CalculationHubOptions): Calculatio
       rememberPreview(internal)
       const work = startWork(feedKey, feed, request, internal)
       let abort!: () => void
-      const cancelled = new Promise<never>((_, reject) => { abort = () => reject(signal.reason) })
+      const cancelled = new Promise<never>((_, reject) => {
+        abort = () => reject(signal.reason)
+      })
       signal.addEventListener('abort', abort, { once: true })
       try {
         const result = await Promise.race([work.completion, cancelled])

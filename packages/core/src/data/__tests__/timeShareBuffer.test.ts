@@ -5,7 +5,7 @@ import {
   createTimeShareDay,
   createTimeSharePoint,
 } from '@/engine/__tests__/helpers/timeShareTestKit'
-import { TimeShareBuffer } from '../buffer/impl/timeShareBuffer'
+import { TimeShareBufferImpl } from '../buffer/impl/timeShareBuffer'
 
 /** 分时 Buffer 只关心时间戳与点数值，其余字段取共享默认值。 */
 function point(timestamp: number) {
@@ -14,7 +14,7 @@ function point(timestamp: number) {
 
 describe('TimeShareBuffer', () => {
   it('projects a single-day snapshot with last-write deduplication and unique indices', () => {
-    const buffer = new TimeShareBuffer()
+    const buffer = new TimeShareBufferImpl()
     const replacement = { ...point(2), price: 12 }
     buffer.setInlineData([point(1), point(2), replacement], 9.5)
 
@@ -26,7 +26,7 @@ describe('TimeShareBuffer', () => {
   })
 
   it('projects a cache-provided multi-day snapshot atomically', () => {
-    const buffer = new TimeShareBuffer()
+    const buffer = new TimeShareBufferImpl()
     const published: number[][] = []
     const unsubscribe = buffer.data.subscribe(() => {
       published.push([
@@ -53,7 +53,7 @@ describe('TimeShareBuffer', () => {
   })
 
   it('publishes query loading and errors without owning a fetcher', () => {
-    const buffer = new TimeShareBuffer()
+    const buffer = new TimeShareBufferImpl()
     buffer.setLoading(true)
     buffer.setError('unavailable')
 

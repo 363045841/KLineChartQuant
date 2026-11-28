@@ -10,17 +10,16 @@
  * 不创建也不释放中枢，不持有行情或任务状态。
  */
 
-import { generateUUID } from '@/foundation/utils/uuid.js'
-
 import { GENERIC_ERROR_CODES, INDICATOR_SERIES_ERROR_CODES, KLineChartError } from '@/errors.js'
 import type { ObjectAxisBinding } from '@/foundation/geometry/axisBinding.js'
+import { generateUUID } from '@/foundation/utils/uuid.js'
 import type {
   IndicatorAvailabilityReader,
   IndicatorRenderStateReader,
   PluginHostImpl,
   RenderContext,
 } from '../../foundation/plugin/index.js'
-import { type Computed, computed, type ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { ColorTokens } from '../../foundation/tokens/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import type {
@@ -58,10 +57,12 @@ import {
   type IndicatorInstanceCatalog,
   type IndicatorInstanceDescriptor,
 } from './instances/api/indicatorRenderBinding.js'
-import { createIndicatorTimelineProjection } from './projection/impl/indicatorTimelineProjection.js'
+import {
+  createIndicatorTimelineProjection,
+  projectIndicatorSeries,
+} from './projection/impl/indicatorTimelineProjection.js'
 import type { IndicatorTimelineProjection } from './projection/types.js'
 import type { DefinitionRegistry } from './registry/index.js'
-import { projectIndicatorSeries } from './projection/impl/indicatorTimelineProjection.js'
 import { composeInstanceRenderState } from './stateComposer.js'
 
 type ResolvedChartOptions = ChartOptions & {
@@ -158,8 +159,8 @@ export class ChartIndicatorManager {
   private readonly client: CalculationClient
   private readonly definitions: DefinitionRegistry
   private readonly unsubscribeDefinitions: () => void
-  private _indicatorsComputed: Computed<ReadonlyArray<IndicatorInstance>>
-  private _subPanesComputed: Computed<ReadonlyArray<SubPaneInfo>>
+  private _indicatorsComputed: ReadonlySignal<ReadonlyArray<IndicatorInstance>>
+  private _subPanesComputed: ReadonlySignal<ReadonlyArray<SubPaneInfo>>
   /** 只记录实际拥有的图层资源，不承载实例归属、参数或更新判断。 */
   private readonly layerResources = new Set<string>()
   /** 已安装到 Pane 的轴声明；帧消费者不重新派生尚未安装的轴。 */
@@ -355,10 +356,12 @@ export class ChartIndicatorManager {
       planned.push({
         spec,
         metadata,
-        request: metadata.runtime ? {
-          ...this.createRequest(metadata.name, metadata.runtime, spec.params),
-          owners: [spec.instanceId],
-        } : null,
+        request: metadata.runtime
+          ? {
+              ...this.createRequest(metadata.name, metadata.runtime, spec.params),
+              owners: [spec.instanceId],
+            }
+          : null,
         presentation: ChartIndicatorManager.resolvePresentation(metadata, spec.params),
       })
     }
@@ -679,11 +682,11 @@ export class ChartIndicatorManager {
     return projection
   }
 
-  get indicatorsComputed(): Computed<ReadonlyArray<IndicatorInstance>> {
+  get indicatorsComputed(): ReadonlySignal<ReadonlyArray<IndicatorInstance>> {
     return this._indicatorsComputed
   }
 
-  get subPanesComputed(): Computed<ReadonlyArray<SubPaneInfo>> {
+  get subPanesComputed(): ReadonlySignal<ReadonlyArray<SubPaneInfo>> {
     return this._subPanesComputed
   }
 

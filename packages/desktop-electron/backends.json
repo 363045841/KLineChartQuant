@@ -4,14 +4,14 @@
     {
       "id": "gotdx",
       "repo": "https://github.com/363045841/GoTDX-Connector.git",
-      "commit": "4095cdd720933d83710e6884ce1bcaebc58c8ce8",
+      "commit": "bf01ac223434ce274117cf4def827541dc6215b2",
       "package": "./services/tdx-api",
       "binary": "gotdx"
     },
     {
       "id": "binance",
       "repo": "https://github.com/363045841/Binance-Connector.git",
-      "commit": "7364dc9e605dc9532ea55b0d1f2aadb427ec15fe",
+      "commit": "1b5d24cf2b13771af9b00ca45e850c9cc819b9f6",
       "package": "./cmd/binance-connector",
       "binary": "binance"
     }
