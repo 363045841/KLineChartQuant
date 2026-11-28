@@ -206,12 +206,12 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
 
   // 指标模板与布局分开存储：模板描述「用了哪些指标」，布局描述整张图表的快照。
   const templateManager = new IndicatorTemplateManager({
-    extractIndicators: () => extractTemplate(chart.kernel.snapshotViewWorkspaces()),
+    extractIndicators: () => extractTemplate(chart.exportIndicatorWorkspaces()),
     applyIndicators: (workspaces) => {
       if (isDisposed()) throw new Error('图表已销毁')
       chart.applyIndicatorTemplate(workspaces)
     },
-    userIndicatorConfigurations: chart.kernel.indicator.readonly.configurations,
+    userIndicatorConfigurations: chart.uiState.indicatorConfigurations,
     loadIndicators: (indicatorIds) => runtime.definitions.load(indicatorIds),
     definitions: runtime.definitions,
   })
@@ -220,16 +220,16 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   })
   const layoutSubscriptions = [
     ...[
-      chart.kernel.dataManager.readonly.currentSpec,
-      chart.kernel.indicator.readonly.workspaces,
-      chart.kernel.indicator.readonly.favoriteIndicatorIds,
-      chart.kernel.pane.readonly.workspaces,
-      chart.kernel.settings.readonly.settings,
-      chart.kernel.drawing.readonly.drawings,
-      chart.kernel.systemObjects.readonly.state,
+      chart.selection.spec,
+      chart.layoutInputs.indicatorWorkspaces,
+      chart.layoutInputs.favoriteIndicatorIds,
+      chart.layoutInputs.paneWorkspaces,
+      chart.layoutInputs.settings,
+      chart.layoutInputs.drawings,
+      chart.layoutInputs.systemObjects,
     ].map((signal) => signal.subscribe(() => layoutManager.scheduleAutoSave())),
     // 价格轴与视口在手势内逐帧变化：静止后先记录当前视口，再比较布局。
-    ...[chart.kernel.axesState.readonly.paneRanges, chart.navigation].map((signal) =>
+    ...[chart.uiState.paneRanges, chart.navigation].map((signal) =>
       signal.subscribe(() => layoutManager.scheduleCoalescedAutoSave()),
     ),
   ]
@@ -243,10 +243,10 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     return index < 0 ? null : index
   }
   /** 图表时区：图元时间读写都用它，不跟随宿主本地时区。 */
-  const chartTimezone = (): string => chart.kernel.data.readonly.activeBuffer().timezone ?? 'UTC'
+  const chartTimezone = (): string => chart.activeBuffer().timezone ?? 'UTC'
   const drawingScope = (): ChartAgentDrawingScope => ({
     rows: layoutPanes().map((pane) => pane.id),
-    period: chart.kernel.dataManager.readonly.currentPeriod.peek(),
+    period: chart.selection.period.peek(),
     timezone: chartTimezone(),
     workspace: chart.drawing.getWorkspaceId(),
   })
@@ -265,7 +265,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       readInputDefs: (indicatorId) =>
         indicatorCatalog.peek().find((definition) => definition.id === indicatorId)?.inputs,
       scope: () => ({
-        period: chart.kernel.dataManager.readonly.currentPeriod.peek(),
+        period: chart.selection.period.peek(),
         timezone: chartTimezone(),
       }),
     }),
@@ -300,8 +300,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   })
 
   const agent = createChartAgentController({
-    dataState: chart.kernel.data,
-    currentSpec: chart.kernel.dataManager.readonly.currentSpec,
+    activeBuffer: chart.activeBuffer,
+    currentSpec: chart.selection.spec,
     selectedRange: chart.selectedRange,
     drawings: chart.drawing.drawings,
     selectedDrawingIds: chart.drawing.selectedIds,
@@ -362,7 +362,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     deleteTemplate: (input) => templateManager.deleteTemplate(input),
     applyTemplate: (input) => templateManager.applyTemplate(input),
     agent,
-    favoriteIndicatorIds: chart.kernel.indicator.readonly.favoriteIndicatorIds,
+    favoriteIndicatorIds: chart.layoutInputs.favoriteIndicatorIds,
     setIndicatorFavorite: (indicatorId, favorite) => {
       if (!isDisposed()) chart.setFavoriteIndicator(indicatorId, favorite)
     },
@@ -376,13 +376,13 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     marketDataCacheStats: chart.getMarketData().stats,
     symbols: chart.symbols,
     theme: themeSignal,
-    settings: chart.kernel.settings.readonly.settings,
-    paneScaleTypes: chart.kernel.pane.readonly.paneScaleTypes,
-    panePriceAxisRanges: chart.kernel.axesState.readonly.paneRanges,
-    rendererRuntime: chart.kernel.renderer.readonly.runtime,
-    chartMode: chart.kernel.mode.readonly.chartMode,
-    lastBarPeriod: chart.kernel.mode.readonly.lastBarPeriod,
-    footprintSupported: chart.kernel.footprint.readonly.supported,
+    settings: chart.layoutInputs.settings,
+    paneScaleTypes: chart.uiState.paneScaleTypes,
+    panePriceAxisRanges: chart.uiState.paneRanges,
+    rendererRuntime: chart.uiState.rendererRuntime,
+    chartMode: chart.uiState.chartMode,
+    lastBarPeriod: chart.uiState.lastBarPeriod,
+    footprintSupported: chart.uiState.footprintSupported,
     indicators,
     subPanes,
     drawingTool: chart.drawing.tool,
@@ -393,7 +393,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     globalDrawingLock,
     paneRatios,
     paneLayout,
-    paneGeometry: chart.kernel.pane.readonly.paneGeometry,
+    paneGeometry: chart.uiState.paneGeometry,
     interactionState,
     selectedRange: chart.selectedRange,
     rangeSelection: chart.rangeSelection,

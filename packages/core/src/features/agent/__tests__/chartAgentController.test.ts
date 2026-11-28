@@ -85,7 +85,7 @@ function createFixture() {
   const drawings = createSignal<ReadonlyArray<DrawingObject>>([])
   const selectedDrawingIds = createSignal<ReadonlyArray<string>>([])
   const controller = createChartAgentController({
-    dataState,
+    activeBuffer: dataState.readonly.activeBuffer,
     currentSpec: createSignal<SymbolSpec | null>(
       makeSymbolSpec({
         symbol: 'BTCUSDT',
@@ -202,7 +202,7 @@ describe('chart agent tool wiring', () => {
   it('控制器暴露组合根注入的工具依赖，不自行构造', () => {
     const tools = stubTools()
     const controller = createChartAgentController({
-      dataState: createDataState(),
+      activeBuffer: createDataState().readonly.activeBuffer,
       currentSpec: createSignal<SymbolSpec | null>(null),
       selectedRange: createSignal<{ from: number; to: number } | null>(null),
       drawings: createSignal<ReadonlyArray<DrawingObject>>([]),

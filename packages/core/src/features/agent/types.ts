@@ -454,7 +454,9 @@ export interface ChartAgentController {
 
 /** Chart Agent facade 的构造依赖；由宿主组装后注入。 */
 export interface ChartAgentControllerDependencies {
-  readonly dataState: DataStateModule
+  readonly activeBuffer: ReadonlySignal<
+    ReturnType<DataStateModule['readonly']['activeBuffer']>
+  >
   readonly currentSpec: ReadonlySignal<SymbolSpec | null>
   readonly selectedRange: ReadonlySignal<ChartAgentTimeRange | null>
   readonly drawings: ReadonlySignal<ReadonlyArray<DrawingObject>>

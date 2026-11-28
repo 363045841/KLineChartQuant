@@ -14,7 +14,7 @@ import type { ChartSettings } from '@/foundation/config/chartSettings.js'
 import type { Plugin, PluginConfig, RenderContext } from '@/foundation/plugin/types.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import type { ChartFrameCaptureContext } from '../../screenshot/types.js'
-import type { DrawingControllerCallbacks, IndicatorRole } from '../types.js'
+import type { DrawingControllerCallbacks } from '../types.js'
 
 /**
  * 构造一组轻量图表操作方法。
@@ -269,13 +269,13 @@ export function createChartMethods(
   /** 更新设置（高层 API）。 */
   function updateSettingsFacade(settings: ChartSettings): void {
     if (isDisposed()) return
-    chart.updateSettingsFacade(settings)
+    chart.updateSettings(settings)
   }
 
   /** 更新选项（高层 API）。 */
   function updateOptionsFacade(options: Record<string, unknown>): void {
     if (isDisposed()) return
-    chart.updateOptionsFacade(options)
+    chart.updateOptions(options)
   }
 
   return {

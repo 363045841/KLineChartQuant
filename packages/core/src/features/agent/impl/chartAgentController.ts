@@ -65,7 +65,7 @@ class ChartAgentControllerImpl implements ChartAgentController {
 
   /** 从 StateKernel 派生当前图表的只读上下文。 */
   private createContext(): ChartAgentContextSnapshot | null {
-    const activeBuffer = this.dependencies.dataState.readonly.activeBuffer()
+    const activeBuffer = this.dependencies.activeBuffer()
     if (activeBuffer.kind === ACTIVE_BUFFER_KIND.empty || activeBuffer.data.length === 0)
       return null
 
