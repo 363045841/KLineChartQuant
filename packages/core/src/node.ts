@@ -23,7 +23,7 @@ export type { KLineData, TimeShareData } from './foundation/types/bar.js'
 export { createAlertRuntime } from './features/alerts/impl/createAlertRuntime.js'
 export type { AlertRuntimeOptions } from './features/alerts/impl/createAlertRuntime.js'
 export { createAlertService } from './features/alerts/impl/createAlertService.js'
-export { decodeAlertDocument, importAlertDocuments } from './features/alerts/impl/alertCodec.js'
+export { decodeAlertDocument } from './features/alerts/impl/alertCodec.js'
 export { DEFAULT_ALERT_LIMITS } from './features/alerts/types.js'
 export type { AlertDocument } from './features/alerts/impl/alertCodec.js'
 export type {

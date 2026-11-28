@@ -9,7 +9,7 @@ import type { CalculationInputs, CalculationInputValue } from '../../../engine/c
 import { isSymbolSpec } from '@/data/symbolSpecGuard.js'
 import { deepFreezeSnapshot } from '../../../foundation/utils/deepFreezeSnapshot.js'
 
-export const ALERT_DOCUMENT_VERSION = 2
+export const ALERT_DOCUMENT_VERSION = 1
 
 export interface AlertDocument {
   readonly version: typeof ALERT_DOCUMENT_VERSION
@@ -79,7 +79,7 @@ function decodeAlerts(value: unknown): readonly Alert[] {
   return Object.freeze(alerts)
 }
 
-/** 解码触发日志；与规则分开存储，互不影响。 */
+/** 解码触发日志。 */
 function decodeFires(value: unknown): readonly AlertFire[] {
   const fires = asArray(value, 'Alert fires').map((item) => {
     const fire = asRecord(item, 'Alert fire')
@@ -101,14 +101,3 @@ export function decodeAlertDocument(value: unknown): AlertDocument {
   return Object.freeze({ version: ALERT_DOCUMENT_VERSION, alerts: decodeAlerts(root.alerts), fires: decodeFires(root.fires) })
 }
 
-/** 一次性导入旧宿主的规则与触发文档。 */
-export function importAlertDocuments(rules: readonly unknown[], logs: readonly unknown[]): AlertDocument {
-  const read = (value: unknown, field: string): unknown => {
-    const document = asRecord(value, 'Legacy alert document')
-    if (document.version !== 1) throw new TypeError('Invalid legacy alert document version')
-    return document[field]
-  }
-  const alerts = new Map(rules.flatMap((value) => decodeAlerts(read(value, 'alerts'))).map((alert) => [alert.id, alert]))
-  const fires = new Map(logs.flatMap((value) => decodeFires(read(value, 'fires'))).map((fire) => [fire.id, fire]))
-  return { version: ALERT_DOCUMENT_VERSION, alerts: [...alerts.values()], fires: [...fires.values()].sort((a, b) => b.firedAt - a.firedAt) }
-}

@@ -1,7 +1,7 @@
 /**
  * 警报模块公共出口：契约、状态推导、文档编解码、行情源与服务工厂。
  */
-export { decodeAlertDocument, importAlertDocuments } from './impl/alertCodec.js'
+export { decodeAlertDocument } from './impl/alertCodec.js'
 export type { AlertDocument } from './impl/alertCodec.js'
 export { createAlertRuntime } from './impl/createAlertRuntime.js'
 export type { AlertRuntimeOptions } from './impl/createAlertRuntime.js'

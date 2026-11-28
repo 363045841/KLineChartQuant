@@ -31,8 +31,6 @@ export function createSqliteDriver(options: SqliteDriverOptions): DocumentDriver
   database.exec(
     'CREATE TABLE IF NOT EXISTS documents (store TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY (store, key))',
   )
-  // 旧服务只写过 alerts/rules 和 alerts/fires 两个字符串键。
-  database.exec(`UPDATE documents SET key = json_quote(key) WHERE store = 'alerts' AND key IN ('rules', 'fires')`)
   const select = database.prepare('SELECT value FROM documents WHERE store = ? AND key = ?')
   const upsert = database.prepare(
     'INSERT INTO documents (store, key, value) VALUES (?, ?, ?) ON CONFLICT(store, key) DO UPDATE SET value = excluded.value',
