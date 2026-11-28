@@ -115,7 +115,7 @@ describe('useRangePresets', () => {
     )
 
     const first = api.apply('1M')
-    await Promise.resolve()
+    await vi.waitFor(() => expect(ensure).toHaveBeenCalledOnce())
     // 运行期间整排禁点，第二次点击被忽略。
     expect(api.disabled.value).toBe(true)
     await api.apply('3M')

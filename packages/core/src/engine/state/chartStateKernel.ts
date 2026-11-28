@@ -53,6 +53,10 @@ import {
 import { SCALE_X_STRATEGIES } from '../scale/index.js'
 import { type AxisStateModule, createAxisState } from './axisState.js'
 import { createDataManagerState, type DataManagerStateModule } from './dataManagerState.js'
+import {
+  createSeriesViewportMemory,
+  type SeriesViewportMemory,
+} from '../viewport/viewMemory/index.js'
 import { createDataState, type DataStateModule } from './dataState.js'
 import { createDrawingState, type DrawingStateModule } from './drawingState.js'
 import { createFootprintState } from './footprintState.js'
@@ -77,10 +81,8 @@ import { createSystemObjectState, type SystemObjectStateModule } from './systemO
 import { createSystemThemeState, type SystemThemeStateModule } from './themeState.js'
 import {
   createViewportState,
-  type ViewportDomDeps,
   type ViewportStateModule,
 } from './viewportState.js'
-import { createZoomState, type ZoomDeps, type ZoomStateModule } from './zoomState.js'
 
 /** Chart 投影到 Scene 的受管 renderer layer 描述。 */
 export interface ActiveRendererDescriptor {
@@ -201,7 +203,12 @@ export interface ChartStateKernelDeps {
 export class ChartStateKernel extends StateKernel {
   readonly footprint: import('./footprintState.js').FootprintStateModule
   readonly options: OptionsStateModule
-  readonly zoom: ZoomStateModule
+  /** 缩放范围策略；导航持有实际缩放级别。 */
+  readonly zoomConfig$: ReadonlySignal<{
+    minKWidth: number
+    maxKWidth: number
+    zoomLevelCount: number
+  }>
   readonly data: DataStateModule
   readonly viewport: ViewportStateModule
   readonly pane: PaneStateModule
@@ -217,6 +224,8 @@ export class ChartStateKernel extends StateKernel {
   readonly systemObjects: SystemObjectStateModule
   readonly interaction: InteractionStateModule
   readonly dataManager: DataManagerStateModule
+  /** 按序列记住的视口快照；由布局文档导入导出，图表是唯一写入者。 */
+  readonly viewMemory: SeriesViewportMemory = createSeriesViewportMemory()
   readonly comparison: ComparisonStateModule
   readonly indicator: IndicatorStateModule
   readonly renderer: RendererStateModule
@@ -227,10 +236,10 @@ export class ChartStateKernel extends StateKernel {
   readonly effectiveTheme$: ReadonlySignal<'light' | 'dark'>
   /** 当前图表状态要求启用的受管 renderer layer。 */
   readonly activeRenderers$: ReadonlySignal<ReadonlyArray<ActiveRendererDescriptor>>
+  /** 视口几何输入：轴高与密度系数；K 线宽度由导航的缩放级派生。 */
   readonly viewportGeometry$: ReadonlySignal<{
     bottomAxisHeight: number
-    kWidth: number
-    kGapRatio: number
+    gapRatio: number
   }>
   /** 分时交易时段槽位数（由当前品种 market 派生，供可见区间与布局共用） */
   readonly sessionSlots$: ReadonlySignal<number>
@@ -252,19 +261,14 @@ export class ChartStateKernel extends StateKernel {
     this.mode = createChartModel(this.settings.readonly.settings)
 
     // ── Zoom state ──
-    this.zoom = createZoomState({
-      minKWidth$: computed(() => this.options.readonly.options().minKWidth),
-      maxKWidth$: computed(() => this.options.readonly.options().maxKWidth),
-      dataView$: this.mode.readonly.dataView,
-      zoomLevelCount: Math.max(2, Math.round(this.options.readonly.options.peek().zoomLevelCount)),
-    })
-    this.zoom.actions.setZoomLevel(deps.initialZoomLevel)
-
-    this.zoomLevel$ = computed(() => this.zoom.readonly.zoomLevel())
+    this.zoomConfig$ = computed(() => ({
+      minKWidth: this.options.readonly.options().minKWidth,
+      maxKWidth: this.options.readonly.options().maxKWidth,
+      zoomLevelCount: Math.max(2, Math.round(this.options.readonly.options().zoomLevelCount)),
+    }))
     this.viewportGeometry$ = computed(() => ({
       bottomAxisHeight: this.options.readonly.options().bottomAxisHeight,
-      kWidth: this.zoom.readonly.kWidth(),
-      kGapRatio: resolveKLineGapRatio(this.settings.readonly.settings().klineDensity),
+      gapRatio: resolveKLineGapRatio(this.settings.readonly.settings().klineDensity),
     }))
 
     // ── Data state ──
@@ -277,7 +281,7 @@ export class ChartStateKernel extends StateKernel {
     this.dataLength$ = this.data.readonly.dataLength
 
     // ── Data manager state (coordination layer) ──
-    this.dataManager = createDataManagerState()
+    this.dataManager = createDataManagerState(computed(() => this.data.readonly.symbols()[0] ?? null))
     // computed() 立即求值一次，故须在 dataManager 创建之后定义
     const marketSession$ = computed(() => {
       if (!SCALE_X_STRATEGIES[this.mode.readonly.dataView()].requiresMarketSession) return null
@@ -301,9 +305,10 @@ export class ChartStateKernel extends StateKernel {
       data$: this.data.readonly.data,
       marketSession$,
       timeShareRange$: this.data.readonly.timeShareRange,
-      zoomLevel$: this.zoomLevel$,
-      timeShareSlotWidth$: this.zoom.readonly.timeShareSlotWidth,
+      zoom$: this.zoomConfig$,
+      initialZoomLevel: deps.initialZoomLevel,
     })
+    this.zoomLevel$ = computed(() => this.viewport.readonly.zoomLevel())
 
     // ── Pane state（从 initialOptions.panes 初始化，避免 layout 与 kernel 初始不一致）──
     this.pane = createPaneState()
@@ -385,8 +390,7 @@ export class ChartStateKernel extends StateKernel {
         start: number
         end: number
       } | null>,
-      scrollLeftLogical$: this.viewport.readonly
-        .scrollLeftLogical as unknown as ReadonlySignal<number>,
+      scroll$: this.viewport.readonly.scroll as unknown as ReadonlySignal<number>,
       dpr$: this.viewport.readonly.dpr as unknown as ReadonlySignal<number>,
       scheduleDraw: deps.scheduleDraw,
     })
@@ -394,8 +398,8 @@ export class ChartStateKernel extends StateKernel {
     // ── Flat signals bag for framework adapters ──
     this.signals = {
       // Zoom
-      zoomLevel: this.zoom.readonly.zoomLevel,
-      kWidth: this.zoom.readonly.kWidth,
+      zoomLevel: this.viewport.readonly.zoomLevel,
+      kWidth: computed(() => this.viewport.readonly.viewSnapshot().kWidth),
       kGap: this.viewport.readonly.kGap,
       // Data
       data: this.data.readonly.data,
@@ -408,7 +412,7 @@ export class ChartStateKernel extends StateKernel {
       viewport: this.viewport.readonly.viewport,
       viewportState: this.viewport.readonly.viewportState,
       visibleRange: this.viewport.readonly.visibleRange,
-      scrollLeftLogical: this.viewport.readonly.scrollLeftLogical,
+      scroll: this.viewport.readonly.scroll,
       // Pane
       paneRatios: this.pane.readonly.paneRatios,
       paneSpecs: this.pane.readonly.paneSpecs,
@@ -445,7 +449,7 @@ export class ChartStateKernel extends StateKernel {
 
     // ── Flat actions bag for framework adapters ──
     this.actions = {
-      setZoomLevel: (level: number) => this.zoom.actions.setZoomLevel(level),
+      setZoomLevel: (level: number) => this.viewport.actions.commitZoom(level),
       setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => {
         const snapshot = symbols.map((symbol) => ({ ...symbol }))
         const previous = this.data.readonly.symbols.peek()[0]
@@ -539,14 +543,6 @@ export class ChartStateKernel extends StateKernel {
       )
   }
 
-  setViewportDomDeps(deps: ViewportDomDeps): void {
-    this.viewport.setDomDeps(deps)
-  }
-
-  initViewport(): void {
-    this.viewport.actions.init()
-  }
-
   /** 返回两个视图工作区的用户配置快照，排除由 mode 管理的系统实例。 */
   snapshotViewWorkspaces(): LayoutWorkspaces {
     const indicatorWorkspaces = this.indicator.readonly.configurations.peek()
@@ -599,7 +595,7 @@ export class ChartStateKernel extends StateKernel {
       drawings: this.drawing.readonly.drawings.peek(),
       systemObjects: this.systemObjects.readonly.state.peek(),
       favoriteIndicatorIds: this.indicator.readonly.favoriteIndicatorIds.peek(),
-      viewport: this.dataManager.readonly.viewportSnapshots.peek(),
+      viewport: this.viewMemory.exportMap(),
     })
   }
 
@@ -622,7 +618,7 @@ export class ChartStateKernel extends StateKernel {
   }
 
   /** 布局和用户指标在一次 batch 中恢复，再重建当前视图的系统实例。 */
-  applyLayout(document: LayoutDocument): void {
+  applyLayout(document: LayoutDocument, dataView = this.mode.readonly.dataView.peek()): void {
     const stored = document.currentSymbol
     const symbol =
       stored === undefined
@@ -646,8 +642,7 @@ export class ChartStateKernel extends StateKernel {
         [],
       )
       this.systemObjects.actions.restore(document.systemObjects)
-      this.dataManager.actions.restoreViewportSnapshots(document.viewport ?? {})
-      this.actions.setDataView(this.mode.readonly.dataView.peek())
+      this.actions.setDataView(dataView)
     })
   }
 
@@ -692,7 +687,6 @@ export class ChartStateKernel extends StateKernel {
   dispose(): void {
     this.footprint.dispose()
     this.options.dispose()
-    this.zoom.dispose()
     this.data.dispose()
     this.viewport.dispose()
     this.pane.dispose()
@@ -702,7 +696,6 @@ export class ChartStateKernel extends StateKernel {
     this.drawing.dispose()
     this.systemObjects.dispose()
     this.interaction.dispose()
-    this.dataManager.dispose()
     this.comparison.dispose()
     this.indicator.dispose()
     this.renderer.dispose()

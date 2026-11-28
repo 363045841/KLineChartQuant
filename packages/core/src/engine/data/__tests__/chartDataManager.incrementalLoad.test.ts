@@ -1,7 +1,7 @@
 /** 覆盖加载契约：一次声明下界，数据层负责翻页、守卫、耗尽与序列切换。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { ChartDataManager } from '../chartDataManager'
+import type { TestChartDataManager } from './helpers/chartDataManagerTestKit'
 import {
   createTestChartDataManager,
   createTestDocument,
@@ -16,7 +16,7 @@ import {
 } from './helpers/chartDataManagerTestKit'
 
 describe('ChartDataManager coverage', () => {
-  let manager: ChartDataManager | null = null
+  let manager: TestChartDataManager | null = null
   let document: Document
 
   beforeEach(() => {
@@ -134,8 +134,9 @@ describe('ChartDataManager coverage', () => {
 
     const pending = manager.ensureCoverageFrom(start - 10 * MS_PER_DAY)
     await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2))
-    manager.setPrimaryMarket(makeTestSymbolSpec('sh.600000', { period: 'weekly' }))
+    const clearing = manager.setPrimaryMarket(null)
     release(makeBarsPage([makeKLine(start - MS_PER_DAY)], { olderData: 'exhausted' }))
+    await clearing
 
     await expect(pending).resolves.toBe('superseded')
   })
@@ -157,6 +158,7 @@ describe('ChartDataManager coverage', () => {
 
     harness.scrollTo(100)
     manager.checkVisibleRangeGap()
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(initialCalls + 1))
     await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
 
     expect(fetch.mock.calls.length).toBe(initialCalls + 1)

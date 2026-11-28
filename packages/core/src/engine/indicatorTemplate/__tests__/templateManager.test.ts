@@ -131,18 +131,18 @@ it('应用模板只替换指标与副图，商品与周期保持不变', async (
   const own = createManager()
   try {
     registerTestIndicator('MACD')
-    own.kernel.dataManager.actions.setCurrentSpec(
+    own.kernel.actions.setSymbols([
       makeSymbolSpec({ symbol: 'BTCUSDT', market: 'crypto', period: '4h' }),
-    )
+    ])
     addSubIndicator(own.kernel, 'MACD', { fast: 12, slow: 26 })
     await own.manager.initialize()
     const id = await own.manager.saveTemplate({ name: '加密' })
 
     // 换掉图上指标与品种，再应用模板：指标回来，品种不回来。
     own.kernel.indicator.actions.removeInstance('instance-MACD')
-    own.kernel.dataManager.actions.setCurrentSpec(
+    own.kernel.actions.setSymbols([
       makeSymbolSpec({ symbol: 'AAPL', market: 'us', period: '1d' }),
-    )
+    ])
     await own.manager.applyTemplate({ id })
 
     const spec = own.kernel.dataManager.readonly.currentSpec.peek()

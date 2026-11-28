@@ -25,7 +25,8 @@ import {
   type TimeShareSelection,
   type TradesSelection,
 } from '../../buffer/seriesSelection.js'
-import type { BarsCacheQuery, BarsCacheResult, KLineBuffer } from '../../buffer/types.js'
+import type { BarsCacheQuery, BarsCacheResult, CoverageResult, KLineBuffer } from '../../buffer/types.js'
+import { DEFAULT_BAR_PAGE_LIMIT } from '../../buffer/impl/marketDataPolicy.js'
 import type { MarketDataHealth } from '../../management/impl/health.js'
 import type { MarketDataProviderRegistry } from '../../provider/registry.js'
 import {
@@ -73,9 +74,9 @@ interface BarsEntry {
   instrument: SymbolSpec['instrument']
   ready: Promise<void>
   refs: number
+  liveRefs: number
   subscription: StreamSubscription | null
-  resyncing: boolean
-  queued: { bars: readonly KLineData[]; liveBarTime?: number; closedBarTime?: number }[]
+  catchUpOnOpen: boolean
   loadingOlder: Promise<'covered' | 'exhausted' | 'superseded'> | null
   disposed: boolean
 }
@@ -278,8 +279,11 @@ export function createMarketDataService(options: MarketDataServiceOptions): Mark
   /** 建立实时订阅；重连后先补历史，再按序重放期间收到的增量。 */
   function openStream(entry: BarsEntry, aggregation: BarAggregation): void {
     const { spec, selection, buffer } = entry
-    if (entry.subscription || !supportsLiveBars(spec)) return
+    if (entry.disposed || entry.liveRefs === 0 || entry.subscription || !supportsLiveBars(spec)) return
     const { period, adjustment } = selection
+    let reconciling = entry.catchUpOnOpen
+    let catchingUp = false
+    const queued: { bars: readonly KLineData[]; liveBarTime?: number; closedBarTime?: number }[] = []
     const subscription = options.stream.subscribe({
       source: spec.instrument.source,
       channel: 'bars',
@@ -301,8 +305,8 @@ export function createMarketDataService(options: MarketDataServiceOptions): Mark
       closedBarTime?: number,
     ): void => {
       if (!current() || incoming.length === 0) return
-      if (entry.resyncing) {
-        entry.queued.push({ bars: incoming, liveBarTime, closedBarTime })
+      if (reconciling) {
+        queued.push({ bars: incoming, liveBarTime, closedBarTime })
         return
       }
       const before = buffer.data.peek()
@@ -311,34 +315,56 @@ export function createMarketDataService(options: MarketDataServiceOptions): Mark
       if (result.rejected.length === 0) buffer.setError(null)
     }
 
-    /** 重连补偿：重拉当前窗口，成功后重放积压增量。 */
+    /** 连接交接时补到旧尾部，再按顺序合并实时帧。 */
     const resync = async (): Promise<void> => {
-      if (entry.resyncing) return
-      entry.resyncing = true
+      if (catchingUp) return
+      catchingUp = true
+      reconciling = true
       try {
-        const size = Math.max(buffer.getRawData().length, entry.initialBars)
+        const previous = buffer.getRawData()
+        const previousTail = previous.at(-1)?.timestamp
         const page = await refreshPage({
           spec,
           aggregation,
-          limit: size,
+          limit: entry.initialBars,
           signal: entry.controller.signal,
         })
         if (!current()) return
+        let oldest = page
+        const pages = [page.data]
+        while (previousTail !== undefined && oldest.data[0] && oldest.data[0].timestamp > previousTail) {
+          const cursor = oldest.data[0].timestamp
+          if (oldest.older === OLDER_DATA_STATUS.EXHAUSTED) throw new Error('历史与实时数据无法衔接')
+          oldest = await readPage({ spec, aggregation, limit: entry.initialBars, beforeTimestamp: cursor, signal: entry.controller.signal })
+          if (!current()) return
+          if (!oldest.data[0] || oldest.data[0].timestamp >= cursor) throw new Error('历史分页未覆盖实时缺口')
+          pages.push(oldest.data)
+        }
         entry.instrument = page.instrument
         const before = buffer.data.peek()
-        buffer.replace(page.data, page.older, page.timezone)
+        const refreshed = pages.reverse().flat()
+        const first = refreshed[0]
+        if (!first && previousTail !== undefined) throw new Error('实时交接未返回历史数据')
+        if (first) {
+          const prefix = buffer.getRawData().filter((bar) => bar.timestamp < first.timestamp)
+          buffer.replace([...prefix, ...refreshed], prefix.length ? buffer.olderData : oldest.older, page.timezone)
+        }
         publishBars(entry, before)
+        reconciling = false
+        for (const frame of queued.splice(0)) write(frame.bars, frame.liveBarTime, frame.closedBarTime)
       } catch (error) {
         if (current()) buffer.setError(error instanceof Error ? error.message : String(error))
+        queued.length = 0
       } finally {
-        entry.resyncing = false
+        catchingUp = false
       }
-      for (const frame of entry.queued.splice(0))
-        write(frame.bars, frame.liveBarTime, frame.closedBarTime)
     }
 
     subscription.onFrame((frame) => {
       if (!current()) return
+      if (reconciling && !catchingUp && (frame.type === 'snapshot' || frame.type === 'bar')) {
+        void resync()
+      }
       if (frame.type === 'snapshot') {
         write(frame.bars)
         return
@@ -359,7 +385,7 @@ export function createMarketDataService(options: MarketDataServiceOptions): Mark
       if (!current()) return
       if (event.kind === 'opened') {
         buffer.setError(null)
-        if (event.reconnected) void resync()
+        if (event.reconnected || entry.catchUpOnOpen) void resync()
         return
       }
       if (event.kind === 'lost') buffer.setError(`实时连接中断：${event.reason}`)
@@ -453,9 +479,9 @@ export function createMarketDataService(options: MarketDataServiceOptions): Mark
       initialBars: opts.initialBars,
       ready: Promise.resolve(),
       refs: 0,
+      liveRefs: 0,
       subscription: null,
-      resyncing: false,
-      queued: [],
+      catchUpOnOpen: false,
       loadingOlder: null,
       disposed: false,
     }
@@ -483,7 +509,6 @@ export function createMarketDataService(options: MarketDataServiceOptions): Mark
       }
     })()
 
-    openStream(entry, opts.aggregation)
     return entry
   }
 
@@ -502,7 +527,40 @@ export function createMarketDataService(options: MarketDataServiceOptions): Mark
     const { buffer } = entry
     const registry = options.registry
     let released = false
+    let live = false
+    let coverageTarget = Infinity
+    let coverage: Promise<CoverageResult> | null = null
+    async function loadCoverage(): Promise<CoverageResult> {
+      await entry.ready
+      while (!released) {
+        const range = buffer.loadedTimeRange
+        if (range && range.earliestTs <= coverageTarget) return 'covered'
+        const result = await loadOlder(entry, DEFAULT_BAR_PAGE_LIMIT)
+        if (released) return 'superseded'
+        if (result !== 'covered') return result
+      }
+      return 'superseded'
+    }
+    function startLive(): void {
+      if (released || live) return
+      live = true
+      entry.liveRefs++
+      if (opts.deferLive) entry.catchUpOnOpen = true
+      void entry.ready.then(() => openStream(entry, selection.barAggregation))
+    }
+    if (!opts.deferLive) startLive()
     return {
+      initialHistory: entry.ready,
+      startLive,
+      ensureCoverageFrom(fromTime) {
+        if (Number.isNaN(fromTime)) throw new TypeError('Coverage needs a valid lower bound')
+        coverageTarget = Math.min(coverageTarget, fromTime)
+        coverage ??= loadCoverage().finally(() => {
+          coverageTarget = Infinity
+          coverage = null
+        })
+        return coverage
+      },
       data: buffer.data,
       loading: buffer.loading,
       lastError: buffer.lastError,
@@ -526,6 +584,10 @@ export function createMarketDataService(options: MarketDataServiceOptions): Mark
       dispose() {
         if (released) return
         released = true
+        if (live && --entry.liveRefs === 0) {
+          entry.subscription?.close()
+          entry.subscription = null
+        }
         releaseBars(entry)
       },
     }
@@ -685,7 +747,9 @@ export function createMarketDataService(options: MarketDataServiceOptions): Mark
 
   const reconcileStreams = () => {
     for (const entry of bars.values()) {
-      if (supportsLiveBars(entry.spec)) openStream(entry, entry.selection.barAggregation)
+      if (supportsLiveBars(entry.spec)) {
+        void entry.ready.then(() => openStream(entry, entry.selection.barAggregation))
+      }
       else if (entry.subscription) {
         entry.subscription.close()
         entry.subscription = null

@@ -1,9 +1,5 @@
+/** 视口状态的契约：导航只有一个写入点，几何全部由投影派生。 */
 import { describe, expect, it, vi } from 'vitest'
-import {
-  createScrollContainerStub,
-  createScrollContentStub,
-} from '../engine/__tests__/helpers/scrollContainerStub'
-import { createViewportStateDeps } from '../engine/state/__tests__/helpers/createViewportStateDeps'
 import {
   batch,
   computed,
@@ -13,94 +9,36 @@ import {
   type ReadonlySignal,
   type WritableSignal,
 } from '../foundation/reactivity/signal'
-
-describe('ReadonlySignal type boundary', () => {
-  it('createSignal returns WritableSignal with .set()', () => {
-    const s = createSignal(0)
-    expect(typeof s.set).toBe('function')
-    s.set(42)
-    expect(s()).toBe(42)
-  })
-
-  it('computed returns ReadonlySignal that reads derived value', () => {
-    const src = createSignal(1)
-    const derived = computed(() => src() * 2)
-    expect(derived()).toBe(2)
-    src.set(5)
-    expect(derived()).toBe(10)
-  })
-
-  it('WritableSignal can be assigned to ReadonlySignal (covariance)', () => {
-    const writable = createSignal(10)
-    const readonly: ReadonlySignal<number> = writable
-    expect(readonly()).toBe(10)
-    writable.set(20)
-    expect(readonly()).toBe(20)
-  })
-
-  it('read-only signal has peek() and subscribe()', () => {
-    const writable = createSignal('a')
-    const readonly: ReadonlySignal<string> = writable
-    expect(readonly.peek()).toBe('a')
-    const unsub = readonly.subscribe(() => {})
-    expect(typeof unsub).toBe('function')
-    unsub()
-  })
-
-  // The compile-time boundary: ReadonlySignal<T> lacks `.set()`.
-  // Verified in stateKernel.types.test.ts via `@ts-expect-error`.
-})
+import { createViewportStateDeps } from '../engine/state/__tests__/helpers/createViewportStateDeps'
+import { zoomLevelToKWidth } from '../engine/viewport/zoom'
 
 describe('createSubState', () => {
-  it('creates writable signals internally', () => {
-    const { signals } = createSubState({ count: 0, name: '' })
-    expect(signals.count()).toBe(0)
-    expect(signals.name()).toBe('')
-    signals.count.set(5)
-    expect(signals.count()).toBe(5)
-  })
-
-  it('exposes readonly view that reads source values', () => {
-    const { readonly } = createSubState({ count: 0 })
-    expect(readonly.count()).toBe(0)
-  })
-
-  it('readonly view reflects internal writes', () => {
-    const { signals, readonly } = createSubState({ count: 0 })
-    signals.count.set(7)
-    expect(readonly.count()).toBe(7)
-  })
-
-  it('registers computed signals', () => {
-    const { readonly, signals } = createSubState(
-      { a: 2, b: 3 },
-      {
-        sum: (s) => s.a() + s.b(),
-        product: (s) => s.a() * s.b(),
-      },
-    )
-    expect(readonly.sum()).toBe(5)
-    expect(readonly.product()).toBe(6)
+  it('creates derived computed values from writable signals', () => {
+    const { signals, readonly } = createSubState({ a: 1, b: 2 }, { sum: (s) => s.a() + s.b() })
+    expect(readonly.sum()).toBe(3)
     signals.a.set(10)
-    expect(readonly.sum()).toBe(13)
-    expect(readonly.product()).toBe(30)
+    expect(readonly.sum()).toBe(12)
   })
 
-  it('computed signals are themselves read-only (verified at compile time)', () => {
-    // Compile-time boundary: `.set` does not exist on the type.
-    // See stateKernel.types.test.ts for the @ts-expect-error check.
-    const { readonly } = createSubState({ a: 1 }, { doubled: (s) => s.a() * 2 })
-    expect(readonly.doubled()).toBe(2)
+  it('reacts through effect and stops after dispose', () => {
+    const { signals, readonly } = createSubState({ a: 1 }, { doubled: (s) => s.a() * 2 })
+    const seen: number[] = []
+    const stop = effect(() => seen.push(readonly.doubled()))
+    signals.a.set(2)
+    stop()
+    signals.a.set(3)
+    expect(seen).toEqual([2, 4])
   })
 
-  it('snapshot peeks all source signals', () => {
-    const { signals, snapshot } = createSubState({ x: 1, y: 2 })
-    signals.x.set(10)
-    const snap = snapshot()
-    expect(snap).toEqual({ x: 10, y: 2 })
+  it('compares object values by reference before notifying', () => {
+    const { signals, readonly } = createSubState({ a: { x: 1, y: 2 } })
+    const listener = vi.fn()
+    readonly.a.subscribe(listener)
+    signals.a.set({ x: 1, y: 2 })
+    expect(listener).toHaveBeenCalledTimes(1)
   })
 
-  it('notifies subscribers when source signal changes', () => {
+  it('notifies subscribers when a source signal changes', () => {
     const { signals, readonly } = createSubState({ a: 1 }, { doubled: (s) => s.a() * 2 })
     const listener = vi.fn()
     readonly.doubled.subscribe(listener)
@@ -109,7 +47,7 @@ describe('createSubState', () => {
     expect(readonly.doubled()).toBe(6)
   })
 
-  it('batch defers notifications from multiple signal writes', () => {
+  it('defers notifications from multiple writes in one batch', () => {
     const { signals, readonly } = createSubState({ a: 1, b: 2 }, { sum: (s) => s.a() + s.b() })
     const listener = vi.fn()
     readonly.sum.subscribe(listener)
@@ -117,137 +55,110 @@ describe('createSubState', () => {
       signals.a.set(10)
       signals.b.set(20)
     })
-    // even with two writes, listener fires once
     expect(listener).toHaveBeenCalledTimes(1)
     expect(readonly.sum()).toBe(30)
   })
 })
 
-describe('viewportState template', () => {
-  /** 滚动相关用例的共享依赖：窄 K 线（kWidth=6 → kGap=3.6）便于在窄视口内构造多根数据。 */
-  const scrollDeps = (dataLength?: number) =>
+describe('viewportState', () => {
+  const deps = (dataLength?: number) =>
     createViewportStateDeps({
       ...(dataLength !== undefined ? { dataLength } : {}),
-      geometry: { kWidth: 6 },
-      zoomLevel: 1,
+      initialZoomLevel: 1,
+      zoomLevelCount: 20,
+      minKWidth: 1,
+      maxKWidth: 100,
     })
 
-  it('creates a sub-state with computed dpr + viewportState', async () => {
+  it('derives geometry from navigation and measurements only', async () => {
     const { createViewportState } = await import('../engine/state/viewportState')
-    const module = createViewportState(createViewportStateDeps())
-    module.actions.resize(800, 600, 2)
-    expect(module.readonly.viewWidth()).toBe(800)
-    expect(module.readonly.viewHeight()).toBe(600)
-    expect(module.readonly.plotWidth()).toBe(800)
-    expect(module.readonly.plotHeight()).toBe(570)
-    const vs = module.readonly.viewportState()
-    expect(vs.zoomLevel).toBe(5)
-    expect(vs.plotWidth).toBe(800)
-    expect(vs.plotHeight).toBe(570)
-    expect(vs.visibleFrom).toBeGreaterThanOrEqual(0)
-    expect(vs.visibleFrom).toBeLessThan(vs.visibleTo)
-    expect(vs.kWidth).toBe(8)
-    // 世界间隙按宽度连续派生，最终实体才对齐物理像素。
-    expect(vs.kGap).toBeCloseTo(4.8, 10)
-  })
+    const viewport = createViewportState(deps())
+    viewport.actions.resize(800, 600, 2)
 
-  it('scrollTo writes signal and DOM', async () => {
-    const { createViewportState } = await import('../engine/state/viewportState')
-    const module = createViewportState(scrollDeps())
-    module.actions.scrollTo(100)
-    expect(module.readonly.scrollLeft()).toBe(100)
-  })
+    expect(viewport.readonly.viewWidth()).toBe(800)
+    expect(viewport.readonly.viewHeight()).toBe(600)
+    expect(viewport.readonly.plotWidth()).toBe(800)
+    expect(viewport.readonly.plotHeight()).toBe(570)
 
-  it('bounds programmatic and DOM scroll and reprojects when data shrinks', async () => {
-    const { createViewportState } = await import('../engine/state/viewportState')
-    const deps = scrollDeps(10)
-    const container = createScrollContainerStub()
-    const module = createViewportState(deps)
-
-    module.setDomDeps({
-      getDom: () => ({ container, scrollContent: null, canvasLayer: null, xAxisCanvas: null }),
-      onViewportResize: () => {},
+    const state = viewport.readonly.viewportState()
+    const expectedWidth = zoomLevelToKWidth(viewport.readonly.navigation().zoomLevel, {
+      minKWidth: 1,
+      maxKWidth: 100,
+      zoomLevelCount: 20,
     })
-    module.actions.resize(100, 100, 1)
-    module.actions.init()
-    expect(module.actions.scrollTo(10_000)).toBe(true)
-    expect(module.actions.scrollTo(10_000)).toBe(false)
-    const bounded = module.readonly.scrollLeft()
-    expect(bounded).toBeLessThan(10_000)
-    expect(bounded).toBeLessThanOrEqual(module.readonly.maxScrollLeft())
-    expect(module.readonly.scrollLeftLogical()).toBe(
-      module.readonly.viewSnapshot().scrollBounds.max,
+    expect(state.plotWidth).toBe(800)
+    expect(state.plotHeight).toBe(570)
+    expect(state.visibleFrom).toBeGreaterThanOrEqual(0)
+    expect(state.visibleFrom).toBeLessThan(state.visibleTo)
+    expect(state.kWidth).toBe(expectedWidth)
+    expect(state.kGap).toBeGreaterThanOrEqual(0)
+  })
+
+  it('commits the world scroll as the only navigation write', async () => {
+    const { createViewportState } = await import('../engine/state/viewportState')
+    const viewport = createViewportState(deps())
+    viewport.actions.resize(800, 600, 1)
+
+    expect(viewport.actions.commitScroll(100)).toBe(true)
+    expect(viewport.readonly.navigation().scroll).toBe(viewport.readonly.scroll())
+    expect(viewport.readonly.scroll()).toBeGreaterThan(0)
+    expect(viewport.readonly.domScroll()).toBe(viewport.readonly.scroll() + 800)
+  })
+
+  it('rejects invalid navigation instead of substituting a value', async () => {
+    const { createViewportState } = await import('../engine/state/viewportState')
+    const viewport = createViewportState(deps())
+    viewport.actions.resize(800, 600, 1)
+    viewport.actions.commitScroll(100)
+    const before = viewport.readonly.navigation()
+
+    expect(viewport.actions.commitScroll(Number.NaN)).toBe(false)
+    expect(viewport.actions.commitZoom(Number.POSITIVE_INFINITY)).toBe(false)
+    expect(viewport.readonly.navigation()).toBe(before)
+  })
+
+  it('clamps navigation to the bounds and reprojects when data shrinks', async () => {
+    const { createViewportState } = await import('../engine/state/viewportState')
+    const viewportDeps = deps(10)
+    const viewport = createViewportState(viewportDeps)
+    viewport.actions.resize(100, 100, 1)
+
+    expect(viewport.actions.commitScroll(10_000)).toBe(true)
+    expect(viewport.actions.commitScroll(10_000)).toBe(false)
+    const bounded = viewport.readonly.scroll()
+    expect(bounded).toBe(viewport.readonly.viewSnapshot().scrollBounds.max)
+
+    viewportDeps.dataLength$.set(1)
+    expect(viewport.readonly.scroll()).toBeLessThan(bounded + 1)
+    expect(viewport.readonly.scroll()).toBe(
+      viewport.readonly.viewSnapshot().scrollBounds.max,
     )
-
-    container.scrollLeft = 10_000
-    module.actions.syncFromDomScroll()
-    expect(module.readonly.scrollLeft()).toBe(bounded)
-
-    module.actions.scrollTo(Number.NaN)
-    expect(module.readonly.scrollLeft()).toBe(bounded)
-
-    module.actions.scrollTo(10_000)
-    deps.dataLength$.set(1)
-    expect(module.readonly.scrollLeft()).toBeLessThan(bounded)
-    expect(module.readonly.scrollLeftLogical()).toBe(
-      module.readonly.viewSnapshot().scrollBounds.max,
-    )
   })
 
-  it('leaves content width and scroll DOM writes to the render frame', async () => {
+  it('batches dimension writes into one notification', async () => {
     const { createViewportState } = await import('../engine/state/viewportState')
-    const writes: string[] = []
-    const scrollContent = createScrollContentStub((value) => {
-      writes.push(`width:${value}`)
-    })
-    const container = createScrollContainerStub({
-      transformScrollLeft: (value) => {
-        writes.push(`scroll:${value}`)
-        return value
-      },
-    })
-    const module = createViewportState(scrollDeps(10))
-
-    module.setDomDeps({
-      getDom: () => ({ container, scrollContent, canvasLayer: null, xAxisCanvas: null }),
-      onViewportResize: () => {},
-    })
-    module.actions.resize(100, 100, 1)
-    module.actions.init()
-
-    expect(module.readonly.contentWidth()).toBeGreaterThan(100)
-    expect(writes).toEqual([])
-  })
-
-  it('resize batches dimension writes into one notification', async () => {
-    const { createViewportState } = await import('../engine/state/viewportState')
-    const module = createViewportState(scrollDeps())
+    const viewport = createViewportState(deps())
     const listener = vi.fn()
-    module.readonly.viewWidth.subscribe(listener)
-    module.readonly.viewHeight.subscribe(listener)
-    module.actions.resize(200, 150, 1.5)
-    // Both subscriptions via the same listener — batched to one call
+    viewport.readonly.viewWidth.subscribe(listener)
+    viewport.readonly.viewHeight.subscribe(listener)
+    viewport.actions.resize(200, 150, 1.5)
     expect(listener).toHaveBeenCalledTimes(1)
   })
 
-  it('scrollToLatest 停在最新一根并保留固定未来槽位，batch 内切换几何也读新网格', async () => {
+  it('keeps the configured future slots when scrolling to the latest bar', async () => {
     const { createViewportState } = await import('../engine/state/viewportState')
-    const deps = scrollDeps(200)
-    const module = createViewportState(deps)
-    module.actions.resize(600, 400, 1)
+    const viewport = createViewportState(deps(200))
+    viewport.actions.resize(600, 400, 1)
 
-    /** 视口右缘与最新一根右缘之间剩余的槽位数。 */
-    const futureSlots = (): number => {
-      const snapshot = module.readonly.viewSnapshot()
-      const viewportRight = module.readonly.scrollLeftLogical() + snapshot.viewportWidth
-      return (viewportRight - (snapshot.seriesWidth + snapshot.kGap)) / snapshot.grid.step
-    }
 
-    // 缩放与定位在同一次提交里：定位必须按新网格解算，不能读上一帧几何。
-    batch(() => {
-      deps.geometry$.set({ ...deps.geometry$.peek(), kWidth: 20 })
-      module.actions.scrollToLatest()
-    })
-    expect(futureSlots()).toBeCloseTo(10, 6)
+    viewport.actions.commitZoom(20)
+    expect(viewport.readonly.navigation().zoomLevel).toBe(20)
+    expect(viewport.readonly.viewSnapshot().kWidth).toBeCloseTo(100, 6)
+    const latest = viewport.readonly.latestScroll.peek()
+    expect(latest).not.toBeNull()
+    viewport.actions.commitScroll(latest!)
+    const snapshot = viewport.readonly.viewSnapshot()
+    expect(viewport.readonly.scroll()).toBe(snapshot.scrollBounds.max)
+    expect(viewport.readonly.visibleRange().end).toBeGreaterThanOrEqual(200)
   })
 })

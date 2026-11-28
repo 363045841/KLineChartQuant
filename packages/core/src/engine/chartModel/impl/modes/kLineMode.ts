@@ -2,8 +2,6 @@
 import type { ChartDataManager } from '../../../data/chartDataManager.js'
 import { getVisiblePriceRange, type VisibleRange } from '../../../viewport/viewport.js'
 import type {
-  ChartModeActivationContext,
-  ChartModeChartContext,
   ChartModeHandler,
   PaneAutoPriceRange,
 } from './types.js'
@@ -38,7 +36,4 @@ export class KLineMode implements ChartModeHandler {
     }
   }
 
-  onActivate(_chart: ChartModeActivationContext, _prev: ChartModeHandler | null): void {}
-
-  onDeactivate(_chart: ChartModeChartContext, _next: ChartModeHandler | null): void {}
 }

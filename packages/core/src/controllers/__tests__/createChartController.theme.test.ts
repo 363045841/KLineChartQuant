@@ -156,7 +156,7 @@ describe('createChartController mount theme', () => {
     expect(second.agent.getContext()).toMatchObject({ symbol: 'B' })
     first.setTheme('light')
 
-    first.setPrimaryMarket({ instrument: secondInstrument, period: 'daily' })
+    await first.setPrimaryMarket({ instrument: secondInstrument, period: 'daily' })
     await vi.waitFor(() => expect(first.getData()).toHaveLength(30))
     const afterData = first.agent.getContext()
     expect(afterData.symbol).toBe('B')

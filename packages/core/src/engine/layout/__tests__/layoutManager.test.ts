@@ -567,13 +567,13 @@ it('当前品种的完整路由、周期和复权随布局落盘，重新打开�
   }
   const first = createManager()
   await first.manager.initialize()
-  first.kernel.dataManager.actions.setCurrentSpec(symbol)
+  first.kernel.actions.setSymbols([symbol])
   const snapshot = first.kernel.exportLayout()
   expect(snapshot.currentSymbol).toEqual(symbol)
   expect(snapshot.currentSymbol).not.toBe(symbol)
   const id = await first.manager.saveLayout({ name: 'Apple 日线' })
   // 品种切换也会触发自动保存；这里直接调用调度入口以隔离行情网络请求。
-  first.kernel.dataManager.actions.setCurrentSpec({ ...symbol, period: '60min', adjust: 'none' })
+  first.kernel.actions.setSymbols([{ ...symbol, period: '60min', adjust: 'none' }])
   first.manager.scheduleAutoSave()
   expect(first.manager.layoutDirty.peek()).toBe(true)
   await first.manager.dispose()
@@ -599,22 +599,25 @@ it('当前品种的完整路由、周期和复权随布局落盘，重新打开�
   }
 })
 
-it('视口快照随布局文档持久化，切换到该布局时恢复', async () => {
+it('视口快照随布局文档归档', async () => {
   const { kernel, manager } = createManager()
+  const storage = createRawLayoutStorage()
   try {
     await manager.initialize()
     const key = 'US:AAPL:daily:none:Kline'
-    const snapshot = { anchorTimestamp: 1_700_000_000_000, anchorOffsetSlots: 24, zoomLevel: 9 }
-    kernel.dataManager.actions.saveViewportSnapshot(key, snapshot)
+    const snapshot = { fromTime: 1_700_000_000_000, toTime: 1_700_086_400_000 }
+    kernel.viewMemory.importMap({ [key]: snapshot })
     const id = await manager.saveLayout({ name: '带视口' })
     expect(manager.exportLayout().viewport).toEqual({ [key]: snapshot })
 
-    // 模拟切换前视口内存态已被清空，切回该布局应从文档恢复。
-    kernel.dataManager.actions.restoreViewportSnapshots({})
-    await manager.switchLayout({ id })
-    expect(kernel.dataManager.readonly.viewportSnapshots.peek()).toEqual({ [key]: snapshot })
+    // 归档里保存的是同一份视图；应用到图表由 Chart.applyLayout 负责。
+    const archive = (await storage.read()) as {
+      documents: Record<string, { viewport?: Record<string, unknown> }>
+    }
+    expect(archive.documents[id]?.viewport).toEqual({ [key]: snapshot })
   } finally {
     await manager.dispose()
+    await storage.dispose()
     kernel.dispose()
   }
 })

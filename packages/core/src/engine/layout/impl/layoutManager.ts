@@ -92,7 +92,8 @@ export class LayoutManager implements LayoutApi {
   constructor(
     private readonly dependencies: {
       exportLayout(): LayoutDocument
-      applyLayout(document: LayoutDocument): void
+      applyLayout(document: LayoutDocument): void | Promise<void>
+      captureCurrentView?(): void
       createLayout(): LayoutDocument
       /** 布局或分区的异步恢复内容；例如图表区间恢复。 */
       loadContent?(document: LayoutDocument): Promise<void>
@@ -224,15 +225,15 @@ export class LayoutManager implements LayoutApi {
   /** 把文档恢复到图表；用于恢复或重载，文档由调用方或索引提供。 */
   async applyLayout(input: LayoutDocument): Promise<void> {
     const document = migrateLayoutDrawingLabels(input)
-    this.applySnapshot(document)
+    await this.applySnapshot(document)
     await this.dependencies.loadContent?.(document)
   }
 
   /** 同步恢复配置；恢复期间屏蔽状态通知，避免触发自动保存。 */
-  private applySnapshot(document: LayoutDocument): void {
+  private async applySnapshot(document: LayoutDocument): Promise<void> {
     this.applying = true
     try {
-      this.dependencies.applyLayout(structuredClone(document))
+      await this.dependencies.applyLayout(structuredClone(document))
     } finally {
       this.applying = false
     }
@@ -268,7 +269,7 @@ export class LayoutManager implements LayoutApi {
     } else if (stored) {
       const active = this.archive.documents[this.archive.activeId] ?? fallback
       // 关闭恢复时，只把归档载入但不回填图表，否则用户手动切换前会被覆盖。
-      if (this.options.restore !== false) this.applySnapshot(active)
+      if (this.options.restore !== false) await this.applySnapshot(active)
       this.archive = { ...this.archive, activeId: active.id }
     }
     this.loaded = true
@@ -341,6 +342,7 @@ export class LayoutManager implements LayoutApi {
     clearTimeout(this.timer)
     this.timer = undefined
     if (!this.dirtySignal.peek()) return
+    this.dependencies.captureCurrentView?.()
     const snapshot = this.exportLayout()
     const targetId = this.archive.activeId
     await this.updateArchive((current) => {
@@ -373,6 +375,7 @@ export class LayoutManager implements LayoutApi {
       await this.load()
       const id = input.id ?? crypto.randomUUID()
       const name = requireName(input.name)
+      this.dependencies.captureCurrentView?.()
       const snapshot = this.exportLayout()
       await this.updateArchive((current) => {
         if (input.id && !current.documents[input.id]) throw new Error('布局不存在')
@@ -395,14 +398,14 @@ export class LayoutManager implements LayoutApi {
       clearTimeout(this.timer)
       const previous = this.exportLayout()
       const next = this.requireDocument(input.id)
+      await this.applySnapshot(next)
       try {
-        this.applySnapshot(next)
         await this.updateArchive((current) => {
           if (!current.documents[input.id]) throw new Error('布局不存在')
           return { ...current, activeId: input.id }
         })
       } catch (error) {
-        this.applySnapshot(previous)
+        await this.applySnapshot(previous)
         throw error
       }
       this.markClean()
@@ -472,7 +475,7 @@ export class LayoutManager implements LayoutApi {
         documents: { ...current.documents, [id]: document },
         activeId: id,
       }))
-      this.applySnapshot(document)
+      await this.applySnapshot(document)
       this.markClean()
       await this.dependencies.loadContent?.(document)
       return id

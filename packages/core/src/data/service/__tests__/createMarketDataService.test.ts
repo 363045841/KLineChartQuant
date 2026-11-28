@@ -45,6 +45,25 @@ async function setup(): Promise<{
 }
 
 describe('market data service', () => {
+  it('keeps the realtime subscription closed until a prepared chart lease starts it', async () => {
+    const { context, service } = startService()
+    const bar = { timestamp: 1, open: 1, high: 2, low: 1, close: 1 }
+    const fixture = createDataSourceFixture([bar])
+    context.registerDataSource(fixture.source)
+    const instrument = await context.resolveInstrument('test', 'A')
+    const series = service.bars({ instrument, period: 'daily', adjust: 'none' }, {
+      aggregation: 'original', initialBars: 1, deferLive: true,
+    })
+
+    await series.initialHistory
+    expect(series.getRawData()).toEqual([bar])
+    expect(fixture.streams.size).toBe(0)
+
+    series.startLive()
+    await vi.waitFor(() => expect(fixture.streams.size).toBe(1))
+    series.dispose()
+  })
+
   it('publishes upstream close timestamps and exposes live revisions through historical queries', async () => {
     const { context, service } = startService()
     const bars = [1, 2].map((timestamp) => ({ timestamp, open: 1, high: 2, low: 1, close: 1 }))

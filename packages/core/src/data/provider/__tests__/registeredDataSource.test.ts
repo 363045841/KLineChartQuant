@@ -109,11 +109,10 @@ describe('registered data source', () => {
     try {
       await harness.select('A')
       const stream = harness.stream()
-      const fetches = fixture.requests.length
-      const updated = { ...bars[2]!, close: bars[2]!.close + 1, high: bars[2]!.high + 1 }
-      stream.onFrame(harness.frame(updated))
-      expect(manager.getData()).toHaveLength(3)
-      expect(manager.getData()[2]?.close).toBe(updated.close)
+        const updated = { ...bars[2]!, close: bars[2]!.close + 1, high: bars[2]!.high + 1 }
+        stream.onFrame(harness.frame(updated))
+        await vi.waitFor(() => expect(manager.getData()[2]?.close).toBe(updated.close))
+        const fetches = fixture.requests.length
 
       stream.onFrame(harness.frame({ ...updated, timestamp: 400 }))
       expect(manager.getData()).toHaveLength(4)

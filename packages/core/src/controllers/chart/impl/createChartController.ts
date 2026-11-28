@@ -24,7 +24,7 @@ import {
   createUnwiredScripts,
 } from '@/features/agent/index.js'
 import { normalizeSettings } from '@/foundation/config/chartSettings.js'
-import { batch, computed, type ReadonlySignal } from '@/foundation/reactivity/index.js'
+import { computed, type ReadonlySignal } from '@/foundation/reactivity/index.js'
 import { createDefaultRendererHost, type RendererBackend } from '@/rendering/render/index.js'
 import { createIndicatorCatalog } from '../../indicatorCatalog/index.js'
 import type {
@@ -179,39 +179,37 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const dataMethods = createDataMethods(chart, isDisposed)
   const drawingMethods = createDrawingMethods(chart, isDisposed)
   const chartMethods = createChartMethods(chart, runtime.definitions, isDisposed)
+  let mountSymbol = opts.symbols?.[0]
   const layoutManager = new LayoutManager(
     {
-      // 导出前先捕获当前视口，使活动布局的滚动/缩放位置一并落盘。
-      exportLayout: () => {
-        chart.captureViewportSnapshot()
-        return chart.kernel.exportLayout()
-      },
-      createLayout: () => chart.kernel.createLayout(),
+      exportLayout: () => chart.exportLayout(),
+      captureCurrentView: () => chart.captureCurrentView(),
+      createLayout: () => chart.createLayout(),
       loadContent: (document) => runtime.definitions.load(collectLayoutIndicatorIds(document)),
-      applyLayout: (document) => {
+      applyLayout: async (document) => {
         if (isDisposed()) throw new Error('图表已销毁')
-        batch(() => {
-          if (document.currentSymbol !== undefined) {
-            dataMethods.methods.setPrimaryMarket(document.currentSymbol ?? null)
-          }
-          // 品种切换清理旧范围后，再恢复布局中的锁定范围。
-          chart.kernel.applyLayout(document)
-        })
+        const initialSymbol = mountSymbol
+        mountSymbol = undefined
+        await chart.applyLayout(initialSymbol ? { ...document, currentSymbol: initialSymbol } : document)
         chart.drawingCommands.history.reset()
-        chart.scheduleDraw()
       },
     },
     { restore: opts.layoutRestore !== false, storageId: opts.layoutStorageId },
   )
   await layoutManager.initialize()
+  if (mountSymbol) {
+    const initialSymbol = mountSymbol
+    mountSymbol = undefined
+    await chart.setPrimaryMarket(initialSymbol)
+  }
+  if (opts.symbols && opts.symbols.length > 1) chart.setComparisonSpecs(opts.symbols)
 
   // 指标模板与布局分开存储：模板描述「用了哪些指标」，布局描述整张图表的快照。
   const templateManager = new IndicatorTemplateManager({
     extractIndicators: () => extractTemplate(chart.kernel.snapshotViewWorkspaces()),
     applyIndicators: (workspaces) => {
       if (isDisposed()) throw new Error('图表已销毁')
-      chart.kernel.applyIndicatorTemplate(workspaces)
-      chart.scheduleDraw()
+      chart.applyIndicatorTemplate(workspaces)
     },
     userIndicatorConfigurations: chart.kernel.indicator.readonly.configurations,
     loadIndicators: (indicatorIds) => runtime.definitions.load(indicatorIds),
@@ -220,11 +218,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   await templateManager.initialize().catch((error: unknown) => {
     console.error('[ChartController] Indicator template initialization failed', error)
   })
-  // 显式品种优先于恢复布局，所有行情统一通过 Provider 加载。
-  if (opts.symbols && opts.symbols.length > 0) {
-    chart.setPrimaryMarket(opts.symbols[0] ?? null)
-    if (opts.symbols.length > 1) chart.setComparisonSpecs(opts.symbols)
-  }
   const layoutSubscriptions = [
     ...[
       chart.kernel.dataManager.readonly.currentSpec,
@@ -235,12 +228,10 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
       chart.kernel.drawing.readonly.drawings,
       chart.kernel.systemObjects.readonly.state,
     ].map((signal) => signal.subscribe(() => layoutManager.scheduleAutoSave())),
-    // 滚动与缩放逐帧变化：静止后再比较一次，避免每帧导出并序列化布局。
-    ...[
-      chart.kernel.viewport.readonly.scrollLeft,
-      chart.kernel.zoom.readonly.zoomLevel,
-      chart.kernel.axesState.readonly.paneRanges,
-    ].map((signal) => signal.subscribe(() => layoutManager.scheduleCoalescedAutoSave())),
+    // 价格轴与视口在手势内逐帧变化：静止后先记录当前视口，再比较布局。
+    ...[chart.kernel.axesState.readonly.paneRanges, chart.navigation].map((signal) =>
+      signal.subscribe(() => layoutManager.scheduleCoalescedAutoSave()),
+    ),
   ]
 
   const marketRegistry = marketContext.registry
@@ -373,7 +364,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     agent,
     favoriteIndicatorIds: chart.kernel.indicator.readonly.favoriteIndicatorIds,
     setIndicatorFavorite: (indicatorId, favorite) => {
-      if (!isDisposed()) chart.kernel.indicator.actions.setFavorite(indicatorId, favorite)
+      if (!isDisposed()) chart.setFavoriteIndicator(indicatorId, favorite)
     },
     viewport,
     rightAxisEffectiveWidth: chart.rightAxisEffectiveWidth,

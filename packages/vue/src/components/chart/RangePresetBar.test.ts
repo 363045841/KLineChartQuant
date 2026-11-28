@@ -56,8 +56,8 @@ describe('RangePresetBar', () => {
     await wrapper.findAll('.base-button')[2]!.trigger('click')
 
     expect(setMarket).toHaveBeenCalledWith({ ...SPEC, period: KLinePeriod.Min60 })
+    await vi.waitFor(() => expect(frame).toHaveBeenCalledWith(1, 2))
     expect(ensure).toHaveBeenCalledWith(1)
-    expect(frame).toHaveBeenCalledWith(1, 2)
   })
 
   it.each(['timeshare', 'fiveDayTimeShare'] as const)(

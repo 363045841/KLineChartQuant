@@ -6,7 +6,7 @@ import {
   createTimeShareDay,
   createTimeShareRange,
 } from '@/engine/__tests__/helpers/timeShareTestKit'
-import type { ChartDataManager } from '../chartDataManager'
+import type { TestChartDataManager } from './helpers/chartDataManagerTestKit'
 import {
   createTestChartDataManager,
   createTestDocument,
@@ -20,7 +20,7 @@ import {
 } from './helpers/chartDataManagerTestKit'
 
 describe('ChartDataManager time share', () => {
-  let manager: ChartDataManager | null = null
+  let manager: TestChartDataManager | null = null
   let document: Document
 
   beforeEach(() => {

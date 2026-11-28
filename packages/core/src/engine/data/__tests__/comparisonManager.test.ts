@@ -21,6 +21,9 @@ function createSeries(spec: SymbolSpec): BarsSeries {
     end: 0,
   })
   return {
+    initialHistory: Promise.resolve(),
+    startLive: () => {},
+    ensureCoverageFrom: async () => 'exhausted',
     data,
     loading: createSignal(false),
     lastError: createSignal<string | null>(null),

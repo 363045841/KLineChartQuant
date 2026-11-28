@@ -18,7 +18,6 @@ import type { ScaleXSnapshot } from '../scale/index.js'
 import type { AxisStateModule } from '../state/axisState.js'
 import type { OptionsStateModule } from '../state/optionsState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
-import type { ZoomStateModule } from '../state/zoomState.js'
 
 /** 帧使用的图表选项：在基础选项上附加由视口派生的 K 线宽度与间隙。 */
 export type ResolvedChartOptions = ChartOptions & {
@@ -48,7 +47,6 @@ export interface RendererDependencies {
   /** 生效主题 SSOT */
   theme$: ReadonlySignal<'light' | 'dark'>
   /** zoomLevel / kWidth SSOT */
-  zoom: ZoomStateModule
   /** zoomLevelCount 等 options SSOT */
   options: OptionsStateModule
   /** scroll / dpr / plot 几何 SSOT */
@@ -56,7 +54,6 @@ export interface RendererDependencies {
   /** 绘制前统一提交容器尺寸变化，避免观察器提前清空像素。 */
   commitPendingLayout: () => void
   /** 任何帧派生前先完成 Pane、轴、配置和图层的有序投影。 */
-  synchronizeRuntime: () => void
   /** 由 Chart 的 ViewportScrollBridge 在 render frame 内提交原生滚动。 */
   commitViewportScroll: (targetScrollLeft: number) => void
   getDataManager: () => ChartDataManager

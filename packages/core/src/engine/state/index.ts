@@ -31,8 +31,6 @@ export {
   clampDpr,
   createViewportState,
   getEffectiveDprLogic,
-  type ViewportDomDeps,
   type ViewportSignalDeps,
   type ViewportStateModule,
 } from './viewportState.js'
-export { createZoomState, type ZoomDeps, type ZoomStateModule } from './zoomState.js'

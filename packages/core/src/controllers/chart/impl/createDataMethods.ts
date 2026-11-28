@@ -19,9 +19,9 @@ import type { SymbolSpec } from '@/data/symbolSpec.js'
  */
 export function createDataMethods(chart: Chart, isDisposed: () => boolean) {
   /** 整体替换主品种；周期、复权与来源都在同一个 spec 里。 */
-  function setPrimaryMarket(spec: SymbolSpec | null, options?: { date?: number }): void {
-    if (isDisposed()) return
-    chart.setPrimaryMarket(spec, options)
+  function setPrimaryMarket(spec: SymbolSpec | null, options?: { date?: number }): Promise<void> {
+    if (isDisposed()) return Promise.resolve()
+    return chart.setPrimaryMarket(spec, options)
   }
 
   function setComparisonSpecs(next: ReadonlyArray<SymbolSpec>): void {

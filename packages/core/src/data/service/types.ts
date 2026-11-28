@@ -40,10 +40,14 @@ export interface BarsOptions {
   readonly aggregation: BarAggregation
   /** 首批至少加载多少根；调用方按自己的展示需求决定。 */
   readonly initialBars: number
+  readonly deferLive?: boolean
 }
 
 /** K 线序列只读视图；生产写入能力不暴露给消费者。 */
 export interface BarsSeries {
+  readonly initialHistory: Promise<void>
+  startLive(): void
+  ensureCoverageFrom(fromTime: number): Promise<CoverageResult>
   readonly data: ReadonlySignal<DataChange<KLineData>>
   readonly loading: ReadonlySignal<boolean>
   readonly lastError: ReadonlySignal<string | null>

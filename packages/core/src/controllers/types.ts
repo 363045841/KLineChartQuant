@@ -516,7 +516,7 @@ export interface ChartController
 
   // ---- Data ----
   /** 整体替换 K 线主品种（含周期、复权与来源）；对比集合由 setComparisonSpecs 管理。 */
-  setPrimaryMarket(spec: SymbolSpec | null, options?: { date?: number }): void
+  setPrimaryMarket(spec: SymbolSpec | null, options?: { date?: number }): Promise<void>
   /** Register symbols into the available symbol catalog for UI pickers */
   registerSymbols(symbols: ReadonlyArray<SymbolInfo>): void
   /** 设置 K 线主图的原生比较折线集合，不改变 chartMode 或主品种。 */

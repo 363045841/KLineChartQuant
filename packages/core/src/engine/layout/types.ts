@@ -16,18 +16,13 @@ import type { DrawingObject } from '../drawing/index.js'
 import type { PriceRange } from '../scale/index.js'
 import type { IndicatorInstanceConfig } from '../state/indicatorState.js'
 import type { SystemObjectSnapshot } from '../state/systemObjectState.js'
+import type { SeriesViewportSnapshot } from '../viewport/viewMemory/index.js'
 
 /** Alpha 布局只接受当前版本，不迁移旧文档。 */
 export const LAYOUT_DOCUMENT_VERSION = 5
 
 /** 单个数据视图可恢复的横向位置：锚点时间 + 相对偏移 + 缩放等级。 */
 /** 单个视图可恢复的横向位置：锚点时间 + 锚点槽位偏移（以槽位计）+ 缩放等级。 */
-export interface LayoutViewportSnapshot {
-  readonly anchorTimestamp: number
-  /** 锚点 K 线中心相对视口左边缘的偏移，单位是槽位（0 表示贴左边缘）。 */
-  readonly anchorOffsetSlots: number
-  readonly zoomLevel: number
-}
 
 /** 单个视图工作区中需要跨会话恢复的用户配置。 */
 export interface LayoutPaneConfig {
@@ -78,7 +73,7 @@ export interface LayoutDocument {
   /** 布局级指标收藏，跨数据视图共享；旧文档省略时恢复为空。 */
   readonly favoriteIndicatorIds?: ReadonlyArray<string>
   /** 按 品种+周期+复权+数据视图 键的可恢复视口位置；省略表示不携带。 */
-  readonly viewport?: Readonly<Record<string, LayoutViewportSnapshot>>
+  readonly viewport?: Readonly<Record<string, SeriesViewportSnapshot>>
 }
 
 /** 具名归档在文档上附加身份；运行时状态仍由 Kernel 管理。 */

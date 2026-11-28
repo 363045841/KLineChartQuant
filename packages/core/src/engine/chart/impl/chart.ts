@@ -14,7 +14,7 @@ import type { Bar, IndicatorMarketContext } from '@363045841yyt/klinechart-plot-
 import { createFootprintRuntime } from '@/components/footprint/runtime/impl/createFootprintRuntime.js'
 import { seriesSelectionKey } from '@/data/buffer/seriesSelection.js'
 import type { SymbolSpec } from '@/data/symbolSpec.js'
-import { layoutAxisColumns } from '@/engine/axisWidth/impl/axisColumns.js'
+import { PaneProjection } from '@/engine/runtimeProjection/paneProjection.js'
 import { symbolSpecIdentityKey } from '@/engine/data/symbolIdentity.js'
 import { filterDrawingsInScope } from '@/engine/drawing/model/impl/drawingScope.js'
 import {
@@ -26,7 +26,6 @@ import {
 import { resolvePaneAxes } from '@/engine/pane/axisResolver.js'
 import type { AxisSpec, ObjectAxesApi, ObjectAxisSpec } from '@/engine/pane/axisTypes.js'
 import { createObjectAxesApi } from '@/engine/pane/impl/objectAxes.js'
-import type { PaneAxisColumn } from '@/engine/pane/types.js'
 import { formatPlotValue } from '@/engine/plots/impl/plotValueFormat.js'
 import { CANDLE_LAYER_ID, PRICE_SERIES_AXIS_ID } from '@/engine/renderers/rendererIds.js'
 import { RuntimeProjectionCoordinator } from '@/engine/runtimeProjection/impl/runtimeProjectionCoordinator.js'
@@ -52,7 +51,6 @@ import type { MarketDataService } from '../../../data/service/index.js'
 import { GENERIC_ERROR_CODES, KLineChartError } from '../../../errors.js'
 import {
   type ChartSettings,
-  resolveKLineGapRatio,
   resolvePriceScaleTypeSetting,
 } from '../../../foundation/config/chartSettings.js'
 import { MarketSessionRegistry } from '../../../foundation/config/marketSession/marketSessionRegistry.js'
@@ -88,12 +86,11 @@ import type {
   RenderObjectMoveTarget,
 } from '../../../rendering/scene/types.js'
 // ===== 普通 imports，按路径字母排序 =====
-import { resolveAxisWidth } from '../../axisWidth/impl/axisWidths.js'
+import { ChartAxisColumns } from '../../axisWidth/chartAxisColumns.js'
 import type { CalculationHub } from '../../calculation/index.js'
 import {
   type ChartDataView,
   ChartDataViewId,
-  type ChartModeChartContext,
   type ChartModeHandler,
   isTimeShareDataView,
   KLineMode,
@@ -115,7 +112,9 @@ import { ChartRenderer } from '../../frame/index.js'
 import { ChartIndicatorManager } from '../../indicators/chartIndicatorManager.js'
 import { toPlotBar } from '../../indicators/plotBars.js'
 import type { DefinitionRegistry } from '../../indicators/registry/index.js'
-import type { LayoutViewportSnapshot } from '../../layout/index.js'
+import type { LayoutDocument } from '../../layout/index.js'
+import { preparePrimaryHistory } from '../../data/preparePrimaryHistory.js'
+import type { TemplateWorkspaces } from '../../indicatorTemplate/index.js'
 import { LegendManager } from '../../legend/impl/LegendManager.js'
 import { createObjectTree } from '../../objects/impl/createObjectTree.js'
 import { createSystemObjects } from '../../objects/impl/systemObjects.js'
@@ -130,21 +129,21 @@ import {
 } from '../../pane/types.js'
 import { createLegendDomRenderer } from '../../renderers/legend/impl/createLegendDomRenderer.js'
 import { CANDLE_RENDERER_NAME } from '../../renderers/rendererIds.js'
-import { LATEST_RIGHT_MARGIN_BARS } from '../../scale/impl/scale_X/scaleXStrategies.js'
 import { ChartStateKernel } from '../../state/chartStateKernel.js'
 import type { RangeSelectionState } from '../../state/interactionState.js'
-import { ChartViewportManager } from '../../viewport/chartViewportManager.js'
+import { observeViewport } from '../../viewport/observeViewport.js'
+import { IncrementalLoadHint } from '../../viewport/incrementalLoadHint.js'
 import { ChartZoomController } from '../../viewport/chartZoomController.js'
 import {
-  indexAtOrAfter,
-  indexAtOrBefore,
   matchActiveRangePreset,
   type RangePreset,
   type RangeWindow,
   resolveRangeWindow,
-  resolveWindowFrame,
 } from '../../viewport/rangePreset.js'
 import { ViewportScrollBridge } from '../../viewport/viewportScrollBridge.js'
+import { readViewportSnapshot, seriesViewportKey } from '../../viewport/viewMemory/index.js'
+import { ChartTimeNavigation } from '../../viewport/chartTimeNavigation.js'
+import type { PlotNavigation } from '../../viewport/navigation.js'
 import { ChartDrawingFacade } from '../facade/chartDrawingFacade.js'
 import { ChartIndicatorFacade } from '../facade/chartIndicatorFacade.js'
 import { ChartPaneFacade } from '../facade/chartPaneFacade.js'
@@ -236,15 +235,14 @@ export class Chart {
   private dataManager: ChartDataManager
   /** 创建时配置的初始缩放级别；`resetChart` 恢复到该档位。 */
   private readonly initialZoomLevel: number
-  /** 品种切换后等待首屏落地的视图意图；null 表示没有待处理意图。 */
-  private pendingView: { readonly snapshot: LayoutViewportSnapshot | null } | null = null
   /** 可见窗口命中的预置；派生自真实视口，不另存点击状态。 */
   private readonly _activeRangePreset: ReadonlySignal<RangePreset | null>
 
   /** StateKernel — single source of truth for all chart state */
   readonly kernel: ChartStateKernel
 
-  private viewportManager: ChartViewportManager
+  private stopObservingViewport?: () => void
+  private readonly historyHint: IncrementalLoadHint
   /** 唯一的 renderer 程序滚动与原生 scroll 回流协调器。 */
   private viewportScrollBridge: ViewportScrollBridge
   private layoutManager: ChartPaneLayout
@@ -314,6 +312,15 @@ export class Chart {
   /** activeRenderers 到 Scene 可见性的唯一投影。 */
   private disposeActiveRendererProjection: (() => void) | null = null
   private disposeTradeDemand: (() => void) | null = null
+  private readonly selectionError = createSignal<string | null>(null)
+  private marketRequest: AbortController | null = null
+  private readonly activeDataError: ReadonlySignal<string | null>
+  private readonly timeNavigation: ChartTimeNavigation
+
+  /** 当前视口导航；布局自动保存订阅这一份已提交状态。 */
+  get navigation(): ReadonlySignal<PlotNavigation> {
+    return this.kernel.viewport.readonly.navigation
+  }
   private footprintRuntime: ReturnType<typeof createFootprintRuntime>
   private disposeFootprintDraw: (() => void) | null = null
   private disposeSettingsProjection: (() => void) | null = null
@@ -335,10 +342,8 @@ export class Chart {
   private readonly definitions: DefinitionRegistry
 
   /** 右轴 host 当前生效的 CSS 宽度；提交后锁定，布局变化时才重新评估。 */
-  private readonly _effectiveRightAxisWidth = createSignal(0)
-  private readonly _effectiveLeftAxisWidth = createSignal(0)
   /** 轴宽是否已锁定：锁定期间只允许变宽，避免运动途中改变绘图区宽度。 */
-  private axisWidthLocked = false
+  private readonly axisColumns: ChartAxisColumns
 
   /**
    * 创建图表实例
@@ -383,24 +388,6 @@ export class Chart {
       requestRedraw: () => this.scheduleDraw(UpdateLevel.All),
     })
 
-    // Inject DOM deps into kernel's viewportState (needed before init)
-    this.kernel.setViewportDomDeps({
-      getDom: () => this.dom,
-      onViewportResize: () => this.resize(),
-    })
-
-    // ── ViewportManager (DOM lifecycle: ResizeObserver + scroll events) ──
-    this.viewportManager = new ChartViewportManager(
-      {
-        getDom: () => this.dom,
-        onScroll: () => this.handleScrollEvent(),
-        onResizeCompleted: () => {
-          this.resize()
-        },
-      },
-      this.kernel,
-    )
-
     // ── InteractionController ──
     this.interaction = new InteractionController(this, this.kernel.interaction)
 
@@ -429,24 +416,29 @@ export class Chart {
     })
 
     // 首帧测量前按配置下限占位：宿主与轴区共用同一份宽度，避免从 0 展开。
-    const initialOptions = this.kernel.options.readonly.options.peek()
-    this._effectiveRightAxisWidth.set(
-      initialOptions.rightAxisWidth + (initialOptions.priceLabelWidth ?? DEFAULT_PRICE_LABEL_WIDTH),
+    this.axisColumns = new ChartAxisColumns(
+      this.kernel.options.readonly.options, this.layoutManager, this.dom, DEFAULT_PRICE_LABEL_WIDTH,
     )
-    this._effectiveLeftAxisWidth.set(initialOptions.leftAxisWidth)
 
+    this.historyHint = new IncrementalLoadHint({
+      getOption: () => this.getRenderOptions(),
+      getDom: () => this.dom,
+      viewport: this.kernel.viewport,
+    })
     this.dataManager = new ChartDataManager(
       {
         data: runtime.data,
         marketSessions: this.marketSessions,
-        getOption: () => this.getRenderOptions(),
-        getDom: () => this.dom,
         viewport: this.kernel.viewport,
         comparison: this.kernel.comparison,
+        preserveViewOnPrepend: (previousScroll, count) => {
+          this.timeNavigation.preserveOnPrepend(previousScroll, count)
+          this.scheduleDraw()
+        },
+        showHistoryPrepend: (count) => this.historyHint.show(count, this.getLeftLoadBufferWidth()),
         needsTrades: () => this.kernel.footprint.readonly.enabled.peek(),
         updateTradeInput: (input) => this.kernel.data.actions.setTrades(input),
         scheduleDraw: (level) => this.scheduleDraw(level),
-        onBarsReady: () => this.handleBarsReady(),
         resetInteraction: () => {
           this.interaction.reset()
           this.zoomController.stopAnimation()
@@ -462,6 +454,7 @@ export class Chart {
       this.kernel.data,
       this.kernel.dataManager,
     )
+    this.activeDataError = computed(() => this.selectionError() ?? this.dataManager.dataError())
     this._activeRangePreset = computed(() => this.computeActiveRangePreset())
     this.dataManager.setCacheMaxBytes(
       resolveMarketDataCacheMaxBytes(
@@ -518,18 +511,13 @@ export class Chart {
       scheduleDraw: () => this.scheduleDraw(),
     })
 
-    this.zoomController = new ChartZoomController(
-      {
-        viewport: this.kernel.viewport,
-        options: this.kernel.options,
-        onStart: () => this.interaction.stopInertia(),
-        onChange: () => {
-          this.scheduleDraw()
-          if (!this.zoomController.isAnimating) this.checkVisibleRangeGapWhenIdle()
-        },
-      },
-      this.kernel.zoom,
-    )
+    this.zoomController = new ChartZoomController({
+      viewport: this.kernel.viewport,
+      options: this.kernel.options,
+      onStart: () => this.interaction.stopInertia(),
+      onFinish: () => this.finishNavigation(),
+      onChange: () => this.scheduleDraw(),
+    })
     this.theme = new ChartThemeFacade({
       kernel: this.kernel,
       scheduleDraw: () => this.scheduleDraw(),
@@ -537,6 +525,12 @@ export class Chart {
     this.zoom = new ChartZoomFacade({
       kernel: this.kernel,
       controller: this.zoomController,
+    })
+    this.timeNavigation = new ChartTimeNavigation({
+      viewport: this.kernel.viewport,
+      bars: () => this.dataManager.getData(),
+      initialZoomLevel: this.initialZoomLevel,
+      memory: this.kernel.viewMemory,
     })
 
     // 系统对象（K 线等）的显隐、顺序与所属 Pane；图层在 initCoreRenderers 后注册。
@@ -581,11 +575,9 @@ export class Chart {
       getSceneRenderer: () => this.rendererHost.renderer,
       getPluginHost: () => this.pluginHost,
       theme$: this.kernel.effectiveTheme$,
-      zoom: this.kernel.zoom,
       options: this.kernel.options,
       viewport: this.kernel.viewport,
       commitPendingLayout: () => this.commitPendingLayout(),
-      synchronizeRuntime: () => this.runtimeProjection.synchronize(),
       commitViewportScroll: (targetScrollLeft) =>
         this.viewportScrollBridge.commit(
           targetScrollLeft,
@@ -718,26 +710,6 @@ export class Chart {
       removeInstancesByDefinition: (definitionId) =>
         this.indicators.removeByDefinition(definitionId),
     })
-    this.runtimeProjection = new RuntimeProjectionCoordinator({
-      capture: () => this.captureRuntimeProjection(),
-      projectPanes: (snapshot) => this.layoutManager.projectState(snapshot.panes),
-      projectAxes: (snapshot) => {
-        this.layoutManager.setPaneAxes(snapshot.axes)
-        this.indicatorManager.acceptPaneAxes(snapshot.axes)
-        this.kernel.axesState.actions.retainAxes(
-          new Set([...snapshot.axes.values()].flatMap((axes) => axes.map((axis) => axis.axisId))),
-        )
-      },
-      configureAxes: (snapshot) => this.configureRuntimeAxes(snapshot),
-      projectLayers: (snapshot) => this.indicatorManager.projectIndicators(snapshot.indicators),
-      invalidateFrame: () => {
-        this.unlockAxisWidth()
-        this.renderer.invalidateFrame()
-        this.interaction.invalidateHover()
-      },
-      publishView: () => this.publishPaneView(),
-      requestDraw: (level) => this.renderer.scheduleDraw(level),
-    })
     this.axes = createObjectAxesApi({
       listBindings: () =>
         [...this.indicatorManager.getPaneAxes().values()].flatMap((axes) =>
@@ -756,10 +728,30 @@ export class Chart {
       paneState: this.kernel.pane,
       ranges: this.kernel.axesState,
       project: () => {
-        this.runtimeProjection.synchronize()
         this.renderer.invalidateFrame()
         this.scheduleDraw()
       },
+    })
+    const paneProjection = new PaneProjection(this.layoutManager, this.kernel.pane, this.axes)
+    this.runtimeProjection = new RuntimeProjectionCoordinator({
+      capture: () => this.captureRuntimeProjection(),
+      projectPanes: (snapshot) => this.layoutManager.projectState(snapshot.panes),
+      projectAxes: (snapshot) => {
+        this.layoutManager.setPaneAxes(snapshot.axes)
+        this.indicatorManager.acceptPaneAxes(snapshot.axes)
+        this.kernel.axesState.actions.retainAxes(
+          new Set([...snapshot.axes.values()].flatMap((axes) => axes.map((axis) => axis.axisId))),
+        )
+      },
+      configureAxes: (snapshot) => paneProjection.configureAxes(snapshot),
+      projectLayers: (snapshot) => this.indicatorManager.projectIndicators(snapshot.indicators),
+      invalidateFrame: () => {
+        this.unlockAxisWidth()
+        this.renderer.invalidateFrame()
+        this.interaction.invalidateHover()
+      },
+      publishView: () => paneProjection.publish(),
+      requestDraw: (level) => this.renderer.scheduleDraw(level),
     })
     this.indicators = new ChartIndicatorFacade({
       manager: this.indicatorManager,
@@ -805,7 +797,13 @@ export class Chart {
   /** 在所有运行时依赖就绪后，统一将 kernel 状态投影为可绘制图表。 */
   private startRuntime(): void {
     this.runtimeProjection.start()
-    this.viewportManager.init()
+    if (this.dom.container) {
+      this.stopObservingViewport = observeViewport(
+        this.dom.container,
+        (width, height, dpr) => this.resize({ width, height, dpr }),
+        () => this.handleScrollEvent(),
+      )
+    }
     // init 已同步写入首帧尺寸；ResizeObserver 首次回调尺寸不变时不会触发 resize（WebKit 不支持
     // device-pixel-content-box，DPR 也不会变化），pane 若不在此布局，画布高度会停留在 0。
     if (this.getViewport()) this.layoutManager.layoutPanes()
@@ -848,17 +846,7 @@ export class Chart {
   }
 
   /** 切换模式处理器 */
-  setActiveMode(mode: ChartModeHandler, dataView?: ChartDataView): void {
-    const prev = this.activeMode
-    const nextDataView =
-      dataView ?? (mode === this._timeShareMode ? ChartDataViewId.TimeShare : ChartDataViewId.KLine)
-    if (prev === mode && this.kernel.mode.readonly.dataView.peek() === nextDataView) return
-
-    prev.onDeactivate(this.createModeChartContext(), mode)
-    this.kernel.actions.setDataView(
-      nextDataView,
-      isTimeShareDataView(nextDataView) ? this.dataManager.currentPeriod : undefined,
-    )
+  private clearModeFrame(): void {
     // 数据视图切换前的各 Layer 已使用旧数据绘制；先清屏并废弃几何缓存，避免等待新视图数据时残留。
     this.renderer.clearCachedFrame()
     this.renderer.clearAllCanvases()
@@ -868,19 +856,6 @@ export class Chart {
 
     for (const renderer of this.paneRenderers)
       for (const axis of renderer.getPane().axes) axis.yAxis.setBasePrice(null)
-    this.runtimeProjection.synchronize()
-
-    mode.onActivate(
-      { ...this.createModeChartContext(), currentPeriod: this.dataManager.currentPeriod },
-      prev,
-    )
-  }
-
-  /** 构建模式激活/停用回调所需的图表能力入口。 */
-  private createModeChartContext(): ChartModeChartContext {
-    return {
-      dataManager: this.dataManager,
-    }
   }
 
   getCurrentDpr(): number {
@@ -1088,52 +1063,6 @@ export class Chart {
     })
   }
 
-  /** 协调者发布唯一宿主视图；轴迁移立即重排列，后续帧只修正测量宽度。 */
-  private publishPaneView(): void {
-    this.kernel.pane.actions.setPaneGeometry(
-      this.paneRenderers.flatMap((renderer) => {
-        const pane = renderer.getPane()
-        if (pane.height <= 0) return []
-        const columns = layoutAxisColumns(
-          pane.axes.map((axis) => axis.axisId),
-          Object.fromEntries(pane.axisColumns.map((column) => [column.axisId, column.width])),
-          pane.axisWidth,
-        )
-        pane.setAxisColumns(columns)
-        return [
-          {
-            id: pane.id,
-            top: pane.top,
-            height: pane.height,
-            axisWidth: pane.axisWidth,
-            axisColumns: columns.map((column) => ({
-              ...column,
-              configuration: this.axes.configuration(column.axisId),
-            })),
-          },
-        ]
-      }),
-    )
-  }
-
-  /** 将对象轴的有效配置投影到运行时坐标映射。 */
-  private configureRuntimeAxes(snapshot: RuntimeProjectionSnapshot): void {
-    this.layoutManager.setLeftAxisVisible(snapshot.leftAxisVisible, snapshot.pricePaneId)
-    const declarations = snapshot.axes
-    for (const renderer of this.paneRenderers) {
-      const pane = renderer.getPane()
-      const axes = declarations.get(pane.id)
-      if (axes === undefined)
-        throw new KLineChartError(GENERIC_ERROR_CODES.INVALID_STATE, `Pane ${pane.id} 缺少轴投影`)
-      for (const spec of axes) {
-        const axis = pane.axis(spec.axisId)
-        const configuredBase = snapshot.ranges[spec.axisId]?.baseValue
-        if (configuredBase !== undefined) axis.setBasePrice(configuredBase)
-        if (axis.getScaleType() !== spec.scaleType) axis.setScaleType(spec.scaleType)
-      }
-    }
-  }
-
   /**
    * 将用户坐标偏好写入 paneScaleTypes。
    * 分时覆盖期间保留用户 Setting，由 dataView 返回 K 线时重新派生生效刻度。
@@ -1142,7 +1071,6 @@ export class Chart {
     const next = new Map(this.kernel.pane.getScalePreferences())
     next.set(PRICE_SERIES_AXIS_ID, setting)
     this.kernel.pane.actions.replacePaneScaleTypes(next)
-    this.runtimeProjection.synchronize()
   }
 
   /**
@@ -1287,29 +1215,45 @@ export class Chart {
     )
   }
 
-  /** 捕获当前 K 线视图的视口锚点，供布局文档持久化。 */
-  /** 捕获当前 K 线视图的横向锚点，供切换与布局持久化恢复。 */
-  captureViewportSnapshot(): void {
-    const spec = this.dataManager.symbols.peek()[0]
-    if (!spec || isTimeSharePeriod(spec.period)) return
-    const bars = this.dataManager.getData()
-    const range = this.kernel.viewport.readonly.visibleRange.peek()
-    const index = Math.max(0, range.start)
-    const anchor = bars[index]
-    if (!anchor) return
-    const view = this.kernel.viewport.readonly.viewSnapshot.peek()
-    const center = view.worldAtIndex(index)
-    if (center === null || !(view.grid.step > 0)) return
-    this.kernel.dataManager.actions.saveViewportSnapshot(this.viewportSnapshotKey(spec), {
-      anchorTimestamp: anchor.timestamp,
-      anchorOffsetSlots: (center - view.scroll) / view.grid.step,
-      zoomLevel: this.kernel.zoom.readonly.zoomLevel.peek(),
-    })
+  /** 把当前可见区间写入序列记忆；布局导出前调用。 */
+  captureCurrentView(): void {
+    const spec = this.kernel.dataManager.readonly.currentSpec.peek()
+    if (spec) this.captureViewFor(spec)
+  }
+
+  /** 严格可见范围 → 时间区间；不含渲染缓冲区，恢复后不会整体偏移。 */
+  private captureViewFor(spec: SymbolSpec): void {
+    if (!isTimeSharePeriod(spec.period)) this.timeNavigation.save(spec)
+  }
+
+  /** 应用布局文档：先导入序列视图，再恢复布局状态，最后切序列并定位。 */
+  applyLayout(document: LayoutDocument): Promise<void> {
+    const spec = document.currentSymbol === undefined
+      ? this.kernel.dataManager.readonly.currentSpec.peek()
+      : document.currentSymbol
+    return this.selectPrimaryMarket(spec, undefined, document)
+  }
+
+  exportLayout(): LayoutDocument {
+    return this.kernel.exportLayout()
+  }
+
+  createLayout(): LayoutDocument {
+    return this.kernel.createLayout()
+  }
+
+  applyIndicatorTemplate(workspaces: TemplateWorkspaces): void {
+    this.kernel.applyIndicatorTemplate(workspaces)
+    this.scheduleDraw()
+  }
+
+  setFavoriteIndicator(indicatorId: string, favorite: boolean): void {
+    this.kernel.indicator.actions.setFavorite(indicatorId, favorite)
   }
 
   /** 整体替换主品种（含周期、复权与来源）；视图定位由本类负责。 */
-  setPrimaryMarket(spec: SymbolSpec | null, options?: { date?: number }): void {
-    this.selectPrimaryMarket(spec, options?.date)
+  setPrimaryMarket(spec: SymbolSpec | null, options?: { date?: number }): Promise<void> {
+    return this.selectPrimaryMarket(spec, options?.date)
   }
 
   /** 让数据池覆盖到 `fromTs`；唯一的补历史入口，返回时窗口已齐或确认取不到。 */
@@ -1334,46 +1278,13 @@ export class Chart {
    *
    * @param from 窗口最早时间
    * @param to 窗口最晚时间
+   * @returns 是否真正完成定位
    */
-  frameTimeRange(from: number, to: number): void {
-    if (!Number.isFinite(from) || !Number.isFinite(to) || to < from) return
-    const bars = this.dataManager.getData()
-    const start = indexAtOrAfter(bars, from)
-    const end = indexAtOrBefore(bars, to)
-    if (start === null || end === null || end < start) return
-    const view = this.kernel.viewport.readonly.viewSnapshot.peek()
-    const options = this.kernel.options.readonly.options.peek()
-    const frame = resolveWindowFrame({
-      startIndex: start,
-      barCount: end - start + 1,
-      plotWidth: view.viewportWidth,
-      gapRatio: resolveKLineGapRatio(this.kernel.settings.readonly.settings.peek().klineDensity),
-      minKWidth: options.minKWidth,
-      maxKWidth: options.maxKWidth,
-      zoomLevelCount: options.zoomLevelCount,
-    })
-    if (!frame) return
-    this.zoomController.frame(frame)
+  frameTimeRange(from: number, to: number): boolean {
+    if (!this.timeNavigation.frame(from, to)) return false
     this.scheduleDraw()
-    this.checkVisibleRangeGapWhenIdle()
-  }
-
-  /** 恢复一个已保存的视图：锚点 K 线按保存时的槽位偏移回到原处。 */
-  frameView(view: LayoutViewportSnapshot): void {
-    const bars = this.dataManager.getData()
-    const index = indexAtOrAfter(bars, view.anchorTimestamp)
-    if (index === null) return
-    const offset = Number.isFinite(view.anchorOffsetSlots) ? view.anchorOffsetSlots : -0.5
-    this.zoomController.frame({
-      level: view.zoomLevel,
-      anchorSlot: index + offset,
-    })
-    this.scheduleDraw()
-  }
-
-  /** 与品种、周期、复权和视图绑定的快照键。 */
-  private viewportSnapshotKey(spec: SymbolSpec): string {
-    return `${symbolSpecIdentityKey(spec)}:${spec.period ?? DEFAULT_KLINE_PERIOD}:${spec.adjust ?? DEFAULT_KLINE_ADJUSTMENT}:${ChartDataViewId.KLine}`
+    this.finishNavigation()
+    return true
   }
 
   /** 显示时区：年初、刻度与预置共用同一个来源。 */
@@ -1412,9 +1323,9 @@ export class Chart {
 
   /** 滚动到最右侧（最新数据位置） */
   scrollToRight(): void {
-    this.kernel.viewport.actions.scrollToLatest()
+    this.timeNavigation.scrollToLatest()
     this.scheduleDraw()
-    this.checkVisibleRangeGapWhenIdle()
+    this.finishNavigation()
   }
 
   /**
@@ -1428,31 +1339,28 @@ export class Chart {
     if (!view.capabilities.allowPan) return
     const { min, max } = view.scrollBounds
     const target = Math.max(min, Math.min(view.scroll + bars * view.grid.step, max))
-    if (this.kernel.viewport.actions.scrollToLogical(target)) {
+    if (this.panTo(target)) {
       this.interaction.stopInertia()
-      this.scheduleDraw()
-      this.checkVisibleRangeGapWhenIdle()
+      this.finishNavigation()
     }
   }
 
-  /** 恢复首次进入品种时的 X 轴规则：初始缩放，并按当前数据定位到最新端。 */
-  private frameDefaultTimeAxis(): void {
-    const count = this.dataManager.getData().length
-    this.zoomController.frame({
-      level: this.initialZoomLevel,
-      anchorSlot: count > 0 ? count - 1 + LATEST_RIGHT_MARGIN_BARS : 0,
-    })
+  /** 提交拖动、惯性和原生横向滚动共用的逻辑坐标。 */
+  panTo(scroll: number): boolean {
+    if (!this.timeNavigation.panTo(scroll)) return false
     this.scheduleDraw()
+    return true
   }
 
   /** 一次提交默认时间视图与价格轴状态，避免消费方看到半重置的视口。 */
   resetChart(): void {
     batch(() => {
-      this.frameDefaultTimeAxis()
+      if (this.kernel.mode.readonly.dataView.peek() === ChartDataViewId.KLine) this.timeNavigation.reset()
       this.axes.resetRange(PRICE_SERIES_AXIS_ID)
     })
     this.unlockAxisWidth()
-    this.checkVisibleRangeGapWhenIdle()
+    this.scheduleDraw()
+    this.finishNavigation()
   }
 
   /**
@@ -1472,61 +1380,35 @@ export class Chart {
    * 宿主控件区、轴 canvas 与命中都读这份列几何，不再各自测量。
    */
   private commitAxisWidths(widths: import('../../axisWidth/types.js').AxisWidths): boolean {
-    const options = this.kernel.options.readonly.options.peek()
-    const rightFloor =
-      options.rightAxisWidth + (options.priceLabelWidth ?? DEFAULT_PRICE_LABEL_WIDTH)
-    const right = resolveAxisWidth(
-      rightFloor,
-      widths.right,
-      this.axisWidthLocked ? this._effectiveRightAxisWidth.peek() : null,
-    )
-    const left = resolveAxisWidth(
-      options.leftAxisWidth,
-      widths.left,
-      this.axisWidthLocked ? this._effectiveLeftAxisWidth.peek() : null,
-    )
-    this.axisWidthLocked = true
-    const columnsByPane = new Map<string, ReadonlyArray<PaneAxisColumn>>()
-    for (const renderer of this.paneRenderers) {
-      const pane = renderer.getPane()
-      columnsByPane.set(
-        pane.id,
-        layoutAxisColumns(
-          pane.axes.map((axis) => axis.axisId),
-          widths.rightByAxis,
-          right,
-        ),
-      )
-    }
-    this.layoutManager.commitAxisColumns(columnsByPane)
-    const changed =
-      this._effectiveRightAxisWidth.peek() !== right || this._effectiveLeftAxisWidth.peek() !== left
-    if (changed) {
-      batch(() => {
-        this._effectiveRightAxisWidth.set(right)
-        this._effectiveLeftAxisWidth.set(left)
-      })
-    }
-    const rightCss = `${right}px`
-    const leftCss = `${left}px`
-    if (this.dom.rightAxisLayer && this.dom.rightAxisLayer.style.width !== rightCss)
-      this.dom.rightAxisLayer.style.width = rightCss
-    if (this.dom.leftAxisLayer && this.dom.leftAxisLayer.style.width !== leftCss)
-      this.dom.leftAxisLayer.style.width = leftCss
+    const changed = this.axisColumns.commit(widths)
     this.runtimeProjection.publishView()
     return changed
   }
 
   /** 布局或设置变化后允许重新评估轴宽；下一帧按新标签提交并重新锁定。 */
   private unlockAxisWidth(): void {
-    this.axisWidthLocked = false
+    this.axisColumns.unlock()
   }
 
   /** 容器尺寸变化时记录重排意图，保留当前像素直到下一帧能够立即重画。 */
-  resize() {
+  resize(size?: { width: number; height: number; dpr: number }): void {
+    batch(() => {
+      if (size) this.kernel.viewport.actions.resize(size.width, size.height, size.dpr)
+      this.updateViewportLayout()
+    })
+  }
+
+  private updateViewportLayout(): void {
     const vp = this.getViewport()
     const timeShare = this.activeMode === this._timeShareMode
     if (!vp || (timeShare ? vp.plotWidth <= 0 : vp.viewWidth < 10 || vp.viewHeight < 10)) return
+    const layer = this.dom.canvasLayer
+    if (layer) {
+      const width = `${Math.round(vp.viewWidth * vp.dpr) / vp.dpr}px`
+      const height = `${vp.viewHeight}px`
+      if (layer.style.width !== width) layer.style.width = width
+      if (layer.style.height !== height) layer.style.height = height
+    }
     this.unlockAxisWidth()
     this.viewportResizePending = true
     this.renderer.clearCachedFrame()
@@ -1595,6 +1477,7 @@ export class Chart {
 
   /** 先完成插件卸载，再释放 Scene 与图表状态；重复销毁复用同一任务。 */
   private async destroyChart(): Promise<void> {
+    this.marketRequest?.abort()
     this.interaction.stopInertia()
     this.zoomController.stopAnimation()
     this.renderer.stopScheduling()
@@ -1620,7 +1503,8 @@ export class Chart {
     this.legendDom.dispose()
     this.viewportScrollBridge.dispose()
     this.dataManager.destroy()
-    this.viewportManager.destroy()
+    this.historyHint.destroy()
+    this.stopObservingViewport?.()
     this.layoutManager.destroy()
     this.rendererHost.dispose()
     this.drawingCommands.dispose()
@@ -1631,12 +1515,12 @@ export class Chart {
 
   /** 右轴当前有效 CSS 宽度；外部宿主应使用它而非覆盖内联宽度。 */
   get rightAxisEffectiveWidth(): ReadonlySignal<number> {
-    return this._effectiveRightAxisWidth
+    return this.axisColumns.right
   }
 
   /** 左轴所需逻辑像素宽度，供宿主布局消费。 */
   get leftAxisEffectiveWidth(): ReadonlySignal<number> {
-    return this._effectiveLeftAxisWidth
+    return this.axisColumns.left
   }
 
   /** 视口状态信号 */
@@ -1661,7 +1545,7 @@ export class Chart {
 
   /** 主品种最近一次显式拉取失败原因 */
   get dataError(): ReadonlySignal<string | null> {
-    return this.dataManager.dataError
+    return this.activeDataError
   }
 
   /** 符号信号 */
@@ -1796,68 +1680,84 @@ export class Chart {
       this.checkVisibleRangeGap()
   }
 
-  /** 提交主品种切换：先保存当前视图，再交给数据层，最后由本类恢复或定位视图。 */
-  private selectPrimaryMarket(primary: SymbolSpec | null, date?: number): void {
-    const commitData = this.dataManager.preparePrimarySelection(primary, date)
+  finishNavigation(): void {
+    this.captureCurrentView()
+    this.checkVisibleRangeGapWhenIdle()
+  }
+
+  /** 验证目标后，统一准备历史并提交新序列与初始导航。 */
+  private selectPrimaryMarket(primary: SymbolSpec | null, date?: number, layout?: LayoutDocument): Promise<void> {
     const dataView = resolveChartDataView(primary?.period)
     const timeShare = isTimeShareDataView(dataView)
     // 未知 session 必须在任何状态写入之前抛错；解析结果由 kernel 的 marketSession$ 消费。
     if (timeShare && primary) resolveSymbolMarketSession(primary.instrument, this.marketSessions)
-    const nextDrawingSymbol = primary ? symbolSpecIdentityKey(primary) : undefined
-    const previousPeriod = this.dataManager.symbols.peek()[0]?.period
-    this.captureViewportSnapshot()
-    batch(() => {
-      this.cancelDrawingSession()
-      this.clearRangeSelection()
-      if (this.drawing.getSymbolKey() !== nextDrawingSymbol || previousPeriod !== primary?.period) {
-        this.kernel.drawing.actions.setSelectedDrawingIds([])
-      }
-      this.interaction.stopInertia()
-      this.zoomController.stopAnimation()
-      this.unlockAxisWidth()
-      this.setActiveMode(timeShare ? this._timeShareMode : this._kLineMode, dataView)
-      commitData()
+    const prepared = this.dataManager.preparePrimarySelection(primary, date)
+    this.marketRequest?.abort()
+    const request = new AbortController()
+    this.marketRequest = request
+    this.selectionError.set(null)
+    return this.commitMarketRequest(prepared, dataView, request, layout)
+  }
+
+  private async commitMarketRequest(
+    prepared: ReturnType<ChartDataManager['preparePrimarySelection']>,
+    dataView: ChartDataView,
+    request: AbortController,
+    layout?: LayoutDocument,
+  ): Promise<void> {
+    const { spec: primary, bars } = prepared
+    const timeShare = isTimeShareDataView(dataView)
+    const previous = this.kernel.dataManager.readonly.currentSpec.peek()
+    const saved = primary && !timeShare
+      ? layout
+        ? readViewportSnapshot(layout.viewport?.[seriesViewportKey(primary)])
+        : this.kernel.viewMemory.get(primary)
+      : null
+
+    let committed = false
+    try {
+      if (bars) await preparePrimaryHistory(bars, saved, request.signal)
+      request.signal.throwIfAborted()
+      if (this.kernel.mode.readonly.dataView.peek() !== dataView) this.clearModeFrame()
+      batch(() => {
+        const sameSeries =
+          previous && primary && seriesViewportKey(previous) === seriesViewportKey(primary)
+        if (previous && !sameSeries) this.captureViewFor(previous)
+        this.cancelDrawingSession()
+        this.clearRangeSelection()
+        const nextDrawingSymbol = primary ? symbolSpecIdentityKey(primary) : undefined
+        if (this.drawing.getSymbolKey() !== nextDrawingSymbol || previous?.period !== primary?.period) {
+          this.kernel.drawing.actions.setSelectedDrawingIds([])
+        }
+        this.interaction.stopInertia()
+        this.zoomController.stopAnimation()
+        this.unlockAxisWidth()
+        if (layout) {
+          this.kernel.viewMemory.importMap(layout.viewport ?? {})
+          this.kernel.applyLayout(layout, dataView)
+        }
+        this.dataManager.commitPrimarySelection(prepared)
+        committed = true
+        if (!layout) this.kernel.actions.setDataView(dataView)
+        if (primary && !timeShare) {
+          this.kernel.mode.actions.setLastBarPeriod(primary.period ?? DEFAULT_KLINE_PERIOD)
+        }
+      })
       if (primary && !timeShare) {
-        this.kernel.mode.actions.setLastBarPeriod(primary.period ?? DEFAULT_KLINE_PERIOD)
+        if (saved) this.timeNavigation.frame(saved.fromTime, saved.toTime)
+        else this.timeNavigation.reset()
       }
-      this.applyMarketView(primary)
-    })
-  }
-
-  /** 切换后立即恢复视图；首屏未到时登记意图，由首批数据落地时消费。 */
-  private applyMarketView(primary: SymbolSpec | null): void {
-    if (!primary || isTimeSharePeriod(primary.period)) {
-      this.pendingView = null
-      return
+      this.scheduleDraw()
+      if (!request.signal.aborted) bars?.startLive()
+    } catch (error) {
+      if (!request.signal.aborted) {
+        this.selectionError.set(error instanceof Error ? error.message : String(error))
+      }
+      if (layout) throw error
+    } finally {
+      if (!committed) bars?.dispose()
+      if (this.marketRequest === request) this.marketRequest = null
     }
-    const snapshot = this.kernel.dataManager.actions.getViewportSnapshot(
-      this.viewportSnapshotKey(primary),
-    )
-    if (this.dataManager.getData().length === 0) {
-      this.pendingView = { snapshot }
-      return
-    }
-    this.pendingView = null
-    this.applyViewOrLatest(snapshot)
-  }
-
-  /** 数据落地后应用登记的视图意图，然后按需继续补齐左缘。 */
-  private handleBarsReady(): void {
-    const pending = this.pendingView
-    if (pending) {
-      this.pendingView = null
-      this.applyViewOrLatest(pending.snapshot)
-    }
-    this.checkVisibleRangeGapWhenIdle()
-  }
-
-  /** 有快照按快照恢复，没有就回到最新端。 */
-  private applyViewOrLatest(snapshot: LayoutViewportSnapshot | null): void {
-    if (snapshot) {
-      this.frameView(snapshot)
-      return
-    }
-    this.scrollToRight()
   }
 
   /** 原子设置 K 线比较折线及生效刻度，不切换视图、工作区或主品种渲染器。 */
@@ -1949,7 +1849,7 @@ export class Chart {
   private dispatchPointerUp(e: PointerEvent, isRightAxis: boolean, hadPointer: boolean): boolean {
     if (isRightAxis) this.interaction.onRightAxisPointerUp(e)
     else this.interaction.onPointerUp(e)
-    if (hadPointer) this.checkVisibleRangeGapWhenIdle()
+    if (hadPointer) this.finishNavigation()
     return false
   }
 
@@ -1982,9 +1882,9 @@ export class Chart {
   handleScrollEvent(): void {
     const container = this.dom.container
     if (!container || !this.viewportScrollBridge.isExternalScroll(container.scrollLeft)) return
-    if (this.kernel.viewport.actions.syncFromDomScroll()) {
+    if (this.panTo(container.scrollLeft - this.getLeftLoadBufferWidth())) {
       this.interaction.onScroll()
-      this.checkVisibleRangeGapWhenIdle()
+      this.finishNavigation()
     }
   }
 

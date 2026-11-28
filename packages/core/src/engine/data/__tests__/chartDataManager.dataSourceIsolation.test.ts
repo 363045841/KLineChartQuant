@@ -1,7 +1,7 @@
 /** ChartDataManager 行情来源隔离测试：不同市场品种不得复用同一 Buffer。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { ChartDataManager } from '../chartDataManager'
+import type { TestChartDataManager } from './helpers/chartDataManagerTestKit'
 import {
   createTestChartDataManager,
   createTestDocument,
@@ -15,7 +15,7 @@ import {
 } from './helpers/chartDataManagerTestKit'
 
 describe('ChartDataManager data source isolation', () => {
-  let manager: ChartDataManager | null = null
+  let manager: TestChartDataManager | null = null
   let document: Document
 
   beforeEach(() => {
@@ -45,7 +45,7 @@ describe('ChartDataManager data source isolation', () => {
       }),
     )
     manager = createTestChartDataManager(document, { viewport: { scrollLeft: 800 } }).manager
-    manager.setPrimaryMarket(
+    await manager.setPrimaryMarket(
       makeTestSymbolSpec('000001', {
         market: 'CN',
         instrument: { ...instrumentFor('000001'), id: 'test:CN:000001' },
@@ -53,7 +53,7 @@ describe('ChartDataManager data source isolation', () => {
     )
     await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
 
-    manager.setPrimaryMarket(
+    await manager.setPrimaryMarket(
       makeTestSymbolSpec('000001', {
         market: 'HK',
         instrument: { ...instrumentFor('000001'), id: 'test:HK:000001', sessionId: 'HK' },

@@ -2,6 +2,7 @@
 /** 与行情数组注入无关的 Chart 生命周期、DPR、渲染调度与设置回归。 */
 import { describe, expect, it, vi } from 'vitest'
 import { Chart } from '@/core/chart/index'
+import { makeTestSymbolSpec } from '../data/__tests__/helpers/chartDataManagerTestKit'
 import { PRICE_AXIS_RANGE_MODE } from '@/foundation/config/priceAxisRangeMode.js'
 import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId'
 import {
@@ -58,18 +59,15 @@ describe('Chart lifecycle without a market selection', () => {
     }
   })
 
-  it('resets the time view through the single frame commit before adapting the price axis', async () => {
+  it('resets the projected zoom and the price axis together', async () => {
     const { chart } = mountChart()
     try {
-      const initialZoom = chart.kernel.zoom.readonly.zoomLevel.peek()
+      const initialZoom = chart.viewport.peek().zoomLevel
       chart.zoom.toLevel(initialZoom + 2)
-      const frame = vi.spyOn(chart['zoomController'], 'frame')
       const price = vi.spyOn(chart.axes, 'resetRange')
       chart.resetChart()
-      expect(chart.kernel.zoom.readonly.zoomLevel.peek()).toBeCloseTo(initialZoom, 5)
-      expect(frame).toHaveBeenCalledOnce()
+      expect(chart.viewport.peek().zoomLevel).toBeCloseTo(initialZoom, 5)
       expect(price).toHaveBeenCalledWith(PRICE_SERIES_AXIS_ID)
-      expect(frame.mock.invocationCallOrder[0]).toBeLessThan(price.mock.invocationCallOrder[0]!)
     } finally {
       await chart.destroy()
     }
@@ -340,7 +338,7 @@ describe('Chart lifecycle without a market selection', () => {
       const clearCanvases = vi.spyOn(renderer, 'clearAllCanvases')
       const clearFrame = vi.spyOn(renderer, 'clearCachedFrame')
       const clearLegend = vi.spyOn(chart.legend, 'clearFrame')
-      chart.setActiveMode(chart['_timeShareMode'])
+      await chart.setPrimaryMarket(makeTestSymbolSpec('000001', { period: 'timeshare' }))
       expect(clearCanvases).toHaveBeenCalledOnce()
       expect(clearFrame).toHaveBeenCalledOnce()
       expect(clearLegend).toHaveBeenCalled()

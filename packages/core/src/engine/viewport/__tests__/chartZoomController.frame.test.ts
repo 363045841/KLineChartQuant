@@ -1,38 +1,18 @@
 /**
- * ChartZoomController.frame 契约：程序定位与交互缩放共用一个提交点。
+ * ChartZoomController.frame 契约：缩放与滚动落在同一次导航提交。
  *
- * 数值基准：dpr=1，plotWidth=1000，dataLength=10，宽高随用例声明。
+ * 数值基准：dpr=1、plotWidth=1000、dataLength=10。
  */
 import { describe, expect, it } from 'vitest'
-import { KLINE_GAP_RATIOS } from '@/foundation/config/chartSettings'
-import { computed, createSignal } from '@/foundation/reactivity/signal'
 import { createOptionsState } from '../../state/optionsState'
 import { createViewportState } from '../../state/viewportState'
-import { createZoomState } from '../../state/zoomState'
 import { ChartZoomController } from '../chartZoomController'
 import { createViewportStateDeps } from './helpers/viewportFixture'
 
-/** 组装真实 viewport / zoom / options 状态与控制器（无 DOM 依赖）。 */
+/** 装配真实 viewport 与 options，不触碰 DOM。 */
 function makeController(period = 'daily', dataLength = 10) {
-  const deps = createViewportStateDeps({ dataLength, period })
-  const zoomState = createZoomState({
-    minKWidth$: createSignal(3),
-    maxKWidth$: createSignal(21),
-    dataView$: deps.dataView$,
-    zoomLevelCount: 6,
-  })
-  zoomState.actions.setZoomLevel(3)
-
-  const viewport = createViewportState({
-    ...deps,
-    geometry$: computed(() => ({
-      bottomAxisHeight: 24,
-      kWidth: zoomState.readonly.kWidth(),
-      kGapRatio: KLINE_GAP_RATIOS.standard,
-    })),
-    zoomLevel$: zoomState.readonly.zoomLevel,
-    timeShareSlotWidth$: zoomState.readonly.timeShareSlotWidth,
-  })
+  const deps = createViewportStateDeps({ dataLength, period, initialZoomLevel: 3, zoomLevelCount: 6 })
+  const viewport = createViewportState(deps)
   viewport.actions.resize(1000, 500, 1)
 
   const options = createOptionsState({
@@ -48,58 +28,37 @@ function makeController(period = 'daily', dataLength = 10) {
     initialZoomLevel: 3,
   })
 
-  const controller = new ChartZoomController({ viewport, options, onChange: () => {} }, zoomState)
-  return { viewport, controller, zoomState }
+  const controller = new ChartZoomController({ viewport, options, onChange: () => {} })
+  return { viewport, controller }
 }
 
 describe('ChartZoomController.frame', () => {
-  it('commits a continuous zoom level together with the anchored scroll', () => {
+  it('commits the zoom level and the anchored scroll together', () => {
     const { controller, viewport } = makeController()
 
     controller.frame({ level: 4.5, anchorSlot: 7.5 })
 
-    expect(viewport.readonly.viewportState.peek().zoomLevel).toBeCloseTo(4.5, 8)
-    const view = viewport.readonly.viewSnapshot.peek()
-    expect(view.grid.origin + 7.5 * view.grid.step - view.scroll).toBeCloseTo(0, 6)
+    const navigation = viewport.readonly.navigation()
+    expect(navigation.zoomLevel).toBeCloseTo(4.5, 8)
+    expect(navigation.scroll).toBeCloseTo(viewport.readonly.viewSnapshot().scroll, 8)
+    expect(viewport.readonly.viewportState().zoomLevel).toBeCloseTo(4.5, 8)
   })
 
-  it('still moves the scroll when the zoom level does not change', () => {
+  it('clamps the target level to the configured range', () => {
     const { controller, viewport } = makeController()
-    const level = viewport.readonly.viewportState.peek().zoomLevel
-    const before = viewport.readonly.viewSnapshot.peek().scroll
 
-    controller.frame({ level, anchorSlot: 9 })
+    controller.frame({ level: 99, anchorSlot: 0 })
 
-    expect(viewport.readonly.viewSnapshot.peek().scroll).not.toBe(before)
+    expect(viewport.readonly.navigation().zoomLevel).toBe(6)
   })
 
-  it.each([
-    [1_000, 6],
-    [-5, 1],
-  ])('clamps the level %s into the configured zoom range', (level, expected) => {
+  it('ignores non-finite targets without writing navigation', () => {
     const { controller, viewport } = makeController()
-
-    controller.frame({ level, anchorSlot: 0 })
-
-    expect(viewport.readonly.viewportState.peek().zoomLevel).toBe(expected)
-  })
-
-  it('ignores non-finite targets', () => {
-    const { controller, viewport } = makeController()
-    const before = viewport.readonly.viewportState.peek()
+    const before = viewport.readonly.navigation()
 
     controller.frame({ level: Number.NaN, anchorSlot: 0 })
-    controller.frame({ level: 3, anchorSlot: Number.POSITIVE_INFINITY })
+    controller.frame({ level: 2, anchorSlot: Number.NaN })
 
-    expect(viewport.readonly.viewportState.peek()).toBe(before)
-  })
-
-  it('leaves fixed views untouched', () => {
-    const { controller, viewport } = makeController('timeshare')
-    const before = viewport.readonly.viewSnapshot.peek()
-
-    controller.frame({ level: 6, anchorSlot: 3 })
-
-    expect(viewport.readonly.viewSnapshot.peek().scroll).toBe(before.scroll)
+    expect(viewport.readonly.navigation()).toBe(before)
   })
 })

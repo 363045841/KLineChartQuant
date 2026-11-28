@@ -49,10 +49,10 @@ describe('Chart market validation boundaries', () => {
   let chart: Chart
   let restoreDom: () => void
 
-  beforeEach(() => {
+  beforeEach(async () => {
     restoreDom = installChartDomStubs()
     chart = new Chart(createChartDom(1000, 600), options, createTestChartRuntime())
-    chart.setPrimaryMarket(currentSpec())
+    await chart.setPrimaryMarket(currentSpec())
   })
   afterEach(async () => {
     await chart.destroy()
@@ -135,7 +135,7 @@ describe('Chart market validation boundaries', () => {
     expect(changed).not.toHaveBeenCalled()
   })
 
-  it('switches the symbol, active buffer and public selection together', () => {
+  it('switches the symbol, active buffer and public selection together', async () => {
     const oldBuffer = chart.kernel.data.readonly.activeSelection.peek()
     const snapshots: unknown[] = []
     chart.symbols.subscribe(() =>
@@ -146,7 +146,7 @@ describe('Chart market validation boundaries', () => {
       ]),
     )
     // 换品种必须整体替换身份：旧 instrument 不能带进新品种。
-    chart.setPrimaryMarket({
+    await chart.setPrimaryMarket({
       instrument: {
         id: 'session-fixture:HK:00700',
         source: 'session-fixture',

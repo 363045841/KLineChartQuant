@@ -1,11 +1,15 @@
-/** 视口状态模块：几何、DPR clamp 与尺寸的单一来源。 */
+/**
+ * 视口状态：导航事实与容器测量的唯一来源。
+ *
+ * 只保存三件事——导航目标、容器尺寸、精确 DPR；像素几何、槽位与可见区间全部由纯投影算出。
+ * 派生值不回写，因此不存在第二份缩放或滚动状态。
+ */
 
 import type { TimeShareRange } from '../../data/provider/types.js'
 import {
   batch,
   computed,
   createSubState,
-  effect,
   type ReadonlySignal,
 } from '../../foundation/reactivity/signal.js'
 import { type ChartDataView, ChartDataViewId } from '../../foundation/types/chartView.js'
@@ -13,13 +17,21 @@ import type { ChartSeriesDatum } from '../../foundation/types/price.js'
 import type { MarketSessionConfig } from '../../foundation/utils/sessionTimeLabels.js'
 import type { Viewport, ViewportState } from '../chart/index.js'
 import { SCALE_X_STRATEGIES, type ScaleXInput } from '../scale/index.js'
+import {
+  clampNavigation,
+  initialNavigation,
+  projectPlot,
+  type PlotNavigation,
+  type ProjectPlotInput,
+} from '../viewport/navigation.js'
 import type { VisibleRange } from '../viewport/viewport.js'
+import type { ZoomConfigBase } from '../viewport/zoom.js'
 
 /**
  * 钳制 effective DPR，避免超出 MAX_CANVAS_PIXELS 上限。
  *
- * @param viewWidth   视口 CSS 宽度
- * @param viewHeight  视口 CSS 高度
+ * @param viewWidth 视口 CSS 宽度
+ * @param viewHeight 视口 CSS 高度
  * @param effectiveDpr 当前有效 DPR
  * @param maxCanvasPixels 像素上限（默认 16M）
  * @returns 钳制后的 DPR
@@ -39,9 +51,9 @@ export function clampDpr(
 /**
  * 根据 preciseDpr 与 window.devicePixelRatio 计算 effective DPR。
  *
- * @remarks Electron 环境下走特殊逻辑：忽略 preciseDpr，直接读取系统 DPR。
+ * @remarks Electron 环境下忽略 preciseDpr，直接读取系统 DPR，避免缩放控件与系统设置打架。
  *
- * @param preciseDpr - 用户配置的高精度 DPR（0 表示自动）
+ * @param preciseDpr 用户配置的高精度 DPR（0 表示自动）
  * @returns 最终生效的 DPR，最低为 1
  */
 export function getEffectiveDprLogic(preciseDpr: number): number {
@@ -53,416 +65,238 @@ export function getEffectiveDprLogic(preciseDpr: number): number {
   return Math.max(1, dpr || 1)
 }
 
-/**
- * ReadonlySignal 输入 —— 所有字段均被响应式系统追踪。
- * 可在 kernel constructor 中直接使用（无 DOM 依赖）。
- */
+/** 视口模块的响应式输入；全部来自已提交状态。 */
 export interface ViewportSignalDeps {
-  /** 视口几何输入：轴高、缩放派生的实体宽度与密度派生的间距系数。 */
-  geometry$: ReadonlySignal<{
-    bottomAxisHeight: number
-    kWidth: number
-    kGapRatio: number
-  }>
+  /** 轴高与密度系数；K 线宽度由导航的缩放目标派生。 */
+  geometry$: ReadonlySignal<{ bottomAxisHeight: number; gapRatio: number }>
   dataLength$: ReadonlySignal<number>
   dataView$: ReadonlySignal<ChartDataView>
   data$: ReadonlySignal<ReadonlyArray<ChartSeriesDatum>>
   marketSession$: ReadonlySignal<MarketSessionConfig | null>
   timeShareRange$: ReadonlySignal<TimeShareRange | null>
-  zoomLevel$: ReadonlySignal<number>
-  /** 分时每个交易槽的逻辑宽度；未初始化时按最小物理像素布局。 */
-  timeShareSlotWidth$?: ReadonlySignal<number | null>
+  zoom$: ReadonlySignal<ZoomConfigBase>
+  /** 首次进入品种时使用的缩放级别。 */
+  initialZoomLevel: number
 }
 
-/**
- * DOM 与 side-effect 回调。
- * kernel 外部注入，init() 前调用 setDomDeps() 设置。
- */
-export interface ViewportDomDeps {
-  getDom: () => {
-    container: HTMLElement | null
-    scrollContent?: HTMLElement | null
-    canvasLayer: HTMLElement | null
-    xAxisCanvas: HTMLCanvasElement | null
-  }
-  onViewportResize: (plotWidth: number, plotHeight: number, dpr: number) => void
-}
+/** 创建视口状态；派生值只在读取时计算，模块不保存几何副本。 */
+export function createViewportState(deps: ViewportSignalDeps) {
+  const initial = initialNavigation(deps.initialZoomLevel)
+  const { signals, readonly } = createSubState({
+    navigation: {
+      [ChartDataViewId.KLine]: initial,
+      [ChartDataViewId.TimeShare]: initial,
+      [ChartDataViewId.FiveDayTimeShare]: initial,
+    } as Readonly<Record<ChartDataView, PlotNavigation>>,
+    viewWidth: 0,
+    viewHeight: 0,
+    preciseDpr: 0,
+  })
 
-const NULL_DOM_RETURN: ReturnType<ViewportDomDeps['getDom']> = {
-  container: null,
-  canvasLayer: null,
-  xAxisCanvas: null,
-}
-
-/** 判断视口快照是否可复用；任一字段变化都必须产生新对象。 */
-function sameViewportState(
-  previous: ViewportState | null,
-  next: ViewportState,
-): previous is ViewportState {
-  if (!previous) return false
-  return (
-    previous.zoomLevel === next.zoomLevel &&
-    previous.plotWidth === next.plotWidth &&
-    previous.plotHeight === next.plotHeight &&
-    previous.dpr === next.dpr &&
-    previous.visibleFrom === next.visibleFrom &&
-    previous.visibleTo === next.visibleTo &&
-    previous.kWidth === next.kWidth &&
-    previous.kGap === next.kGap
+  const dpr = computed(() => {
+    const width = Math.max(1, readonly.viewWidth())
+    const height = Math.max(1, readonly.viewHeight())
+    return clampDpr(width, height, getEffectiveDprLogic(readonly.preciseDpr()))
+  })
+  const plotWidth = computed(() => Math.round(readonly.viewWidth()))
+  const plotHeight = computed(
+    () => Math.round(readonly.viewHeight()) - deps.geometry$().bottomAxisHeight,
   )
-}
-
-export function createViewportState(signalDeps: ViewportSignalDeps) {
-  let _domDeps: ViewportDomDeps | undefined
-  const readTimeShareSlotWidth = (): number | undefined =>
-    signalDeps.timeShareSlotWidth$?.() ?? undefined
-  const _getDom = () => (_domDeps ? _domDeps.getDom() : NULL_DOM_RETURN)
-  const requestViewportResize = (w: number, h: number, dpr: number) => {
-    if (_domDeps) _domDeps.onViewportResize(w, h, dpr)
-  }
-
-  const computeDpr = (viewWidth: number, viewHeight: number, preciseDpr: number): number => {
-    const eff = getEffectiveDprLogic(preciseDpr)
-    return clampDpr(Math.max(1, viewWidth), Math.max(1, viewHeight), eff)
-  }
-
-  const computePlotWidth = (viewWidth: number): number => Math.round(viewWidth)
-  const computePlotHeight = (viewHeight: number): number =>
-    Math.round(viewHeight - signalDeps.geometry$().bottomAxisHeight)
-
-  const { signals, readonly } = createSubState(
-    {
-      navigation: {
-        [ChartDataViewId.KLine]: 0,
-        [ChartDataViewId.TimeShare]: 0,
-        [ChartDataViewId.FiveDayTimeShare]: 0,
-      },
-      viewWidth: 0,
-      viewHeight: 0,
-      preciseDpr: 0,
-      initialized: false,
-    },
-    {
-      dpr: (s) => computeDpr(s.viewWidth(), s.viewHeight(), s.preciseDpr()),
-      plotWidth: (s) => computePlotWidth(s.viewWidth()),
-      plotHeight: (s) => computePlotHeight(s.viewHeight()),
-    },
+  const navigation = computed(() => readonly.navigation()[deps.dataView$()])
+  const sessionSlotWidth = computed(() =>
+    navigation().kind === 'slots' ? (navigation() as { sessionSlotWidth: number | null }).sessionSlotWidth : null,
   )
 
-  // 唯一投影入口：视图状态选择策略，所有几何消费者读取同一快照。
+  /** 唯一投影输入；提交与派生值共用同一份构造，避免两处字段漂移。 */
+  const projectionInput = (candidate: PlotNavigation): ProjectPlotInput => ({
+    view: deps.dataView$(),
+    navigation: candidate,
+    width: plotWidth(),
+    dpr: dpr(),
+    data: deps.data$(),
+    dataLength: deps.dataLength$(),
+    marketSession: deps.marketSession$(),
+    timeShareRange: deps.timeShareRange$(),
+    gapRatio: deps.geometry$().gapRatio,
+    zoom: deps.zoom$(),
+  })
+
+  const projected = computed(() => projectPlot(projectionInput(navigation())))
+  const viewSnapshot = computed(() => projected().snapshot)
+
   const viewInput = computed<ScaleXInput>(() => ({
-    view: signalDeps.dataView$(),
-    width: readonly.plotWidth(),
-    dpr: readonly.dpr(),
-    kWidth: signalDeps.geometry$().kWidth,
-    kGapRatio: signalDeps.geometry$().kGapRatio,
-    sessionSlotWidth: readTimeShareSlotWidth() ?? null,
-    data: signalDeps.data$(),
-    dataLength: signalDeps.dataLength$(),
-    marketSession: signalDeps.marketSession$(),
-    timeShareRange: signalDeps.timeShareRange$(),
-    scroll: readonly.navigation()[signalDeps.dataView$()],
+    view: deps.dataView$(),
+    width: plotWidth(),
+    dpr: dpr(),
+    kWidth: projected().kWidth,
+    kGapRatio: deps.geometry$().gapRatio,
+    sessionSlotWidth: sessionSlotWidth(),
+    data: deps.data$(),
+    dataLength: deps.dataLength$(),
+    marketSession: deps.marketSession$(),
+    timeShareRange: deps.timeShareRange$(),
+    scroll: viewSnapshot().scroll,
   }))
-  const viewSnapshot = computed(() => SCALE_X_STRATEGIES[viewInput().view].project(viewInput()))
-  const kGap = computed(() => viewSnapshot().kGap)
-  const slotGrid = computed(() => viewSnapshot().grid)
-  const contentWidth = computed(() => viewSnapshot().contentWidth)
-  const maxScrollLeft = computed(() => Math.max(0, contentWidth() - readonly.viewWidth()))
-  const scrollLeft = computed(() => viewSnapshot().domScroll)
-  const scrollLeftLogical = computed(() => viewSnapshot().scroll)
-  const leftLoadBufferWidth = computed(() => viewSnapshot().domOffset)
 
-  // ── 带引用缓存的 computed —— 仅在字段值实际变化时返回新对象 ──
-  // 避免 Object.is 短路失效导致下游 effect / Vue 订阅在子像素滚动时虚假重跑
+  const viewport = computed<Viewport>(() => ({
+    viewWidth: readonly.viewWidth(),
+    viewHeight: readonly.viewHeight(),
+    plotWidth: plotWidth(),
+    plotHeight: plotHeight(),
+    dpr: dpr(),
+    scrollLeft: viewSnapshot().scroll,
+  }))
 
-  let _cachedViewport: Viewport | null = null
-  const cachedViewport = computed<Viewport>(() => {
-    const vp: Viewport = {
-      viewWidth: readonly.viewWidth(),
-      viewHeight: readonly.viewHeight(),
-      plotWidth: readonly.plotWidth(),
-      plotHeight: readonly.plotHeight(),
-      dpr: readonly.dpr(),
-      scrollLeft: viewSnapshot().scroll,
+  const viewportState = computed<ViewportState>(() => {
+    const snapshot = viewSnapshot()
+    return {
+      zoomLevel: projected().level,
+      plotWidth: plotWidth(),
+      plotHeight: plotHeight(),
+      dpr: dpr(),
+      visibleFrom: snapshot.range.start,
+      visibleTo: snapshot.range.end,
+      kWidth: snapshot.kWidth,
+      kGap: snapshot.kGap,
     }
-    if (
-      _cachedViewport &&
-      _cachedViewport.viewWidth === vp.viewWidth &&
-      _cachedViewport.viewHeight === vp.viewHeight &&
-      _cachedViewport.plotWidth === vp.plotWidth &&
-      _cachedViewport.plotHeight === vp.plotHeight &&
-      _cachedViewport.scrollLeft === vp.scrollLeft &&
-      _cachedViewport.dpr === vp.dpr
-    ) {
-      return _cachedViewport
-    }
-    _cachedViewport = vp
-    return vp
   })
 
-  let _cachedRawVisibleRange: VisibleRange | null = null
-  const cachedRawVisibleRange = computed<VisibleRange>(() => {
-    const vr = viewSnapshot().slotRange
-    if (
-      _cachedRawVisibleRange &&
-      _cachedRawVisibleRange.start === vr.start &&
-      _cachedRawVisibleRange.end === vr.end
-    ) {
-      return _cachedRawVisibleRange
+  /** 提交一次导航目标；精确坐标会先由视图策略夹到合法边界。 */
+  const commit = (next: PlotNavigation): boolean => {
+    const view = deps.dataView$.peek()
+    const candidate = clampNavigation(next, deps.zoom$.peek())
+    if (!candidate) return false
+
+    let write = candidate
+    if (candidate.kind === 'slots') {
+      const { snapshot } = projectPlot(projectionInput(candidate))
+      write = { ...candidate, scroll: SCALE_X_STRATEGIES[view].navigate(snapshot, candidate.scroll) }
     }
-    _cachedRawVisibleRange = vr
-    return vr
-  })
 
-  // 可索引可见区间（start>=0）— 绘制 / hit-test / 指标 / ViewportState 的 SSOT
-  let _cachedVisibleRange: VisibleRange | null = null
-  const cachedVisibleRange = computed<VisibleRange>(() => {
-    const clamped = viewSnapshot().range
-    if (
-      _cachedVisibleRange &&
-      _cachedVisibleRange.start === clamped.start &&
-      _cachedVisibleRange.end === clamped.end
-    ) {
-      return _cachedVisibleRange
-    }
-    _cachedVisibleRange = clamped
-    return clamped
-  })
+    const navigationMap = readonly.navigation.peek()
+    const current = navigationMap[view]
+    // 几何没有变化就不写状态；声明式目标只在目标本身变化时写入。
+    if (write.kind === 'slots') {
+      const resolved = projectPlot(projectionInput(write))
+      if (
+        resolved.snapshot.scroll === viewSnapshot.peek().scroll &&
+        resolved.kWidth === projected.peek().kWidth &&
+        write.sessionSlotWidth === sessionSlotWidth.peek() &&
+        current.kind !== 'time'
+      )
+        return false
+    } else if (sameNavigation(current, write)) return false
 
-  let _cachedViewportState: ViewportState | null = null
-  const cachedViewportState = computed<ViewportState>(() => {
-    const vp = cachedViewport()
-    const vr = cachedVisibleRange()
-    const next: ViewportState = {
-      zoomLevel: signalDeps.zoomLevel$(),
-      plotWidth: vp.plotWidth,
-      plotHeight: vp.plotHeight,
-      dpr: vp.dpr,
-      visibleFrom: vr.start,
-      visibleTo: vr.end,
-      kWidth: viewSnapshot().kWidth,
-      kGap: kGap(),
-    }
-    if (sameViewportState(_cachedViewportState, next)) return _cachedViewportState!
-    _cachedViewportState = next
-    return next
-  })
-
-  // ── DOM 副作用（effect） ──
-  // compute 负责内部状态计算属性，effect 负责将状态同步到外界
-  // effect 的监听行为是自动的，但它的启动时机是手动控制的
-
-  let canvasDomEffect: (() => void) | null = null
-  let resizeEffect: (() => void) | null = null
-
-  /**
-   * 写入请求 scrollLeft；与当前值相等时跳过，避免 pan 重复事件空通知。
-   */
-  /** 世界导航仅由当前视图策略裁决，DOM 位置不进入业务状态。 */
-  const setLogicalScrollLeft = (value: number): boolean => {
-    if (!Number.isFinite(value)) return false
-    const snapshot = viewSnapshot.peek()
-    const next = SCALE_X_STRATEGIES[snapshot.view].navigate(snapshot, value)
-    if (next === snapshot.scroll) return false
-    signals.navigation.set({ ...readonly.navigation.peek(), [snapshot.view]: next })
+    signals.navigation.set({ ...navigationMap, [view]: write })
     return true
   }
 
-  const syncFromDomScroll = (): boolean => {
-    const container = _getDom().container
-    return container
-      ? setLogicalScrollLeft(container.scrollLeft - leftLoadBufferWidth.peek())
-      : false
-  }
-
-  /**
-   * 挂载 Canvas DOM 尺寸同步与绘制帧 resize 请求。
-   *
-   * @remarks init() 时调用，返回的清理函数由 dispose() 执行。
-   */
-  const setupCanvasSync = (): void => {
-    canvasDomEffect = effect(() => {
-      if (!readonly.initialized()) return
-      const viewWidth = readonly.viewWidth()
-      const viewHeight = readonly.viewHeight()
-      if (viewWidth <= 0 || viewHeight <= 0) return
-      const dpr = readonly.dpr()
-      syncCanvasDom(dpr, viewWidth, viewHeight)
-    })
-    resizeEffect = effect(() => {
-      if (!readonly.initialized()) return
-      const plotWidth = readonly.plotWidth()
-      const plotHeight = readonly.plotHeight()
-      if (plotWidth <= 0 || plotHeight <= 0) return
-      const dpr = readonly.dpr()
-      requestViewportResize(plotWidth, plotHeight, dpr)
-    })
-  }
-
-  const syncCanvasDom = (dpr: number, viewWidth: number, viewHeight: number): void => {
-    const dom = _getDom()
-    const canvasLayer = dom.canvasLayer
-    if (!canvasLayer) return
-
-    const dprRoundedViewWidth = Math.round(viewWidth * dpr) / dpr
-
-    const canvasLayerWidth = `${dprRoundedViewWidth}px`
-    if (canvasLayer.style.width !== canvasLayerWidth) {
-      canvasLayer.style.width = canvasLayerWidth
-    }
-
-    const canvasLayerHeight = `${viewHeight}px`
-    if (canvasLayer.style.height !== canvasLayerHeight) {
-      canvasLayer.style.height = canvasLayerHeight
-    }
-
-    // 时间轴后备存储由 ChartRenderer 在绘制帧内调整，避免 resize 清空后跨帧留白。
-  }
-
-  // ── Actions（外部消费者变更内部状态入口） ──
-
-  // ── 合并 readonly：原始 subState + 缓存 computed ──
-  const mergedReadonly = {
-    ...readonly,
-    contentWidth,
-    viewInput,
-    viewSnapshot,
-    slotGrid,
-    leftLoadBufferWidth,
-    maxScrollLeft,
-    scrollLeft,
-    scrollLeftLogical,
-    kGap,
-    viewport: cachedViewport,
-    /** raw：含左右扩窗，start 可能为 -1（增量加载左缘检测） */
-    rawVisibleRange: cachedRawVisibleRange,
-    /** clamped：start>=0，绘制 / hit-test / 指标 / ViewportState 的 SSOT */
-    visibleRange: cachedVisibleRange,
-    viewportState: cachedViewportState,
-  }
-
   return {
-    readonly: mergedReadonly,
-
-    setDomDeps(deps: ViewportDomDeps) {
-      _domDeps = deps
+    readonly: {
+      dpr,
+      plotWidth,
+      plotHeight,
+      navigation,
+      viewInput,
+      viewSnapshot,
+      viewport,
+      viewportState,
+      /** 生效的缩放级别；时间窗口导航下由窗口根数派生。 */
+      zoomLevel: computed(() => projected().level),
+      contentWidth: computed(() => viewSnapshot().contentWidth),
+      leftLoadBufferWidth: computed(() => viewSnapshot().domOffset),
+      maxScrollLeft: computed(() => Math.max(0, viewSnapshot().contentWidth - readonly.viewWidth())),
+      /** 世界滚动坐标；最新端与时间窗口在测量后也有确定值。 */
+      scroll: computed(() => viewSnapshot().scroll),
+      /** 主 DOM 滚动容器的偏移，等于世界坐标加左侧加载缓冲。 */
+      domScroll: computed(() => viewSnapshot().domScroll),
+      kGap: computed(() => viewSnapshot().kGap),
+      slotGrid: computed(() => viewSnapshot().grid),
+      /** 最新端的世界坐标；固定视图没有最新端时为 null。 */
+      latestScroll: computed(() => SCALE_X_STRATEGIES[deps.dataView$()].latest(viewSnapshot())),
+      /** 含两侧渲染扩窗；start 可能为负，用于左缘加载判断。 */
+      rawVisibleRange: computed<VisibleRange>(() => viewSnapshot().slotRange),
+      /** 可索引可见区间；绘制、命中与指标共用。 */
+      visibleRange: computed<VisibleRange>(() => viewSnapshot().range),
+      viewWidth: readonly.viewWidth,
+      viewHeight: readonly.viewHeight,
+      preciseDpr: readonly.preciseDpr,
     },
 
     actions: {
-      /**
-       * 滚动到指定 scrollLeft 位置。
-       *
-       * @remarks 仅更新内部信号；DOM 提交由 ChartRenderer 帧事务负责。
-       *
-       * @param v - 目标 scrollLeft（CSS px）
-       */
-      scrollTo(v: number): boolean {
-        return setLogicalScrollLeft(v - leftLoadBufferWidth.peek())
-      },
-
-      /** 按世界坐标滚动，必要时扩展过去与未来槽位。 */
-      scrollToLogical(v: number): boolean {
-        return setLogicalScrollLeft(v)
-      },
-
-      /**
-       * 定位到当前视图的最新端。
-       *
-       * @remarks 位置由视图策略按模型坐标解算（最新一根 + 固定未来槽位），
-       * 不读 DOM 像素几何，调用时机不受 batch 影响。
-       * @returns 是否发生滚动；固定视图没有最新端时返回 false
-       */
-      scrollToLatest(): boolean {
-        const snapshot = viewSnapshot.peek()
-        const target = SCALE_X_STRATEGIES[snapshot.view].latest(snapshot)
-        return target === null ? false : setLogicalScrollLeft(target)
-      },
-
-      /** 提交由模型策略已裁决的导航结果，用于缩放的原子事务。 */
-      setNavigation(v: number): void {
-        const view = signalDeps.dataView$.peek()
-        signals.navigation.set({ ...readonly.navigation.peek(), [view]: v })
-      },
-
-      /**
-       * 从 DOM 容器的 scrollLeft 同步状态。
-       *
-       * @remarks 在外部滚动事件中调用，使 signal 与 DOM 保持一致。
-       */
-      syncFromDomScroll(): boolean {
-        return syncFromDomScroll()
-      },
-
-      /**
-       * 响应容器尺寸变化，更新视口尺寸与 DPR。
-       *
-       * @remarks 尺寸只更新布局输入，不负责初始化或重置导航。
-       * 三个字段在 batch() 内同步写入，保证 computed 只触发一次重求值，只触发一次重绘。
-       *
-       * @param width  - 新视口 CSS 宽度
-       * @param height - 新视口 CSS 高度
-       * @param dpr    - 新精确 DPR
-       */
-      resize(width: number, height: number, dpr: number) {
-        const w = Number.isFinite(width) ? Math.max(0, width) : 0
-        const h = Number.isFinite(height) ? Math.max(0, height) : 0
-        const d = Number.isFinite(dpr) ? dpr : 1
-        batch(() => {
-          signals.viewWidth.set(w)
-          signals.viewHeight.set(h)
-          signals.preciseDpr.set(d)
+      /** 提交导航目标；越界坐标被收敛，非法输入被拒绝。 */
+      commit,
+      /** 冻结当前位置为精确坐标，保持缩放与槽宽。 */
+      commitScroll(scroll: number): boolean {
+        const current = navigation.peek()
+        return commit({
+          kind: 'slots',
+          scroll,
+          zoomLevel: current.kind === 'time' ? projected.peek().level : current.zoomLevel,
+          sessionSlotWidth: current.kind === 'slots' ? current.sessionSlotWidth : null,
         })
       },
-
-      /**
-       * 初始化视口状态。
-       *
-       * @remarks 从 DOM 容器读取首帧尺寸与 scrollLeft，并挂载 canvas 尺寸同步 effect。
-       * 重复调用安全（仅首次生效）。
-       */
-      init() {
-        if (signals.initialized.peek()) return
-        if (!_domDeps) return
-        const container = _getDom().container
-        if (!container) return
-        signals.initialized.set(true)
-        // 首帧尺寸写入 kernel，避免 paint 路径读 DOM fallback
-        const w = Math.max(0, Math.round(container.clientWidth))
-        const h = Math.max(0, Math.round(container.clientHeight))
+      /** 只改缩放目标，保持当前锚点形态。 */
+      commitZoom(zoomLevel: number): boolean {
+        const current = navigation.peek()
+        if (current.kind === 'time') {
+          return commit({
+            kind: 'slots',
+            scroll: viewSnapshot.peek().scroll,
+            zoomLevel,
+            sessionSlotWidth: null,
+          })
+        }
+        return commit({ ...current, zoomLevel })
+      },
+      /** 贴住最新端。 */
+      commitLatest(zoomLevel: number): boolean {
+        return commit({ kind: 'latest', zoomLevel })
+      },
+      /** 装满一个时间窗口。 */
+      commitTimeWindow(fromTime: number, toTime: number): boolean {
+        return commit({ kind: 'time', fromTime, toTime })
+      },
+      /** 写入测量结果；几何由订阅者重新投影。 */
+      resize(width: number, height: number, preciseDpr: number): void {
         batch(() => {
-          if (w > 0 && h > 0) {
-            signals.viewWidth.set(w)
-            signals.viewHeight.set(h)
-          }
+          signals.viewWidth.set(Number.isFinite(width) ? Math.max(0, width) : 0)
+          signals.viewHeight.set(Number.isFinite(height) ? Math.max(0, height) : 0)
+          signals.preciseDpr.set(Number.isFinite(preciseDpr) ? preciseDpr : 0)
         })
-        setupCanvasSync()
       },
     },
 
-    /**
-     * 清理所有 effect 并重置状态。
-     *
-     * @remarks 图表销毁时调用。取消 DOM 同步与 WebGL 回调，
-     * 将 writable signals 归零。
-     */
-    dispose() {
-      canvasDomEffect?.()
-      resizeEffect?.()
-      canvasDomEffect = null
-      resizeEffect = null
+    dispose(): void {
       batch(() => {
-        signals.initialized.set(false)
-        signals.preciseDpr.set(0)
         signals.viewWidth.set(0)
         signals.viewHeight.set(0)
+        signals.preciseDpr.set(0)
         signals.navigation.set({
-          [ChartDataViewId.KLine]: 0,
-          [ChartDataViewId.TimeShare]: 0,
-          [ChartDataViewId.FiveDayTimeShare]: 0,
+          [ChartDataViewId.KLine]: initial,
+          [ChartDataViewId.TimeShare]: initial,
+          [ChartDataViewId.FiveDayTimeShare]: initial,
         })
       })
     },
   }
 }
 
+/** 比较两个导航目标是否等价。 */
+function sameNavigation(left: PlotNavigation, right: PlotNavigation): boolean {
+  if (left.kind !== right.kind) return false
+  if (left.kind === 'time' && right.kind === 'time')
+    return left.fromTime === right.fromTime && left.toTime === right.toTime
+  if (left.kind === 'latest' && right.kind === 'latest')
+    return left.zoomLevel === right.zoomLevel
+  if (left.kind === 'slots' && right.kind === 'slots')
+    return (
+      left.scroll === right.scroll &&
+      left.zoomLevel === right.zoomLevel &&
+      left.sessionSlotWidth === right.sessionSlotWidth
+    )
+  return false
+}
+
 export type ViewportStateModule = ReturnType<typeof createViewportState>
+export type { PlotNavigation }

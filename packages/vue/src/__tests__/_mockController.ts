@@ -313,7 +313,7 @@ export function createMockChartController(
       throw new Error('测试图表未配置临时计算行情')
     },
     getZoomLevelCount: () => 10,
-    setPrimaryMarket: () => {},
+    setPrimaryMarket: async (spec) => { symbolsSignal.set(spec ? [spec] : []) },
     registerSymbols: () => {},
     setComparisonSpecs: () => {},
     addComparisonSymbol: () => {},

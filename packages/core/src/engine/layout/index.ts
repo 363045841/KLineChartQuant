@@ -6,7 +6,6 @@ export {
   type LayoutDocument,
   type LayoutPanePriceAxisModes,
   type LayoutSummary,
-  type LayoutViewportSnapshot,
   type LayoutWorkspaces,
   type NamedLayoutDocument,
 } from './types.js'

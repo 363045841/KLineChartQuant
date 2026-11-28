@@ -1,7 +1,7 @@
 /** ChartDataManager 取数失败向 dataError 的投影。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { ChartDataManager } from '../chartDataManager'
+import type { TestChartDataManager } from './helpers/chartDataManagerTestKit'
 import {
   createTestChartDataManager,
   createTestDocument,
@@ -12,7 +12,7 @@ import {
 } from './helpers/chartDataManagerTestKit'
 
 describe('ChartDataManager error handling', () => {
-  let manager: ChartDataManager | null = null
+  let manager: TestChartDataManager | null = null
   let document: Document
 
   beforeEach(() => {

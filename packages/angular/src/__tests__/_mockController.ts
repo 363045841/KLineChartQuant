@@ -43,7 +43,7 @@ export function createMockChartController(): MockControllerHandle {
     interactionState,
     paneRatios,
     indicators,
-    setPrimaryMarket() {
+    async setPrimaryMarket() {
       /* no-op */
     },
     setTheme() {
