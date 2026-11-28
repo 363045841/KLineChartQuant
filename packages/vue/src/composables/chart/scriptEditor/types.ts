@@ -20,7 +20,7 @@ export interface ScriptEditorTab {
   readonly id: string
   readonly definitionId: string | null
   readonly title: string
-  readonly kind: 'indicator' | 'library'
+  readonly kind: 'indicator' | 'alert' | 'library'
   readonly dirty: boolean
   /** 未保存草稿的落盘目录；已提交文档以仓库记录为准。 */
   readonly folder: string
@@ -28,7 +28,7 @@ export interface ScriptEditorTab {
 
 /** 编辑器读取或提交的脚本文档。 */
 export interface ScriptEditorDocument {
-  readonly kind: 'indicator' | 'library'
+  readonly kind: 'indicator' | 'alert' | 'library'
   readonly trusted: boolean
   readonly id: string
   readonly definition: { readonly name: string }
@@ -41,7 +41,7 @@ export interface ScriptEditorDocument {
 
 /** 文件树中的文件夹；路径按脚本类型隔离。 */
 export interface ScriptEditorFolder {
-  readonly kind: 'indicator' | 'library'
+  readonly kind: 'indicator' | 'alert' | 'library'
   readonly path: string
 }
 
@@ -78,17 +78,17 @@ export type ScriptTreeRow =
 export type ScriptTreeAction =
   | {
       readonly type: 'create-file'
-      readonly kind: 'indicator' | 'library'
+      readonly kind: 'indicator' | 'alert' | 'library'
       readonly folder: string
     }
   | {
       readonly type: 'create-folder'
-      readonly kind: 'indicator' | 'library'
+      readonly kind: 'indicator' | 'alert' | 'library'
       readonly path: string
     }
   | {
       readonly type: 'remove-folder'
-      readonly kind: 'indicator' | 'library'
+      readonly kind: 'indicator' | 'alert' | 'library'
       readonly path: string
     }
   | { readonly type: 'copy-file'; readonly id: string }

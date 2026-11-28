@@ -13,9 +13,11 @@ type ZonesConfig = {
   readonly bearFill: string
 }
 
-const zones: Zone[] = []
-let swingHigh = Number.NaN
-let swingLow = Number.NaN
+const acc = state({
+  zones: [] as Zone[],
+  swingHigh: Number.NaN,
+  swingLow: Number.NaN,
+})
 
 /** 为已确认区域建立无边框矩形；限额包含保留的历史区域。 */
 function addZone(
@@ -26,7 +28,7 @@ function addZone(
   bull: boolean,
   title: string,
 ): void {
-  if (zones.length === config.maxZones) box.delete(zones.shift()!.id)
+  if (acc.zones.length === config.maxZones) box.delete(acc.zones.shift()!.id)
   const fill = bull ? config.bullFill : config.bearFill
   const id = box.new({
     left,
@@ -39,20 +41,20 @@ function addZone(
     text: title,
     textColor: Color.foreground,
   })
-  zones.push({ id, bull, high: top, low: bottom, active: true })
+  acc.zones.push({ id, bull, high: top, low: bottom, active: true })
 }
 
 /** 推进已有区域的右边界；远端被完全填补时按配置冻结或删除。 */
 function advanceZones(config: ZonesConfig): void {
-  for (let index = zones.length - 1; index >= 0; index--) {
-    const zone = zones[index]!
+  for (let index = acc.zones.length - 1; index >= 0; index--) {
+    const zone = acc.zones[index]!
     if (!zone.active) continue
     box.setRight(zone.id, barIndex)
     if (zone.bull ? low[0] <= zone.low : high[0] >= zone.high) {
       zone.active = false
       if (config.keepMitigated) continue
       box.delete(zone.id)
-      zones.splice(index, 1)
+      acc.zones.splice(index, 1)
     }
   }
 }
@@ -68,8 +70,8 @@ function detectFvg(config: ZonesConfig): void {
 function updateSwings(swingLength: number): void {
   const highPoint = ta.pivothigh(high, swingLength, swingLength)[0]
   const lowPoint = ta.pivotlow(low, swingLength, swingLength)[0]
-  if (Number.isFinite(highPoint)) swingHigh = highPoint
-  if (Number.isFinite(lowPoint)) swingLow = lowPoint
+  if (Number.isFinite(highPoint)) acc.swingHigh = highPoint
+  if (Number.isFinite(lowPoint)) acc.swingLow = lowPoint
 }
 
 /**
@@ -123,10 +125,10 @@ defineIndicator({
     advanceZones(config)
     if (showFvg) detectFvg(config)
     updateSwings(swingLength)
-    const up = close[0] > swingHigh
-    const down = close[0] < swingLow
+    const up = close[0] > acc.swingHigh
+    const down = close[0] < acc.swingLow
     if (showOb && (up || down)) detectOrderBlock(config, up)
-    if (up) swingHigh = Number.NaN
-    if (down) swingLow = Number.NaN
+    if (up) acc.swingHigh = Number.NaN
+    if (down) acc.swingLow = Number.NaN
   },
 })

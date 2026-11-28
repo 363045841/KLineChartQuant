@@ -6,11 +6,12 @@
  */
 
 import type { TimeframeVisibility } from '@363045841yyt/klinechart-plot-contracts'
-import type { SymbolSpec } from '@/controllers/types.js'
-import type { ChartIndicatorFacade } from '@/engine/chart/impl/facade/chartIndicatorFacade.js'
-import type { ChartPaneFacade } from '@/engine/chart/impl/facade/chartPaneFacade.js'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
+import type { ChartIndicatorFacade } from '@/engine/chart/facade/chartIndicatorFacade.js'
+import type { ChartPaneFacade } from '@/engine/chart/facade/chartPaneFacade.js'
 import type { ComparisonCommandsApi } from '@/engine/data/comparisonCommands.js'
 import type { TitleValueItem } from '@/engine/indicators/indicatorMetadata.js'
+import type { DefinitionRegistry } from '@/engine/indicators/registry/index.js'
 import type { IndicatorInstanceRole } from '@/engine/state/indicatorRole.js'
 import type { PluginHost } from '@/foundation/plugin/index.js'
 import type { ReadonlySignal } from '@/foundation/reactivity/index.js'
@@ -285,6 +286,8 @@ export interface LegendManagerDependencies {
   /** 指标实例写入口；图例的增删改排序只走这里。 */
   indicators: ChartIndicatorFacade
   comparisons: ComparisonCommandsApi
+  /** 指标与警报定义注册表；图例按定义身份读取名称与分类。 */
+  definitions: DefinitionRegistry
   getOptions: () => { legend?: LegendOptions }
   /** 主图是否已有品种；空图不展示收起入口。 */
   hasPrimarySymbol: () => boolean

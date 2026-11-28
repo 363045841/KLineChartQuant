@@ -21,13 +21,14 @@
 
 ## 时间与时段
 
-**barstate** 当前执行 bar 是否是本次数据的最后一根。
+**barstate** 当前 K 线的执行状态。
 
 **syminfo** 当前图表品种信息；`tickerId` 可直接传给 `request.security`。
 
 | 名称 | 类型 | 说明 |
 | --- | --- | --- |
-| `barstate.isLast` | `boolean` | — |
+| `barstate.isLast` | `boolean` | 当前执行 bar 是否是本次数据的最后一根。 |
+| `barstate.prevPrice` | `number \| undefined` | 同一根 K 线上一次实时更新的价格。首个实时更新与历史计算返回 undefined。 |
 | `timeframe.period` | `string` | — |
 | `session.isMarket` | `boolean` | — |
 | `session.isPremarket` | `boolean` | — |
@@ -300,6 +301,46 @@ defineIndicator({
   },
 })
 ```
+
+<a id="definealert"></a>
+
+### defineAlert
+
+```ts
+defineAlert(definition: ScriptAlertDeclaration): void
+```
+
+定义一个警报脚本。
+
+与指标共用同一套执行链路，但没有渲染位置，也不会进入指标面板。
+必须声明 frequency（'once' | 'per-bar' | 'per-bar-close' | 'all'），
+并调用 alert() 才能产出事件；指标脚本调用 alert() 会直接报错。
+频率由脚本决定，规则不覆盖。
+
+```ts
+defineAlert({
+  version: 2,
+  name: 'PriceCross',
+  frequency: 'per-bar',
+  onBar() {
+    const previous = barstate.prevPrice
+    if (previous !== undefined && previous < 100 && close[0] >= 100) alert('上穿 100')
+  },
+})
+```
+
+<a id="alert"></a>
+
+### alert
+
+```ts
+alert(message: string): void
+```
+
+输出一条实时警报事件。
+
+只在最后一根实时 bar 上产出；只能在 defineAlert 声明的脚本中调用。
+频率、冷却与投递由宿主的警报规则决定。
 
 <a id="derive"></a>
 

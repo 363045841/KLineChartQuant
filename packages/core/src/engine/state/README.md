@@ -48,8 +48,7 @@ state/
 ├── stateKernel.ts             # StateKernel 抽象基类 + SubStateModule 契约
 ├── chartStateKernel.ts        # Chart 具体 kernel：组合所有子状态与派生信号
 ├── optionsState.ts            # 图表选项（minKWidth、zoomLevelCount 等）
-├── zoomState.ts               # 缩放级别与 kWidth 派生
-├── dataState.ts               # 主图数据 buffer、周期、复权、可见数据版本
+├── ├── dataState.ts               # 主图数据 buffer、周期、复权、可见数据版本
 ├── dataManagerState.ts        # 数据协调层：当前 spec、session slots 等
 ├── viewportState.ts           # 视口几何、DPR clamp 与尺寸
 ├── contentGeometry.ts         # 视口内容的纯几何计算（leftBuffer / contentWidth / maxScroll）

@@ -2,21 +2,20 @@
  * IndexedDB 模板仓库：实现 DrawingTemplateStore 契约，按图元类型分键存整份列表。
  */
 
-import { createDocumentStore, type DocumentStore } from '@/foundation/persistence/index.js'
+import {
+  createIndexedDbDocumentStore,
+  type DocumentStore,
+} from '@/foundation/persistence/index.js'
 
 import type { DrawingKind } from '../../types.js'
 import type { DrawingTemplate, DrawingTemplateStore } from '../types.js'
 import { templateCodec, toPlainTemplate } from './codec.js'
+import { drawingTemplateDatabase } from './drawingTemplateDatabase.js'
 
-const DATABASE_NAME = '@363045841yyt/klinechart-drawing-templates'
-const STORE_NAME = 'templates'
-
-/** 取某类图元的持久化仓库；同类图元共享同一个连接。 */
+/** 取某类图元的持久化仓库；同类图元共享同一连接。 */
 function persistence(kind: DrawingKind): DocumentStore<DrawingTemplate[]> {
-  return createDocumentStore<DrawingTemplate[]>({
-    databaseName: DATABASE_NAME,
-    version: 1,
-    storeName: STORE_NAME,
+  return createIndexedDbDocumentStore<DrawingTemplate[]>({
+    database: drawingTemplateDatabase,
     key: kind,
     codec: templateCodec,
   })
@@ -28,7 +27,7 @@ export function createDrawingTemplateStore(
 ): DrawingTemplateStore {
   const stores = new Map<DrawingKind, DocumentStore<DrawingTemplate[]>>()
 
-  /** 每类图元只创建一个仓库，写操作因此共享同一连接和事务时序。 */
+  /** 每类图元只创建一份仓库，写入串行；同一连接后按释放时关闭。 */
   function store(kind: DrawingKind): DocumentStore<DrawingTemplate[]> {
     let current = stores.get(kind)
     if (!current) {

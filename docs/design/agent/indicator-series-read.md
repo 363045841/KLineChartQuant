@@ -22,23 +22,23 @@
 
 ### 2. 结果仓库是唯一事实来源
 
-`IndicatorResultStore` 按计算身份（`definitionId + inputs + context`）保存已提交结果，并提供 `publish / get / retain / snapshot`。区分三个发布物：
+`CalculationHub` 按数据身份与计算身份（`definitionId + inputs + context`）保存已提交结果，并提供 `updateFeed / setPlan / submit / peek`。区分三个发布物：
 
 | 名称 | 含义 |
 | --- | --- |
-| `IndicatorResult` | 一次计算的已提交结果：时间轴、修订号、`series` 与可选错误 |
-| `IndicatorSeriesPool` | 当前实例计划的结果快照，按 `instanceId` 索引，供渲染消费 |
-| 结果仓库 | 上述两者的底层存储；图表池只是它按计划过滤后的投影 |
+| `CalculationResult` | 一次计算的已提交结果：时间轴、修订号、`series`、`alerts` 与可选错误 |
+| 消费者提交 | `CalculationCommit`，按消费者计划给出当前行情上的全部结果 |
+| 结果仓库 | 中枢内部的键值存储；消费者提交只是它按计划读取的视图 |
 
 ### 3. 图表实例与预览共用一条执行路径
 
-`IndicatorCalculationScheduler` 对外只有 `refresh`（按计划刷新，不返回等待句柄）、`submit`（提交单个计算身份）、`get`（读已发布结果）：
+`CalculationHub` 对外只有计划入口（`createClient().setPlan`）、行情入口（`updateFeed`）和预览入口（`submit`）：
 
-- 图上实例：`refresh` 把计划任务合并进 lane，运行项不因行情更新被取消，只替换尚未开始的待执行项；
-- 预览（不在图上的输入组合）：`submit` 走同一个执行器与同一个仓库，但不进入图表结果池；
+- 图上实例：`setPlan` 把请求合并进 lane，运行项不因行情更新被取消，只替换尚未开始的待执行项；
+- 预览（不在图上的输入组合）：`submit` 走同一个执行器与同一个结果仓库，但不进入任何消费者的提交快照；
 - 同一身份同时被图与预览需要时复用正在运行或已发布的结果，不重复计算。
 
-读取方一律以 `dataRevision + marketRevision` 判断结果是否有效，不猜、不轮询。
+读取方以行情服务发布的 `dataRevision` 判断结果是否有效。
 
 ### 4. 投影是纯函数，且只有一种形状
 

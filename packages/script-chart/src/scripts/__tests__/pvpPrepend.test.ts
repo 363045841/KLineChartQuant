@@ -1,23 +1,26 @@
 /** 回归：PVP 通过脚本服务的公开计算入口，在前置插入历史后仍能正常输出。 */
 
 import { readFileSync } from 'node:fs'
-import { getRegisteredIndicatorDefinition } from '@363045841yyt/klinechart-core'
 import { describe, expect, it, vi } from 'vitest'
-import { NodeScriptWorker } from '../../../../script/src/worker/__tests__/nodeWorker.js'
+import { createDefinitionRegistry } from '@363045841yyt/klinechart-core'
 import { createScriptService } from '../impl/createScriptService.js'
+import { testScriptPool } from './helpers/scriptTestPool.js'
 
 describe('PVP service prepend', () => {
   it('computes PVP before and after a history prepend', async () => {
-    vi.stubGlobal('Worker', NodeScriptWorker)
+    vi.stubGlobal('Worker', undefined)
     const source = readFileSync(
       new URL('../../../../script/scripts/pvp.ts', import.meta.url),
       'utf8',
     )
+    const definitions = createDefinitionRegistry()
     const service = await createScriptService([], {
+      definitions,
       persistence: { load: async () => null, save: async () => true },
       builtinSources: [source],
+      createWorkerPool: testScriptPool,
     })
-    const runtime = getRegisteredIndicatorDefinition('PVP')?.runtime
+    const runtime = definitions.getDefinition('PVP')?.runtime
     if (!runtime) throw new Error('PVP not registered')
     const day = Date.UTC(2026, 0, 5)
     const bar = (time: number, close = 10) => ({
@@ -48,7 +51,7 @@ describe('PVP service prepend', () => {
     }
     const config = { rowSize: 4, periodUnit: 'day' }
     try {
-      const first = await runtime.compute(
+      const { series: first } = await runtime.compute(
         [bar(day + 86_400_000, 40), bar(day + 172_800_000, 60)],
         config,
         market,
@@ -63,7 +66,7 @@ describe('PVP service prepend', () => {
           }),
         ]),
       })
-      const second = await runtime.compute(
+      const { series: second } = await runtime.compute(
         [bar(day, 30), bar(day + 86_400_000, 40), bar(day + 172_800_000, 60)],
         config,
         market,
@@ -79,7 +82,7 @@ describe('PVP service prepend', () => {
       })
       const beforeTick = structuredClone(second)
       // 同一根 bar 实时更新
-      const tick = await runtime.compute(
+      const { series: tick } = await runtime.compute(
         [bar(day, 30), bar(day + 86_400_000, 40), bar(day + 172_800_000, 99)],
         config,
         market,
@@ -89,7 +92,7 @@ describe('PVP service prepend', () => {
       const beforePrepend = structuredClone(tick)
       // 低周期明细前置插入
       const older = { time: day - 86_400_000, open: 10, high: 11, low: 9, close: 10, volume: 10 }
-      const prepended = await runtime.compute(
+      const { series: prepended } = await runtime.compute(
         [bar(day, 30), bar(day + 86_400_000, 40), bar(day + 172_800_000, 99)],
         config,
         { ...market, loadBars: async () => [older, ...lower] },

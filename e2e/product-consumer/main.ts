@@ -3,6 +3,7 @@ import { createApp, h, onBeforeUnmount } from 'vue'
 import {
   createMarketDataHost,
   KlineWorkbench,
+  provideBrowserAppRuntime,
   type ChartController,
 } from '@363045841yyt/klinechart'
 import '@363045841yyt/klinechart/style.css'
@@ -18,6 +19,7 @@ host.registerDataSource(fixture.source)
 
 createApp({
   setup() {
+    provideBrowserAppRuntime(host, query.get('scripts') !== '0', (error) => console.error(error))
     onBeforeUnmount(() => {
       stopData?.()
       host.dispose()
@@ -31,7 +33,6 @@ createApp({
             h(KlineWorkbench, {
               agent: query.get('agent') !== '0',
               scripts: query.get('scripts') !== '0',
-              marketDataContext: host,
               instrument: fixture.instrument,
               period: 'daily',
               chart: {

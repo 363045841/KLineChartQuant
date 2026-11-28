@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { MarketDataCache } from '../buffer/impl/marketDataCache'
-import { MarketDataProviderRegistry } from '../provider/impl/registry'
+import { MarketDataProviderRegistry } from '../provider/registry'
 
 function bar(timestamp: number) {
   return { timestamp, open: 1, high: 2, low: 0, close: 1, volume: 1 }
@@ -48,7 +48,7 @@ function createCache(
     catalog: { search: async () => [instrument] },
     bars: { fetch: ({ beforeTimestamp, signal }) => fetch(beforeTimestamp, signal) },
   })
-  return { cache: new MarketDataCache(registry), instrument }
+  return { cache: new MarketDataCache(registry, () => []), instrument }
 }
 
 function query(overrides: { limit?: number; beforeTimestamp?: number } = {}) {

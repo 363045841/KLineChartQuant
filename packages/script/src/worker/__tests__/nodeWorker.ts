@@ -52,7 +52,7 @@ export class NodeScriptWorker extends EventTarget {
 
   /** 跨线程发送实际消息。 */
   postMessage(message: unknown, transfer: readonly ArrayBuffer[] = []): void {
-    this.thread.postMessage(message, transfer)
+    this.thread.postMessage(message, [...transfer])
   }
 
   /** 结束计算线程。 */

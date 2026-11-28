@@ -62,7 +62,6 @@
         <LeftToolbar
           :scripts-enabled="props.scriptsEnabled"
           :scripts-ready="scriptEditorSession.ready.value"
-          :alert-controller="controller"
           :effective-settings="chartSettings"
           :drawing-tool-id="drawingToolId"
           :magnet-mode="magnetMode"
@@ -355,6 +354,7 @@
     />
     <IndicatorSelector
       :scripts-enabled="scriptsAvailable"
+      :definitions="runtime.definitions"
       ref="indicatorSelectorRef"
       :chart-controller="controller"
       :active-indicators="activeIndicators"
@@ -431,6 +431,7 @@
 
 <script setup lang="ts">
   import { FOOTPRINT_SHAPE } from '@363045841yyt/klinechart-core'
+  import type { SymbolSpec } from '@363045841yyt/klinechart-core'
   import {
     type ChartSettings,
     normalizeSettings,
@@ -448,7 +449,6 @@
     type LegendOptions,
     type LegendTemplateContext,
     type RendererBackendRuntime,
-    type SymbolSpec,
     TIME_SHARE_PERIOD,
   } from '@363045841yyt/klinechart-core/controllers'
   import { bindChartInput, type ChartInputHooks } from '@363045841yyt/klinechart-core/input'
@@ -457,8 +457,6 @@
     KLINE_PERIODS,
     KLineAdjustment,
     KLinePeriod,
-    type MarketDataContext,
-    searchInstruments,
   } from '@363045841yyt/klinechart-core/market-data'
   import {
     BRAND_MARK_PATH,
@@ -468,12 +466,10 @@
   import { useAggregationSources } from '@vue-src/composables/market/useAggregationSources.js'
   import {
     provideMarketDataContext,
-    useMarketDataContext,
   } from '@vue-src/composables/market/useMarketDataContext.js'
   import { useMarketDataSourceCatalog } from '@vue-src/composables/market/useMarketDataSourceCatalog.js'
   import { provideToast, TOAST_STORE_KEY, useToast } from '@vue-src/composables/toast/useToast.js'
   import { useDeviceEnvironment } from '@vue-src/composables/useDeviceEnvironment.js'
-  import { createScriptsPort } from '@vue-src/features/agent/browser-agent/host/impl/script-port.js'
   import { PROJECT_REPOSITORY_URL } from '@vue-src/productLinks.js'
   import {
     computed,
@@ -522,7 +518,6 @@
   import LeftToolbar from '@vue-src/components/toolbar/LeftToolbar.vue'
   import TopToolbar, { type SymbolItem } from '@vue-src/components/toolbar/TopToolbar.vue'
   import { RANGE_SELECT_UI_TOOL_ID } from '@vue-src/components/toolbar/toolbarToolIds.js'
-  import { sharedScriptService } from '@vue-src/composables/chart/scriptEditor/impl/sharedScriptService.js'
   import { SCRIPT_SOURCE_STORE_KEY } from '@vue-src/composables/chart/scriptEditor/types.js'
   import { useCanvasDrawingTemplates } from '@vue-src/composables/chart/useCanvasDrawingTemplates.js'
   import { useChartContextMenu } from '@vue-src/composables/chart/useChartContextMenu.js'
@@ -567,6 +562,8 @@
     symbolItemForSpec,
     toSymbolSpec,
   } from '@vue-src/composables/symbol/symbolSpec.js'
+  import { createInstrumentSearch } from '@vue-src/composables/symbol/createInstrumentSearch.js'
+  import { tryUseAppRuntime } from '@vue-src/composables/runtime/useAppRuntime.js'
   import { symbolIdentityKey } from '@vue-src/composables/symbol/useSymbolSearch.js'
   import { useWatchlist } from '@vue-src/composables/watchlist/useWatchlist.js'
 
@@ -592,9 +589,8 @@
       indicators?: ReadonlyArray<ChartIndicatorConfig>
 
       /** 当前图表实例的市场交易时段覆盖 */
-      marketSessions?: ChartMountOptions['marketSessions']
-      /** 挂载时确定的行情管理实例；其生命周期归宿主所有。 */
-      marketDataContext?: MarketDataContext
+      /** 共享运行时；图表只消费，不创建也不释放。 */
+      runtime: import('@363045841yyt/klinechart-core').MarketRuntime
       /** 由产品功能配置控制脚本入口；低层组件默认保留脚本能力。 */
       scriptsEnabled?: boolean
 
@@ -640,9 +636,8 @@
     },
   )
 
-  const marketDataContext = provideMarketDataContext(
-    props.marketDataContext ?? useMarketDataContext(),
-  )
+  const marketDataContext = provideMarketDataContext(props.runtime.market)
+  const appRuntime = tryUseAppRuntime()
   const aggregationSources = useMarketDataSourceCatalog(marketDataContext)
   const { enabledNames: enabledSourceNames, enabledNameSet: enabledSourceNameSet } =
     useAggregationSources(aggregationSources, marketDataContext)
@@ -846,20 +841,10 @@
     }
   }
 
-  async function searchSymbols(
-    query: string,
-    limit: number,
-    signal: AbortSignal,
-    sources?: ReadonlyArray<string>,
-  ): Promise<ReadonlyArray<SymbolItem>> {
-    const result = await searchInstruments(marketDataContext.registry, {
-      keyword: query,
-      limit,
-      signal,
-      sources: sources ?? enabledSourceNames.value,
-    })
-    return result.instruments
-  }
+  const searchSymbols = createInstrumentSearch(
+    marketDataContext,
+    () => enabledSourceNames.value,
+  )
 
   /** 当前图表上下文：周期、复权与主品种日期边界。 */
   function currentSelection(adjust = kLineAdjust.value): SymbolSpecSelection {
@@ -1106,7 +1091,7 @@
     switchSubIndicator,
     handleIndicatorToggle,
     handleUpdateParams,
-  } = useIndicatorManager(controller)
+  } = useIndicatorManager(controller, props.runtime.definitions)
 
   const paneAxisItems = usePaneAxisItems(controller)
   /** 按 Pane 分区：带子上界是本 Pane 顶，最后一条带子延伸到图表底。 */
@@ -1735,8 +1720,7 @@
   ): Promise<ChartController> {
     const ctrl = createChartController({
       container,
-      marketSessions: props.marketSessions,
-      marketDataContext,
+      runtime: props.runtime,
       canvasLayer,
       rightAxisLayer,
       leftAxisLayer: leftAxisLayerRef.value ?? undefined,
@@ -1754,7 +1738,7 @@
       settings: props.settings,
       layoutRestore: props.restoreLayout,
       layoutStorageId: props.layoutStorageId,
-      scripts: createScriptsPort(sharedScriptService),
+      scripts: appRuntime?.scriptTools,
     })
     return ctrl
   }

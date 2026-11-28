@@ -34,8 +34,7 @@ type BindChartInput = typeof import('@363045841yyt/klinechart-core/input')['bind
 
 export interface KLineChartOptions {
   symbols?: ReadonlyArray<SymbolSpec>
-  marketDataContext?: ChartMountOptions['marketDataContext']
-  marketSessions?: ChartMountOptions['marketSessions']
+  runtime: ChartMountOptions['runtime']
   /** 显式主题优先于 `settings.theme`。 */
   theme?: 'light' | 'dark'
   settings?: Partial<ChartSettings>
@@ -112,7 +111,7 @@ export function useCoreSignal<T>(signal: ReadonlySignal<T> | null | undefined): 
  */
 export function useKLineChart(
   containerRef: RefObject<HTMLElement | null>,
-  options: KLineChartOptions = {},
+  options: KLineChartOptions,
 ): ChartController | null {
   const [controller, setController] = useState<ChartController | null>(null)
   // 包一层对象，reject(undefined) 也能被识别为失败。
@@ -137,8 +136,7 @@ export function useKLineChart(
         const next = await runtime.factory({
           container,
           symbols: mount.symbols,
-          marketDataContext: mount.marketDataContext,
-          marketSessions: mount.marketSessions,
+          runtime: mount.runtime,
           settings: mount.settings,
           initialZoomLevel: mount.initialZoomLevel,
           zoomLevels: mount.zoomLevels,

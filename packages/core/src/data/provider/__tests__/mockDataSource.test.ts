@@ -6,7 +6,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { StreamFrame, StreamTransportHandlers } from '../../stream/types.js'
-import { createMarketDataHost } from '../../management/impl/context.js'
+import { createMarketDataHost } from '../../management/context.js'
 import { createMockDataSource } from '../impl/sources/mock.js'
 import type { BarQuery, InstrumentDescriptor, MarketDataProvider } from '../types.js'
 

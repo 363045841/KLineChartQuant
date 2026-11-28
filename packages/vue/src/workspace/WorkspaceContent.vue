@@ -16,7 +16,8 @@
 
 <script setup lang="ts">
   import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
-  import type { ChartController, SymbolSpec } from '@363045841yyt/klinechart-core/controllers'
+  import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
+  import type { SymbolSpec } from '@363045841yyt/klinechart-core'
   import { computed } from 'vue'
   import KlineWorkbench from '../workbench/KlineWorkbench.vue'
   import type { KlineWorkbenchProps } from '../workbench/types.js'

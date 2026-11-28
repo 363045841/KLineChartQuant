@@ -3,7 +3,7 @@
  *
  * 仅用于 __tests__；vitest 只收集 *.test.ts，本文件不会被当作测试。
  */
-import type { SymbolSpec } from '@/controllers/types'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
 import type {
   InstrumentCapabilities,
   InstrumentDescriptor,

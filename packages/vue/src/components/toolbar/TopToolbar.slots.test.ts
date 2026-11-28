@@ -1,18 +1,35 @@
+import { systemClock } from '@363045841yyt/klinechart-core'
 /** 验证宿主导航使用公开插槽接入工具栏，且不影响默认图表控件。 */
 
+import {
+  createDefinitionRegistry,
+  createMarketRuntime,
+} from '@363045841yyt/klinechart-core'
+import { createMarketDataHost } from '@363045841yyt/klinechart-core/market-data'
 import KLineChart from '@vue-src/components/chart/KLineChart.vue'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createSSRApp, h } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 
 describe('KLineChart toolbar host slots', () => {
+  let runtime: ReturnType<typeof createMarketRuntime>
+
+  beforeEach(() => {
+    runtime = createMarketRuntime({ clock: systemClock,
+      market: createMarketDataHost(),
+      definitions: createDefinitionRegistry(),
+    })
+  })
+
+  afterEach(() => runtime.dispose())
+
   it('renders host controls around the native toolbar in reading order', async () => {
     const html = await renderToString(
       createSSRApp({
         render: () =>
           h(
             KLineChart,
-            {},
+            { runtime },
             {
               'toolbar-start': () => h('button', { 'aria-label': 'Host account' }, 'Account'),
               'toolbar-end': () => h('a', { href: '/sign-in' }, 'Host sign-in'),
@@ -27,7 +44,7 @@ describe('KLineChart toolbar host slots', () => {
   })
 
   it('keeps the default toolbar free of empty host containers', async () => {
-    const html = await renderToString(createSSRApp(KLineChart))
+    const html = await renderToString(createSSRApp(KLineChart, { runtime }))
     expect(html).toContain('top-toolbar__controls')
     expect(html).not.toContain('top-toolbar__host')
   })

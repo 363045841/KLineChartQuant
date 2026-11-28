@@ -37,18 +37,21 @@
           :tabs="tabs.tabs.value"
           :active-tab-id="tabs.activeTabId.value"
           :theme-mode="appearance.mode.value"
-          :workbench="{ marketDataContext: market.context, instrument: market.instrument, period, chart: { leftAxisWidth: 60 } }"
+          :workbench="{ instrument: market.instrument, period, chart: { leftAxisWidth: 60 } }"
           @spec-change="tabs.setSpec"
         />
       </div>
     </template>
+    <AlertNotificationStack v-if="alerts" :alerts="alerts" />
   </div>
 </template>
 
 <script setup lang="ts">
   import {
+    AlertNotificationStack,
     createMarketDataHost,
     createPersistedMarketDataHost,
+    provideBrowserAppRuntime,
     KLinePeriod,
     type KlineWorkbenchProps,
     type PersistedMarketDataHost,
@@ -88,6 +91,7 @@
   // 标题栏高度由主进程下发，避免窗口布局各写一份。
   const shellStyle = { '--desktop-titlebar-height': `${windowShell.titleBarHeight}px` }
   const market = createMarket()
+  const alerts = provideBrowserAppRuntime(market.context, true, (error) => console.error(error))
   const period = KLinePeriod.Daily
   const accent = workspaceAccent(readWorkspaceAccent())
   const tabs = useWorkspaceTabs(workspaceId)

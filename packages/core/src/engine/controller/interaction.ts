@@ -62,7 +62,6 @@ export class InteractionController {
   private inertiaFrame: number | null = null
   private dragStartY = 0
   /** maxScrollLeft at drag start, cached to prevent jumps when scrollWidth grows mid-drag */
-  private _cachedMaxScrollLeft = -1
   private activePaneIdOnDrag: string | null = null
   private activeAxisIdOnDrag: string | null = null
   private separatorResizeSession: PaneBoundaryResizeSession | null = null
@@ -163,7 +162,7 @@ export class InteractionController {
 
   private samplePan(time: number): void {
     this.panSamples.push({
-      scroll: this.chart.kernel.viewport.readonly.scrollLeftLogical.peek(),
+      scroll: this.chart.kernel.viewport.readonly.scroll.peek(),
       time,
     })
     while (this.panSamples.length > 2 && this.panSamples[1]!.time <= time - 100) {
@@ -188,7 +187,7 @@ export class InteractionController {
     const finish = () => {
       this.stopInertia()
       if (!this.isTouchSession && this.lastClientPos) this.queueHoverFlush()
-      this.chart.checkVisibleRangeGapWhenIdle()
+      this.chart.finishNavigation()
     }
     const advance = (time: number) => {
       const view = this.chart.kernel.viewport.readonly.viewSnapshot.peek()
@@ -211,11 +210,10 @@ export class InteractionController {
       const bounded = Math.max(min, Math.min(max, position))
       const dpr = this.chart.getCurrentDpr()
       const aligned = Math.max(min, Math.min(max, Math.round(bounded * dpr) / dpr))
-      if (this.chart.kernel.viewport.actions.scrollToLogical(aligned)) {
+      if (this.chart.panTo(aligned)) {
         this.clearHover(true)
-        this.chart.scheduleDraw()
       }
-      expectedScroll = this.chart.kernel.viewport.readonly.scrollLeftLogical.peek()
+      expectedScroll = this.chart.kernel.viewport.readonly.scroll.peek()
       if (bounded !== position || Math.abs(velocity) < 0.02) {
         finish()
         return
@@ -302,9 +300,8 @@ export class InteractionController {
     // 触屏始终以 pan 模式开始，长按后才切换为 explore
     this.dragStartX = e.clientX
     this.dragStartY = e.clientY
-    this.scrollStartX = this.chart.kernel.viewport.readonly.scrollLeft.peek()
+    this.scrollStartX = this.chart.kernel.viewport.readonly.scroll.peek()
     this.samplePan(e.timeStamp ?? performance.now())
-    this._cachedMaxScrollLeft = -1
     this.capturePointer(e, this.chart.getDom().container)
     this.activePaneIdOnDrag = pane?.id || null
 
@@ -477,16 +474,12 @@ export class InteractionController {
 
       if (this._state.readonly.dragMode.peek() === 'pan') {
         const deltaX = this.dragStartX - e.clientX
-        if (this._cachedMaxScrollLeft < 0) {
-          this._cachedMaxScrollLeft = this.chart.kernel.viewport.readonly.maxScrollLeft.peek()
-        }
-        const clamped = Math.min(Math.max(0, this.scrollStartX + deltaX), this._cachedMaxScrollLeft)
         const dpr = this.chart.getCurrentDpr()
-        if (this.chart.kernel.viewport.actions.scrollTo(Math.round(clamped * dpr) / dpr)) {
+        const logical = this.scrollStartX + deltaX
+        if (this.chart.panTo(Math.round(logical * dpr) / dpr)) {
           // 平移期间隐藏十字线与 tooltip，但保留取值索引，Legend 数值不随视口变化。
           this.clearHover(true)
           // 程序化滚动不再依赖原生 scroll 回调驱动重绘；统一交给 ChartRenderer 帧事务。
-          this.chart.scheduleDraw()
         }
         this.samplePan(e.timeStamp ?? performance.now())
 
@@ -755,7 +748,6 @@ export class InteractionController {
     this.activePaneIdOnDrag = null
     this.activeAxisIdOnDrag = null
     this.separatorResizeSession = null
-    this._cachedMaxScrollLeft = -1
     if (releaseCapture && pointerId !== null && captureElement?.hasPointerCapture(pointerId)) {
       captureElement.releasePointerCapture(pointerId)
     }
@@ -878,7 +870,7 @@ export class InteractionController {
       return null
     }
 
-    const scrollLeft = this.chart.kernel.viewport.readonly.scrollLeftLogical.peek()
+    const scrollLeft = this.chart.kernel.viewport.readonly.scroll.peek()
     const dpr = this.chart.getCurrentDpr()
 
     return {

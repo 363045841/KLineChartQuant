@@ -2,8 +2,8 @@
 import { describe, expect, it } from 'vitest'
 import { rewriteScriptIdentity } from '../rewriteScriptIdentity.js'
 
-const source = `// 顶部注释
-defineIndicator({
+const source = (declaration: string) => `// 顶部注释
+${declaration}({
   version: 2,
   name: 'Average',
   inputs: { period: input.int(20) },
@@ -15,8 +15,8 @@ defineIndicator({
 })`
 
 describe('rewriteScriptIdentity', () => {
-  it('改写 name，注释、计算代码与其他同名属性保持原样', async () => {
-    const copy = await rewriteScriptIdentity(source, 'Average 副本')
+  it.each(['defineIndicator', 'defineAlert'])('%s 只改写声明名称', async (declaration) => {
+    const copy = await rewriteScriptIdentity(source(declaration), 'Average 副本')
     expect(copy).toContain('name: "Average 副本"')
     expect(copy).toContain("name: 'keep-me'")
     expect(copy).toContain('// 顶部注释')

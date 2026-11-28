@@ -1,9 +1,9 @@
 /**
- * 实时流模块出口：对外只暴露契约。
+ * 实时行情模块入口：只暴露契约。
  *
- * 连接由 `MarketDataContext` 持有并装配，宿主要自定义传输时注入数据源而不是自建注册表；
- * 状态词表 `STREAM_STATUS` 只用于帧校验，消费方按 `upstream-error` 上浮错误即可；
- * 错误词表则是消费方需要分支判断的公开契约。
+ * 连接实现由 `MarketDataContext` 装配；需要自定义连接时注入 Provider 的
+ * `stream`，不使用模块级注册表。状态字典 `STREAM_STATUS` 只用于帧校验，
+ * 已发布的 `upstream-error` 语义不再细分。
  */
 
 export type {

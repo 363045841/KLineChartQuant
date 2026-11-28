@@ -1,16 +1,7 @@
-import { defaultMarketDataContext } from '@/data/management/impl/context.js'
-import {
-  lookupInstrumentsBySymbol,
-  searchInstruments,
-} from '@/data/provider/impl/instrumentSearch.js'
-import type { MarketDataProviderRegistry } from '@/data/provider/impl/registry.js'
+import { lookupInstrumentsBySymbol, searchInstruments } from '@/data/provider/instrumentSearch.js'
+import type { MarketDataProviderRegistry } from '@/data/provider/registry.js'
 import type { ChartOptions, ViewportState as EngineViewportState } from '@/engine/chart/index.js'
 import { Chart } from '@/engine/chart/index.js'
-import {
-  getRegisteredIndicatorDefinition,
-  loadIndicatorDefinitions,
-  resolveCanonicalIndicatorId,
-} from '@/engine/indicators/pipeline/index.js'
 import { loadBuiltinIndicators } from '@/engine/indicators/registerBuiltins.js'
 import { extractTemplate } from '@/engine/indicatorTemplate/impl/templateExtract.js'
 import { IndicatorTemplateManager } from '@/engine/indicatorTemplate/impl/templateManager.js'
@@ -33,9 +24,9 @@ import {
   createUnwiredScripts,
 } from '@/features/agent/index.js'
 import { normalizeSettings } from '@/foundation/config/chartSettings.js'
-import { batch, computed, type ReadonlySignal } from '@/foundation/reactivity/index.js'
+import { computed, type ReadonlySignal } from '@/foundation/reactivity/index.js'
 import { createDefaultRendererHost, type RendererBackend } from '@/rendering/render/index.js'
-import { indicatorCatalog } from '../../indicatorCatalog/index.js'
+import { createIndicatorCatalog } from '../../indicatorCatalog/index.js'
 import type {
   ChartController,
   ChartMountOptions,
@@ -101,8 +92,12 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   }
 
   // 系统图层随图表创建；布局先恢复配置，再按需加载引用的指标实现。
-  if (opts.indicatorLoading === 'all') await loadBuiltinIndicators()
-  const mounted = mountChartDom(opts)
+  if (opts.indicatorLoading === 'all') await loadBuiltinIndicators(opts.runtime.definitions)
+
+  // 共享运行时由宿主创建：图表只消费，不拥有计算与警报。
+  const runtime = opts.runtime
+  const marketContext = runtime.market
+  const indicatorCatalog = createIndicatorCatalog(runtime.definitions)
 
   const initialZoomLevel = opts.initialZoomLevel ?? DEFAULT_OPTS.initialZoomLevel
   const zoomLevelCount = opts.zoomLevels ?? DEFAULT_OPTS.zoomLevels
@@ -120,30 +115,49 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     initialZoomLevel,
   }
 
-  const initialSettings = normalizeSettings({
-    ...opts.settings,
-    ...(opts.theme && { theme: opts.theme }),
-  })
-  const rendererHost = await createDefaultRendererHost(
-    initialSettings.rendererBackend as RendererBackend,
-  )
-  const chart = new Chart(
-    {
-      container: mounted.container,
-      scrollContent: mounted.scrollContent,
-      canvasLayer: mounted.canvasLayer,
-      rightAxisLayer: mounted.rightAxisLayer,
-      leftAxisLayer: mounted.leftAxisLayer,
-      xAxisCanvas: mounted.xAxisCanvas,
-    },
-    chartOptions,
-    {
-      rendererHost,
-      initialSettings,
-      marketSessions: opts.marketSessions,
-      marketDataContext: opts.marketDataContext,
-    },
-  )
+  /** 挂载 DOM 与图表；失败时释放会话，不留下半截所有权。 */
+  async function mountChart(): Promise<{
+    mounted: ReturnType<typeof mountChartDom>
+    chart: Chart
+  }> {
+    let mounted: ReturnType<typeof mountChartDom> | undefined
+    try {
+      mounted = mountChartDom(opts)
+      const initialSettings = normalizeSettings({
+        ...opts.settings,
+        ...(opts.theme && { theme: opts.theme }),
+      })
+      const rendererHost = await createDefaultRendererHost(
+        initialSettings.rendererBackend as RendererBackend,
+      )
+      const chart = new Chart(
+        {
+          container: mounted.container,
+          scrollContent: mounted.scrollContent,
+          canvasLayer: mounted.canvasLayer,
+          rightAxisLayer: mounted.rightAxisLayer,
+          leftAxisLayer: mounted.leftAxisLayer,
+          xAxisCanvas: mounted.xAxisCanvas,
+        },
+        chartOptions,
+        {
+          rendererHost,
+          initialSettings,
+          calculationHub: runtime.calculation,
+          marketSessionRegistry: runtime.marketSessions,
+          definitions: runtime.definitions,
+          marketDataContext: runtime.market,
+        data: runtime.data,
+        },
+      )
+      return { mounted, chart }
+    } catch (error) {
+      mounted?.cleanup()
+      throw error
+    }
+  }
+
+  const { mounted, chart } = await mountChart()
 
   if (import.meta.env?.MODE !== 'production' && typeof window !== 'undefined') {
     ;(window as Window & { __chart?: Chart }).__chart = chart
@@ -164,71 +178,63 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   const isDisposed = () => disposed
   const dataMethods = createDataMethods(chart, isDisposed)
   const drawingMethods = createDrawingMethods(chart, isDisposed)
-  const chartMethods = createChartMethods(chart, isDisposed)
+  const chartMethods = createChartMethods(chart, runtime.definitions, isDisposed)
+  let mountSymbol = opts.symbols?.[0]
   const layoutManager = new LayoutManager(
     {
-      // 导出前先捕获当前视口，使活动布局的滚动/缩放位置一并落盘。
-      exportLayout: () => {
-        chart.captureViewportSnapshot()
-        return chart.kernel.exportLayout()
-      },
-      createLayout: () => chart.kernel.createLayout(),
-      loadContent: (document) => loadIndicatorDefinitions(collectLayoutIndicatorIds(document)),
-      applyLayout: (document) => {
+      exportLayout: () => chart.exportLayout(),
+      captureCurrentView: () => chart.captureCurrentView(),
+      createLayout: () => chart.createLayout(),
+      loadContent: (document) => runtime.definitions.load(collectLayoutIndicatorIds(document)),
+      applyLayout: async (document) => {
         if (isDisposed()) throw new Error('图表已销毁')
-        batch(() => {
-          if (document.currentSymbol !== undefined) {
-            dataMethods.methods.setPrimaryMarket(document.currentSymbol ?? null)
-          }
-          // 品种切换清理旧范围后，再恢复布局中的锁定范围。
-          chart.kernel.applyLayout(document)
-        })
+        const initialSymbol = mountSymbol
+        mountSymbol = undefined
+        await chart.applyLayout(initialSymbol ? { ...document, currentSymbol: initialSymbol } : document)
         chart.drawingCommands.history.reset()
-        chart.scheduleDraw()
       },
     },
     { restore: opts.layoutRestore !== false, storageId: opts.layoutStorageId },
   )
   await layoutManager.initialize()
+  if (mountSymbol) {
+    const initialSymbol = mountSymbol
+    mountSymbol = undefined
+    await chart.setPrimaryMarket(initialSymbol)
+  }
+  if (opts.symbols && opts.symbols.length > 1) chart.setComparisonSpecs(opts.symbols)
 
   // 指标模板与布局分开存储：模板描述「用了哪些指标」，布局描述整张图表的快照。
   const templateManager = new IndicatorTemplateManager({
-    extractIndicators: () => extractTemplate(chart.kernel.snapshotViewWorkspaces()),
+    extractIndicators: () => extractTemplate(chart.exportIndicatorWorkspaces()),
     applyIndicators: (workspaces) => {
       if (isDisposed()) throw new Error('图表已销毁')
-      chart.kernel.applyIndicatorTemplate(workspaces)
-      chart.scheduleDraw()
+      chart.applyIndicatorTemplate(workspaces)
     },
-    userIndicatorConfigurations: chart.kernel.indicator.readonly.configurations,
-    loadIndicators: (indicatorIds) => loadIndicatorDefinitions(indicatorIds),
+    userIndicatorConfigurations: chart.uiState.indicatorConfigurations,
+    loadIndicators: (indicatorIds) => runtime.definitions.load(indicatorIds),
+    definitions: runtime.definitions,
   })
   await templateManager.initialize().catch((error: unknown) => {
     console.error('[ChartController] Indicator template initialization failed', error)
   })
-  // 显式品种优先于恢复布局，所有行情统一通过 Provider 加载。
-  if (opts.symbols && opts.symbols.length > 0) {
-    chart.setPrimaryMarket(opts.symbols[0] ?? null)
-    if (opts.symbols.length > 1) chart.setComparisonSpecs(opts.symbols)
-  }
   const layoutSubscriptions = [
     ...[
-      chart.kernel.dataManager.readonly.currentSpec,
-      chart.kernel.indicator.readonly.workspaces,
-      chart.kernel.indicator.readonly.favoriteIndicatorIds,
-      chart.kernel.pane.readonly.workspaces,
-      chart.kernel.settings.readonly.settings,
-      chart.kernel.drawing.readonly.drawings,
-      chart.kernel.systemObjects.readonly.state,
+      chart.selection.spec,
+      chart.layoutInputs.indicatorWorkspaces,
+      chart.layoutInputs.favoriteIndicatorIds,
+      chart.layoutInputs.paneWorkspaces,
+      chart.layoutInputs.settings,
+      chart.layoutInputs.drawings,
+      chart.layoutInputs.systemObjects,
     ].map((signal) => signal.subscribe(() => layoutManager.scheduleAutoSave())),
-    // 滚动与缩放逐帧变化：静止后再比较一次，避免每帧导出并序列化布局。
-    ...[
-      chart.kernel.viewport.readonly.scrollLeft,
-      chart.kernel.zoom.readonly.zoomLevel,
-      chart.kernel.axesState.readonly.paneRanges,
-    ].map((signal) => signal.subscribe(() => layoutManager.scheduleCoalescedAutoSave())),
+    // 价格轴与视口在手势内逐帧变化：静止后先记录当前视口，再比较布局。
+    ...[chart.uiState.paneRanges, chart.navigation].map((signal) =>
+      signal.subscribe(() => layoutManager.scheduleCoalescedAutoSave()),
+    ),
   ]
 
-  const marketRegistry = (opts.marketDataContext ?? defaultMarketDataContext).registry
+  const marketRegistry = marketContext.registry
   const marketFormatter = createMarketDataTextFormatter()
   // 窗格身份只来自布局：行号是唯一坐标，指标实例身份不参与落点解析。
   const layoutPanes = () => chart.panes.getLayoutSpecs()
@@ -237,10 +243,10 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     return index < 0 ? null : index
   }
   /** 图表时区：图元时间读写都用它，不跟随宿主本地时区。 */
-  const chartTimezone = (): string => chart.kernel.data.readonly.activeBuffer().timezone ?? 'UTC'
+  const chartTimezone = (): string => chart.activeBuffer().timezone ?? 'UTC'
   const drawingScope = (): ChartAgentDrawingScope => ({
     rows: layoutPanes().map((pane) => pane.id),
-    period: chart.kernel.dataManager.readonly.currentPeriod.peek(),
+    period: chart.selection.period.peek(),
     timezone: chartTimezone(),
     workspace: chart.drawing.getWorkspaceId(),
   })
@@ -250,17 +256,16 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     indicators: createChartAgentIndicatorCommands({
       facade: chart.indicators,
       panes: chart.panes,
-      loadIndicators: (indicatorIds) => loadIndicatorDefinitions(indicatorIds),
+      loadIndicators: (indicatorIds) => runtime.definitions.load(indicatorIds),
       resolveCanonicalId: (indicatorId) => {
-        const definition = getRegisteredIndicatorDefinition(indicatorId)
-        return definition ? resolveCanonicalIndicatorId(definition) : null
+        const definition = runtime.definitions.getDefinition(indicatorId)
+        return definition ? runtime.definitions.resolveCanonicalId(definition) : null
       },
-      isRendererAvailable: (indicatorId) =>
-        getRegisteredIndicatorDefinition(indicatorId) !== undefined,
+      isRendererAvailable: (indicatorId) => runtime.definitions.isLoaded(indicatorId),
       readInputDefs: (indicatorId) =>
         indicatorCatalog.peek().find((definition) => definition.id === indicatorId)?.inputs,
       scope: () => ({
-        period: chart.kernel.dataManager.readonly.currentPeriod.peek(),
+        period: chart.selection.period.peek(),
         timezone: chartTimezone(),
       }),
     }),
@@ -286,7 +291,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
           ...(input.sources === undefined ? {} : { sources: input.sources }),
           ...(input.signal === undefined ? {} : { signal: input.signal }),
         }),
-      cache: chart.getMarketDataCache(),
+      market: chart.getMarketData(),
       now: Date.now,
       formatter: marketFormatter,
     }),
@@ -295,8 +300,8 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
   })
 
   const agent = createChartAgentController({
-    dataState: chart.kernel.data,
-    currentSpec: chart.kernel.dataManager.readonly.currentSpec,
+    activeBuffer: chart.activeBuffer,
+    currentSpec: chart.selection.spec,
     selectedRange: chart.selectedRange,
     drawings: chart.drawing.drawings,
     selectedDrawingIds: chart.drawing.selectedIds,
@@ -341,7 +346,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     setLayoutAutoSave: (input) => layoutManager.setLayoutAutoSave(input),
     exportLayout: () => layoutManager.exportLayout(),
     applyLayout: (document) => layoutManager.applyLayout(document),
-    loadIndicators: (definitionIds) => loadIndicatorDefinitions(definitionIds),
+    loadIndicators: (definitionIds) => runtime.definitions.load(definitionIds),
     listLayouts: () => layoutManager.listLayouts(),
     saveLayout: (input) => layoutManager.saveLayout(input),
     switchLayout: (input) => layoutManager.switchLayout(input),
@@ -357,9 +362,9 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     deleteTemplate: (input) => templateManager.deleteTemplate(input),
     applyTemplate: (input) => templateManager.applyTemplate(input),
     agent,
-    favoriteIndicatorIds: chart.kernel.indicator.readonly.favoriteIndicatorIds,
+    favoriteIndicatorIds: chart.layoutInputs.favoriteIndicatorIds,
     setIndicatorFavorite: (indicatorId, favorite) => {
-      if (!isDisposed()) chart.kernel.indicator.actions.setFavorite(indicatorId, favorite)
+      if (!isDisposed()) chart.setFavoriteIndicator(indicatorId, favorite)
     },
     viewport,
     rightAxisEffectiveWidth: chart.rightAxisEffectiveWidth,
@@ -368,16 +373,16 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     withIndicatorData: (compute) => chart.withIndicatorData(compute),
     dataLoading: chart.loading,
     dataError: chart.dataError,
-    marketDataCacheStats: chart.getMarketDataCache().stats,
+    marketDataCacheStats: chart.getMarketData().stats,
     symbols: chart.symbols,
     theme: themeSignal,
-    settings: chart.kernel.settings.readonly.settings,
-    paneScaleTypes: chart.kernel.pane.readonly.paneScaleTypes,
-    panePriceAxisRanges: chart.kernel.axesState.readonly.paneRanges,
-    rendererRuntime: chart.kernel.renderer.readonly.runtime,
-    chartMode: chart.kernel.mode.readonly.chartMode,
-    lastBarPeriod: chart.kernel.mode.readonly.lastBarPeriod,
-    footprintSupported: chart.kernel.footprint.readonly.supported,
+    settings: chart.layoutInputs.settings,
+    paneScaleTypes: chart.uiState.paneScaleTypes,
+    panePriceAxisRanges: chart.uiState.paneRanges,
+    rendererRuntime: chart.uiState.rendererRuntime,
+    chartMode: chart.uiState.chartMode,
+    lastBarPeriod: chart.uiState.lastBarPeriod,
+    footprintSupported: chart.uiState.footprintSupported,
     indicators,
     subPanes,
     drawingTool: chart.drawing.tool,
@@ -388,7 +393,7 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     globalDrawingLock,
     paneRatios,
     paneLayout,
-    paneGeometry: chart.kernel.pane.readonly.paneGeometry,
+    paneGeometry: chart.uiState.paneGeometry,
     interactionState,
     selectedRange: chart.selectedRange,
     rangeSelection: chart.rangeSelection,
@@ -401,7 +406,6 @@ export async function createChartController(opts: ChartMountOptions): Promise<Ch
     comparisonSpecs: chart.comparisonSpecs,
     symbolCatalog,
     catalog: indicatorCatalog,
-    alertController: chart.alertController,
     activeRangePreset: chart.activeRangePreset,
     ...dataMethods.methods,
     ...chartMethods,

@@ -8,13 +8,13 @@
 import type {
   IndicatorSource,
   IndicatorSourceDocument,
+  ScriptDefinitionKind,
 } from '@363045841yyt/klinechart-plot-contracts'
-import type { IndicatorRenderStateReader, RenderContext } from '../../foundation/plugin/index.js'
 import type { ColorTokens } from '../../foundation/tokens/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
-import type { Layer } from '../../rendering/scene/types.js'
-import type { ChartDataView } from '../chartModel/index.js'
+import type { ChartDataView } from '../../foundation/types/chartView.js'
 import type { IndicatorPlotDefinition } from '../plots/types.js'
+import type { CalculationCompute } from '../calculation/types.js'
 
 /** 单个指标的计算参数。 */
 export type IndicatorConfig = Readonly<Record<string, unknown>>
@@ -23,25 +23,10 @@ export type IndicatorId = string
 /** 指标定义来源，与均线、动量等业务分类独立；由定义契约统一给出。 */
 export type { IndicatorSource }
 
-export interface IndicatorRendererOptions {
-  paneId: string
-  indicatorId: IndicatorId
-  /** 渲染器绑定的实例身份；结果与投影都按该 ID 寻址。 */
-  instanceId: string
-  /** 框架派生的轴身份；渲染器据此把值映射到自己的轴。 */
-  axisId: string
-  params?: Record<string, unknown>
-}
-
 /**
  * 指标分类：主图/副图
  */
 export type IndicatorCategory = 'main' | 'sub' | 'oscillator' | 'volume'
-
-/**
- * 渲染器工厂函数
- */
-export type RendererFactory = (options: IndicatorRendererOptions) => Layer<RenderContext>
 
 /** 解析 renderer plugin 名称所需的稳定上下文，不创建 renderer 实例。 */
 export interface IndicatorRendererNameOptions {
@@ -75,19 +60,6 @@ export interface TitleInfo {
   values?: TitleValueItem[]
 }
 
-/**
- * 获取标题信息的回调类型
- */
-export type GetTitleInfoFn = (
-  data: readonly KLineData[],
-  index: number | null,
-  params: Record<string, number | boolean | string>,
-  stateReader: IndicatorRenderStateReader,
-  instanceId: string,
-  paneId: string,
-  colors: ColorTokens,
-) => TitleInfo | null
-
 /** 下拉选项：值即参数取值，label 为面板显示名。 */
 export type IndicatorInputOption = import('@363045841yyt/klinechart-plot-contracts').InputOption
 
@@ -110,29 +82,16 @@ export interface IndicatorInputDisplay {
  * 指标计算描述符
  * 描述指标的计算端口；Script 定义将计算委派给 Script 服务管理的 Worker。
  */
-export interface IndicatorRuntimeDescriptor<C = any> {
+export interface IndicatorRuntimeDescriptor {
   /** 定义版本属于计算身份，源码更新不依赖行情或参数变化。 */
   revision?: number
-  /** 计算对历史的依赖；缺省按有状态处理，正确性优先。 */
-  dependency?: import('@363045841yyt/klinechart-plot-contracts').ComputeDependency
-  /** 每个执行器创建独立的增量 calculator。 */
-  createCompute?: () => ((
-    data: readonly KLineData[],
-    config: C,
-    market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
-    range?: import('@363045841yyt/klinechart-plot-contracts').ComputeRange,
-  ) => unknown) & { dispose?(): void }
+  /** 每个执行器创建独立的增量 calculator；事件随输出返回。 */
+  createCompute?: () => CalculationCompute & { dispose?(): void }
   /** 只影响 calculator 输出的默认参数，不包含 show* 等展示配置。 */
-  defaultInputs: C
+  defaultInputs: import('../calculation/types.js').CalculationInputs
   /** 参数展示声明，按参数名索引；缺省时面板用参数名当标题。 */
   inputDefs?: Readonly<Record<string, IndicatorInputDisplay>>
-  /** 注册定义的唯一计算端口。 */
-  compute: (
-    data: readonly KLineData[],
-    config: C,
-    market?: import('@363045841yyt/klinechart-plot-contracts').IndicatorMarketContext,
-    range?: import('@363045841yyt/klinechart-plot-contracts').ComputeRange,
-  ) => unknown
+  compute: CalculationCompute
 }
 
 /** 指标展示配置，不进入 Runtime、Worker 或业务结果池。 */
@@ -153,7 +112,7 @@ export interface IndicatorPeriodVisibility {
 /**
  * 指标元数据接口
  */
-export interface IndicatorMetadata<_T = unknown> {
+export type IndicatorMetadata<_T = unknown> = ScriptDefinitionKind & {
   source?: IndicatorSource
   document?: IndicatorSourceDocument
   /** 序列和绘图对象统一声明公共 Plot 输出。 */
@@ -171,11 +130,6 @@ export interface IndicatorMetadata<_T = unknown> {
   readonly info?: string
 
   /**
-   * 可选别名，用于兼容 UI/API 中的大写 ID 或历史名称。
-   */
-  aliases?: readonly string[]
-
-  /**
    * 显示名称（用于日志和调试）
    */
   displayName: string
@@ -185,20 +139,11 @@ export interface IndicatorMetadata<_T = unknown> {
    */
   category: IndicatorCategory
 
-  /** 是否允许同一张图存在多份实例；缺省允许。 */
-  readonly multiInstance?: boolean
-
   /**
    * 在 configSnapshot 中的 paneId 字段名
    * 用于从配置中获取当前 pane ID
    */
   paneIdField?: string
-
-  /**
-   * 渲染器工厂函数
-   * 调用时创建该指标的渲染器实例
-   */
-  rendererFactory: RendererFactory
 
   /** 指标选择器 UI 元数据：内置指标来自静态 uiMeta 表；外部指标随定义携带。 */
   ui?: { name?: string; description?: string; params?: readonly unknown[] }
@@ -246,10 +191,4 @@ export interface IndicatorMetadata<_T = unknown> {
 
   /** renderer 投影使用的展示配置。 */
   presentation?: IndicatorPresentationDescriptor
-
-  /**
-   * 标题信息获取回调（决定 pane 标题栏显示内容）
-   * 主副图统一由图例管理器调用。
-   */
-  getTitleInfo?: GetTitleInfoFn
 }

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { KLineChartError } from '@/errors'
 import { symbolInfoFromSpec } from '../../../engine/data/symbolInfo'
-import { MarketDataProviderRegistry } from '../impl/registry'
+import { MarketDataProviderRegistry } from '../registry'
 import { SourceRouter, SourceRoutingError } from '../impl/router'
 import { createHttpMarketDataTransport } from '../protocol/impl/httpTransport'
 import { createMarketDataProvider } from '../protocol/impl/provider'

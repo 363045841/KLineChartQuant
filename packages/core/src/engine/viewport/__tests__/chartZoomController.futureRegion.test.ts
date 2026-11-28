@@ -10,11 +10,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ChartDataView } from '@/engine/chartModel/index'
 import { KLINE_GAP_RATIOS } from '@/foundation/config/chartSettings'
-import { computed, createSignal } from '@/foundation/reactivity/signal'
 import type { ScaleXSnapshot } from '../../scale/index'
 import { createOptionsState } from '../../state/optionsState'
 import { createViewportState } from '../../state/viewportState'
-import { createZoomState } from '../../state/zoomState'
 import { createViewportStateDeps } from '../../viewport/__tests__/helpers/viewportFixture'
 import { ChartZoomController } from '../chartZoomController'
 
@@ -24,28 +22,12 @@ function expectPixelAnchor(view: ScaleXSnapshot, slot: number, anchor: number, d
   expect(Math.abs(error) * dpr).toBeLessThanOrEqual(0.5 + 1e-8)
 }
 
-/** 组装真实 viewportState / zoomState / optionsState 与控制器（无 DOM 依赖）。 */
+/** 组装真实 viewportState / optionsState 与控制器（无 DOM 依赖）。 */
 function makeController(dpr = 1, period = 'daily', dataLength = 10, width = 1000) {
   const deps = createViewportStateDeps({ dataLength, period })
-  const zoomState = createZoomState({
-    minKWidth$: createSignal(3),
-    maxKWidth$: createSignal(21),
-    dataView$: deps.dataView$,
-    zoomLevelCount: 6,
-  })
-  zoomState.actions.setZoomLevel(6)
-
-  // 与真实 kernel 相同：viewport 直接订阅 zoomState 的 K 线宽度。
-  const viewport = createViewportState({
-    ...deps,
-    geometry$: computed(() => ({
-      bottomAxisHeight: 24,
-      kWidth: zoomState.readonly.kWidth(),
-      kGapRatio: KLINE_GAP_RATIOS.standard,
-    })),
-    zoomLevel$: zoomState.readonly.zoomLevel,
-    timeShareSlotWidth$: zoomState.readonly.timeShareSlotWidth,
-  })
+  const viewport = createViewportState(
+    createViewportStateDeps({ dataLength, period, initialZoomLevel: 6, zoomLevelCount: 6, minKWidth: 3, maxKWidth: 21 }),
+  )
   viewport.actions.resize(width, 500, dpr)
 
   const options = createOptionsState({
@@ -66,10 +48,8 @@ function makeController(dpr = 1, period = 'daily', dataLength = 10, width = 1000
       viewport,
       options,
       onChange: () => {},
-    },
-    zoomState,
-  )
-  return { viewport, controller, zoomState }
+    })
+  return { viewport, controller }
 }
 
 /** 覆盖视口宽度、DPR、距右缘槽数与缩放方向的边界组合。 */
@@ -136,7 +116,7 @@ describe('ChartZoomController smooth zoom', () => {
       const slot = 600 - distance + 0.2
       const anchor = width * 0.75
       const initial = viewport.readonly.viewSnapshot.peek()
-      viewport.actions.scrollToLogical(initial.grid.origin + slot * initial.grid.step - anchor)
+      viewport.actions.commitScroll(initial.grid.origin + slot * initial.grid.step - anchor)
       if (delta < 0) controller.zoomIn(anchor)
       else controller.zoomOut(anchor)
       for (let frame = 0; frame < 12; frame++) {
@@ -169,7 +149,7 @@ describe('ChartZoomController smooth zoom', () => {
   it.each(['min', 'max'] as const)('clamps every frame at the %s boundary', (side) => {
     const { controller, viewport } = makeController()
     controller.zoomToLevel(3)
-    viewport.actions.scrollToLogical(side === 'min' ? -10000 : 10000)
+    viewport.actions.commitScroll(side === 'min' ? -10000 : 10000)
     controller.zoomIn(side === 'min' ? 0 : 1000)
     for (let i = 0; i < 12; i++) {
       step(16)
@@ -302,7 +282,7 @@ describe('ChartZoomController smooth zoom', () => {
         const before = viewport.readonly.viewSnapshot.peek()
         const anchor = 317.37
         const slot = 450.37
-        viewport.actions.scrollToLogical(before.grid.origin + slot * before.grid.step - anchor)
+        viewport.actions.commitScroll(before.grid.origin + slot * before.grid.step - anchor)
         controller.handleWheel(-100 * direction, anchor)
         const previous = new Map<number, number>()
         let frame = 0
@@ -381,10 +361,10 @@ describe('ChartZoomController smooth zoom', () => {
   })
 
   it('cancels motion after an external zoom state write', () => {
-    const { controller, zoomState } = makeController()
+    const { controller, viewport } = makeController()
     controller.zoomOut()
     step(40)
-    zoomState.actions.setZoomLevel(2)
+    viewport.actions.commitZoom(2)
     step(16)
     expect(controller.currentZoomLevel).toBe(2)
     expect(frames.size).toBe(0)
@@ -394,7 +374,7 @@ describe('ChartZoomController smooth zoom', () => {
     const { controller, viewport } = makeController()
     controller.zoomOut()
     step(40)
-    viewport.actions.scrollToLogical(-100)
+    viewport.actions.commitScroll(-100)
     const level = controller.currentZoomLevel
     step(16)
     expect(controller.currentZoomLevel).toBe(level)
@@ -441,7 +421,7 @@ describe('ChartZoomController 有界槽位', () => {
   ] as const)('放大超出 $side 边界时修正中心', ({ side, requested, pointer }) => {
     const { viewport, controller } = makeController()
     controller.zoomToLevel(3)
-    viewport.actions.scrollToLogical(requested)
+    viewport.actions.commitScroll(requested)
     const before = viewport.readonly.viewSnapshot.peek()
     const coordinate = (before.scroll + pointer - before.grid.origin) / before.grid.step
     controller.zoomToLevel(6, pointer)
@@ -465,7 +445,7 @@ describe('ChartZoomController 有界槽位', () => {
     '请求滚动量=%s：连续缩放优先保持鼠标槽位，仅在边界修正',
     (scroll) => {
       const { viewport, controller } = makeController()
-      viewport.actions.scrollToLogical(scroll)
+      viewport.actions.commitScroll(scroll)
       const pointer = 501.37
       for (const level of [5, 4, 3, 2, 1, 2, 3, 4, 5, 6]) {
         const before = viewport.readonly.viewSnapshot.peek()
@@ -473,7 +453,7 @@ describe('ChartZoomController 有界槽位', () => {
         controller.zoomToLevel(level, pointer)
         const view = viewport.readonly.viewSnapshot.peek()
         const next = view.grid
-        const actual = viewport.readonly.scrollLeftLogical.peek()
+        const actual = viewport.readonly.scroll.peek()
         const anchored = next.origin + coordinate * next.step - pointer
         expect(actual).toBeCloseTo(
           Math.max(view.scrollBounds.min, Math.min(anchored, view.scrollBounds.max)),
@@ -483,8 +463,8 @@ describe('ChartZoomController 有界槽位', () => {
           expectPixelAnchor(view, coordinate, pointer, 1)
         }
         expect(viewport.readonly.viewport.peek().scrollLeft).toBe(actual)
-        expect(viewport.readonly.scrollLeft.peek()).toBeGreaterThanOrEqual(0)
-        expect(viewport.readonly.scrollLeft.peek()).toBeLessThanOrEqual(
+        expect(viewport.readonly.domScroll.peek()).toBeGreaterThanOrEqual(0)
+        expect(viewport.readonly.domScroll.peek()).toBeLessThanOrEqual(
           viewport.readonly.maxScrollLeft.peek(),
         )
       }
@@ -493,24 +473,24 @@ describe('ChartZoomController 有界槽位', () => {
 
   it('零滚轮增量与缩放极限不移动视口', () => {
     const { viewport, controller } = makeController()
-    const scroll = viewport.readonly.scrollLeftLogical.peek()
+    const scroll = viewport.readonly.scroll.peek()
     controller.handleWheel(0, 100)
     controller.zoomIn(100)
-    expect(viewport.readonly.scrollLeftLogical.peek()).toBe(scroll)
+    expect(viewport.readonly.scroll.peek()).toBe(scroll)
   })
 
   it.each([1, 1.25, 1.5, 2])('DPR=%s：分时也按实际绘制网格保持指针槽位', (dpr) => {
     const { viewport, controller } = makeController(dpr, 'timeshare')
-    viewport.actions.scrollToLogical(-3000)
+    viewport.actions.commitScroll(-3000)
     const pointer = 237.31
     const initialGrid = viewport.readonly.slotGrid.peek()
     const coordinate =
-      (viewport.readonly.scrollLeftLogical.peek() + pointer - initialGrid.origin) / initialGrid.step
+      (viewport.readonly.scroll.peek() + pointer - initialGrid.origin) / initialGrid.step
     for (const level of [5, 4, 3, 2, 1, 2, 3, 4, 5, 6]) {
       controller.zoomToLevel(level, pointer)
       const grid = viewport.readonly.slotGrid.peek()
       expect(
-        (viewport.readonly.scrollLeftLogical.peek() + pointer - grid.origin) / grid.step,
+        (viewport.readonly.scroll.peek() + pointer - grid.origin) / grid.step,
       ).toBeCloseTo(coordinate, 10)
     }
   })

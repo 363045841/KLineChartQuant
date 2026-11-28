@@ -1,26 +1,9 @@
 /**
- * 指标注册管线对外入口：阶段契约、注册写入口、目录读取与变更通知。
+ * 指标注册管线对外入口：阶段契约、注册执行与类型。
+ *
+ * 可写定义仓库是独立的 `DefinitionRegistry` 实例，由运行时持有。
  */
-
 export { createPlotIndicatorDefinition } from './impl/createPlotDefinition.js'
-export {
-  clearIndicatorStoreForTest,
-  getIndicatorDescriptor,
-  getRegisteredIndicatorDefinition,
-  indicatorCatalogRevision,
-  indicatorCommits,
-  indicatorFailures,
-  isIndicatorDefinitionLoaded,
-  loadAllIndicatorDefinitions,
-  loadIndicatorDefinitions,
-  readIndicatorDescriptors,
-  readRegisteredDefinitions,
-  registerIndicators,
-  resolveCanonicalIndicatorId,
-  resolveIndicatorDefinitionId,
-  setIndicatorFailures,
-  unregisterIndicator,
-} from './impl/indicatorStore.js'
 export { logIndicatorFailure, runIndicatorPipeline } from './impl/runIndicatorPipeline.js'
 export type {
   IndicatorCandidate,

@@ -2,7 +2,7 @@
  * 标签顺序与标题派生的纯函数回归：只验证纯计算，不触碰 IndexedDB 与 Vue。
  */
 
-import type { SymbolSpec } from '@363045841yyt/klinechart-core/controllers'
+import type { SymbolSpec } from '@363045841yyt/klinechart-core'
 import { describe, expect, it } from 'vitest'
 import { reorderTabs, tabLabelForSpec } from '../impl/workspace-tabs.js'
 import type { WorkspaceTab } from '../types.js'

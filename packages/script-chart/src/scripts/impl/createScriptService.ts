@@ -6,12 +6,9 @@
  */
 import {
   generateUUID,
-  indicatorFailures,
   logIndicatorFailure,
   runIndicatorPipeline,
-  setIndicatorFailures,
-  unregisterIndicator,
-} from '@363045841yyt/klinechart-core'
+} from '@363045841yyt/klinechart-core/node'
 import { isWithinFolder, type ScriptRunOptions } from '@363045841yyt/klinechart-plot-contracts'
 import {
   inspectScript,
@@ -44,7 +41,6 @@ import {
   requireFolder,
 } from './scriptFolderStore.js'
 import { createScriptIndicatorStage } from './scriptIndicatorStage.js'
-import { createScriptPersistence } from './scriptPersistence.js'
 
 /**
  * 创建脚本服务。
@@ -53,25 +49,25 @@ import { createScriptPersistence } from './scriptPersistence.js'
  * @param options 持久化与内置源码选项
  */
 export async function createScriptService(
-  libraries: readonly QuickJSLibrary[] = [],
-  options: ScriptServiceOptions = {},
+  libraries: readonly QuickJSLibrary[],
+  options: ScriptServiceOptions,
 ): Promise<ScriptService> {
-  const persistence = options.persistence ?? createScriptPersistence()
+  const persistence = options.persistence
   const log = createScriptLog()
-  const store = createScriptDocumentStore(libraries)
-  const executor = createScriptExecutor(store, log)
+  const store = createScriptDocumentStore(libraries, options.definitions)
+  const executor = createScriptExecutor(store, log, options.createWorkerPool)
   const restored = await restoreScriptWorkspace({ persistence, store, executor, options })
   const folders = restored.folders
-  const report = await runIndicatorPipeline([
+  const report = await runIndicatorPipeline(options.definitions, [
     createScriptIndicatorStage({
-      builtinSources: options.builtinSources ?? [],
+      builtinSources: options.builtinSources,
       documents: restored.scripts,
       executor,
     }),
   ])
   if (restored.failures.length > 0) {
     for (const failure of restored.failures) logIndicatorFailure(failure)
-    setIndicatorFailures([...restored.failures, ...report.failures])
+    options.definitions.setFailures([...restored.failures, ...report.failures])
   }
 
   // 异步写入串行执行，版本检查与快照生成均在队列内完成。
@@ -111,11 +107,13 @@ export async function createScriptService(
    * 因此注册失败只可能是契约被绕过，必须抛出而不是静默保留半成品。
    */
   async function commitIndicator(
-    document: ScriptDocument & { kind: 'indicator' },
+    document: ScriptDocument & { kind: 'indicator' | 'alert' },
     compiled: CompiledScript,
   ): Promise<ScriptDocument> {
     const definition = await executor.createDefinition(compiled, documentIdentity(document))
-    commitIndicators([{ kind: 'definition', candidate: scriptCandidate(document.id), definition }])
+    commitIndicators(options.definitions, [
+      { kind: 'definition', candidate: scriptCandidate(document.id), definition },
+    ])
     return document
   }
 
@@ -125,7 +123,7 @@ export async function createScriptService(
    * 新建与更新只在“目标文档从哪里来”上不同，事务顺序完全一致。
    */
   async function writeIndicator(
-    document: ScriptDocument & { kind: 'indicator' },
+    document: ScriptDocument & { kind: 'indicator' | 'alert' },
     compiled: CompiledScript,
     documents: readonly ScriptDocument[],
   ): Promise<ScriptDocument> {
@@ -142,7 +140,7 @@ export async function createScriptService(
   /** 文档被撤销后的运行时清理：注销定义、清空输出、释放执行句柄。 */
   async function dropDocument(document: ScriptDocument): Promise<void> {
     if (document.kind === 'library') store.deleteLibrary(document.id)
-    else unregisterIndicator(document.id)
+    else options.definitions.unregister(document.id)
     log.remove(document.id)
     await executor.releaseDefinition(document.id)
   }
@@ -157,13 +155,13 @@ export async function createScriptService(
     source: string,
     trusted: boolean,
     folder: string,
-    requiredKind?: ScriptDocument['kind'],
+    requiredKind?: 'indicator',
   ): Promise<ScriptDocument> {
     return enqueue(async () => {
       const id = `script_${generateUUID()}`
       const declaration = inspectScript(source)
       if (requiredKind !== undefined && declaration.kind !== requiredKind)
-        throw new Error('该入口只接受指标脚本，defineLibrary 不能在 Agent 中创建')
+        throw new Error('该入口只接受 defineIndicator；defineLibrary 和 defineAlert 请通过脚本工作区创建')
       const target = requireFolder(folders, declaration.kind, folder)
       if (declaration.kind === 'library') {
         return saveScriptLibrary({
@@ -180,11 +178,12 @@ export async function createScriptService(
           store,
           executor,
           persist,
+          definitions: options.definitions,
         })
       }
       const compiled = await executor.compile(source, trusted)
-      const document: ScriptDocument & { kind: 'indicator' } = {
-        kind: 'indicator',
+      const document: ScriptDocument & { kind: 'indicator' | 'alert' } = {
+        kind: compiled.definition.kind,
         id,
         identity: 'user',
         source,
@@ -197,9 +196,15 @@ export async function createScriptService(
     })
   }
 
+  async function assertUnreferencedAlert(document: ScriptDocument): Promise<void> {
+    if (document.kind === 'alert' && await options.isDefinitionReferenced?.(document.id)) {
+      throw new Error(`脚本仍被警报引用：${document.definition.name}`)
+    }
+  }
+
   return Object.freeze({
     log: log.source,
-    failures: indicatorFailures,
+    failures: options.definitions.failures,
     run(options: ScriptRunOptions) {
       return executor.run(options)
     },
@@ -239,6 +244,8 @@ export async function createScriptService(
           throw new Error(
             `文件夹仍被引用：${outside.map((item) => item.definition.name).join('、')}`,
           )
+        // 目录内仍被警报引用的脚本不能被删除，避免留下悬空规则。
+        for (const item of removed) await assertUnreferencedAlert(item)
         const removedFolders = foldersWithin(folders, kind, path)
         const removedKeys = new Set(
           removedFolders.map((record) => folderKey(record.kind, record.path)),
@@ -282,11 +289,12 @@ export async function createScriptService(
             store,
             executor,
             persist,
+            definitions: options.definitions,
           })
         }
-        if (declaration.kind !== 'indicator') throw new Error('不能更改脚本文档类型')
+        if (declaration.kind !== current.kind) throw new Error('不能更改脚本文档类型')
         const compiled = await executor.compile(source, trusted)
-        const document: ScriptDocument & { kind: 'indicator' } = {
+        const document: ScriptDocument & { kind: 'indicator' | 'alert' } = {
           ...current,
           source,
           trusted,
@@ -322,6 +330,8 @@ export async function createScriptService(
           await dropDocument(current)
           return
         }
+        // 仍被警报引用的脚本不能被删除，避免留下悬空规则。
+        await assertUnreferencedAlert(current)
         await persist(store.list().filter((item) => item.id !== current.id))
         await dropDocument(current)
       })
@@ -329,6 +339,7 @@ export async function createScriptService(
     dispose() {
       log.dispose()
       executor.dispose()
+      void pending.finally(() => persistence.dispose?.())
     },
   })
 }

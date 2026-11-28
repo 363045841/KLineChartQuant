@@ -5,7 +5,7 @@ import {
   INDICATOR_INSTANCE_CATALOG_SERVICE,
   type IndicatorInstanceCatalog,
 } from '@/engine/indicators/instances/api/indicatorRenderBinding.js'
-import { getIndicatorDescriptor } from '@/engine/indicators/pipeline/index.js'
+import type { DefinitionRegistry } from '@/engine/indicators/registry/index.js'
 import { resolvePaneMoveIndex } from '@/engine/pane/impl/paneOrder.js'
 import { runInNewPane } from '@/engine/pane/index.js'
 import type { InstanceMoveTarget } from '@/engine/pane/types.js'
@@ -286,7 +286,7 @@ export class LegendManager implements LegendApi {
         id,
         paneId: entry.paneId,
         definitionId: entry.definitionId,
-        role: getIndicatorDescriptor(entry.definitionId)?.category === 'main' ? 'main' : 'sub',
+        role: this.deps.definitions.getDescriptor(entry.definitionId)?.category === 'main' ? 'main' : 'sub',
       }
     return null
   }
@@ -415,6 +415,7 @@ export class LegendManager implements LegendApi {
         data,
         index,
         colors,
+        this.deps.definitions,
       )
       if (!title) continue
       rows.push({

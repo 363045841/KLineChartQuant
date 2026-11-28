@@ -183,6 +183,21 @@
       "secondaryButtonText": {
         "$type": "color",
         "$value": { "colorSpace": "srgb", "components": [0.6745, 0.698, 0.7451], "hex": "#ACB2BE" }
+      },
+      "switchOn": {
+        "$type": "color",
+        "$value": "{dark.interface.accent}",
+        "$description": "开关 on 态轨道：深色沿用交互灰蓝。"
+      },
+      "switchOff": {
+        "$type": "color",
+        "$value": "{dark.interface.textSoft}",
+        "$description": "开关 off 态轨道：比描边更亮一档，保证白色圆钮与轨道、轨道与背景的对比。"
+      },
+      "switchThumb": {
+        "$type": "color",
+        "$value": "{dark.interface.onAccent}",
+        "$description": "开关圆钮：两个主题统一使用白色。"
       }
     },
     "color": {
@@ -1335,7 +1350,10 @@
         "secondaryButtonText": {
           "$type": "color",
           "$value": "{dark.interface.secondaryButtonText}"
-        }
+        },
+        "switchOn": { "$type": "color", "$value": "{dark.interface.switchOn}" },
+        "switchOff": { "$type": "color", "$value": "{dark.interface.switchOff}" },
+        "switchThumb": { "$type": "color", "$value": "{dark.interface.switchThumb}" }
       },
       "agent": {
         "composerControlBackground": {

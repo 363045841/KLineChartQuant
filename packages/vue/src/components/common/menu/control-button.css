@@ -67,6 +67,28 @@
 }
 
 /*
+  表单字段外观：通栏选择入口与参数下拉共用同一套高度、表面和边框。
+  宽度由使用方决定：表单下拉按内容自适应，通栏字段自行声明 100%。
+*/
+.control-button.control-button--field {
+  --control-button-height: var(--klc-density-default, 32px);
+  --control-button-inline-padding: var(--klc-space-12, 12px);
+  --control-button-justify: space-between;
+  --control-button-radius: var(--klc-radius-sm, 6px);
+  --control-button-font-size: var(--klc-text-13-font-size, 13px);
+  --control-button-line-height: normal;
+  --control-button-active-background: var(--klc-color-ui-hover);
+  --control-button-focus-background: var(--klc-color-ui-hover);
+  border: 1px solid var(--klc-color-ui-border);
+  background: var(--klc-color-ui-input-background);
+}
+
+/* 展开时加深边框，和悬停底色一起提示当前控件正在使用。 */
+.control-button.control-button--field[aria-expanded='true'] {
+  border-color: var(--klc-color-ui-border-strong);
+}
+
+/*
   文字动作下划线：默认不生成伪元素，Footer 这类容器用 --control-button-underline 打开。
   宽度用 width 展开而不是 scaleX，动画结束时合成层回收不会让线突然变细。
   与 BaseButton.vue 的同名动画互为镜像，改一处必须同步另一处。

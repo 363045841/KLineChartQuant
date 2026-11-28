@@ -1,16 +1,14 @@
 // @vitest-environment jsdom
-/** 行情管理实例隔离、共享连接与异步失效测试。 */
+/** 行情宿主的注册、健康检查、异步失效策略与流所有权边界。 */
 import { describe, expect, it, vi } from 'vitest'
-import { DataBuffer } from '../../buffer/impl/dataBuffer.js'
-import { MarketDataCache } from '../../buffer/impl/marketDataCache.js'
-import type { BarsSelection } from '../../buffer/impl/seriesRepository.js'
-import { searchInstruments } from '../../provider/impl/instrumentSearch.js'
+import { searchInstruments } from '../../provider/instrumentSearch.js'
 import { createBuiltinMarketDataContext } from '../../provider/impl/sources/createBuiltinContext.js'
 import type { MarketDataProvider, SourceProbeResult } from '../../provider/types.js'
+import { unavailableEventStream } from '../../stream/__tests__/helpers/eventStreamKit.js'
 import type { StreamFrame, StreamTransportHandlers } from '../../stream/types.js'
-import { MarketDataContext } from '../impl/context.js'
+import { MarketDataContext } from '../context.js'
 
-/** 最小协议 Provider，只模拟场景涉及的网络边界。 */
+/** 最小协议 Provider；只模拟场景涉及的字段边界。 */
 function provider(
   id: string,
   probe: MarketDataProvider['probe'] = async () => ({ status: 'online', checkedAt: 1 }),
@@ -27,7 +25,7 @@ function provider(
   }
 }
 
-/** 注册一个可观察的流式数据源；传输替身记录建流与关闭次数。 */
+/** 注册一个可观察的实时数据源，用于断言连接建立与关闭。 */
 function registerStreamSource(context: MarketDataContext) {
   const transports: Array<StreamTransportHandlers & { closed: number }> = []
   context.registry.register({
@@ -45,6 +43,14 @@ function registerStreamSource(context: MarketDataContext) {
     },
   })
   return transports
+}
+
+/** 用统一替身装配内置源宿主；本文件不建立真实连接。 */
+function createHost() {
+  return createBuiltinMarketDataContext({
+    fetchImpl: (input, init) => globalThis.fetch(input, init),
+    openEventStream: unavailableEventStream,
+  })
 }
 
 describe('MarketDataContext stream lifecycle', () => {
@@ -78,11 +84,7 @@ describe('MarketDataContext stream lifecycle', () => {
     ).toThrow('disposed')
   })
 
-  it.each([
-    ['visibilitychange', () => document.dispatchEvent(new Event('visibilitychange'))],
-    ['pageshow', () => window.dispatchEvent(new Event('pageshow'))],
-    ['online', () => window.dispatchEvent(new Event('online'))],
-  ])('resumes a backing-off stream on %s', (_name, fire) => {
+  it('resumes backing-off connections only when the host asks', () => {
     const context = new MarketDataContext()
     try {
       const transports = registerStreamSource(context)
@@ -93,7 +95,7 @@ describe('MarketDataContext stream lifecycle', () => {
       })
       transports[0]!.onOpen()
       transports[0]!.onClose({ retryable: true, message: 'lost' })
-      fire()
+      context.stream.resume()
       expect(transports).toHaveLength(2)
       handle.close()
     } finally {
@@ -101,65 +103,21 @@ describe('MarketDataContext stream lifecycle', () => {
     }
   })
 
-  it('leaves a live stream untouched when the page becomes active again', () => {
-    const context = new MarketDataContext()
-    try {
-      const transports = registerStreamSource(context)
-      const handle = context.stream.subscribe({
-        source: 'one',
-        channel: 'quotes',
-        instrumentId: 'A',
-      })
-      transports[0]!.onOpen()
-      document.dispatchEvent(new Event('visibilitychange'))
-      expect(transports).toHaveLength(1)
-      expect(transports[0]!.closed).toBe(0)
-      handle.close()
-    } finally {
-      context.dispose()
-    }
-  })
-
-  it('detaches the page restore listeners on dispose', () => {
-    const documentRemove = vi.spyOn(document, 'removeEventListener')
-    const windowRemove = vi.spyOn(window, 'removeEventListener')
+  it('does not touch page lifecycle globals', () => {
+    const documentAdd = vi.spyOn(document, 'addEventListener')
+    const windowAdd = vi.spyOn(window, 'addEventListener')
     try {
       new MarketDataContext().dispose()
-      expect(documentRemove).toHaveBeenCalledWith('visibilitychange', expect.any(Function))
-      expect(windowRemove).toHaveBeenCalledWith('pageshow', expect.any(Function))
-      expect(windowRemove).toHaveBeenCalledWith('online', expect.any(Function))
+      expect(documentAdd).not.toHaveBeenCalled()
+      expect(windowAdd).not.toHaveBeenCalled()
     } finally {
-      documentRemove.mockRestore()
-      windowRemove.mockRestore()
+      documentAdd.mockRestore()
+      windowAdd.mockRestore()
     }
   })
 })
 
 describe('MarketDataContext', () => {
-  it('drops old connection snapshots while retaining unrelated data', () => {
-    const context = new MarketDataContext()
-    context.registry.register(provider('one'))
-    const other = provider('other')
-    context.registry.register({ ...other, source: { ...other.source, connectionId: 'other' } })
-    const cache = new MarketDataCache(context.registry)
-    const selection: BarsSelection = {
-      kind: 'bars',
-      instrumentKey: 'stock',
-      source: 'one',
-      period: 'daily',
-      adjustment: 'none',
-      barAggregation: 'original',
-    }
-    const unrelated = { ...selection, source: 'other' }
-    cache.repository.getOrCreateBars(selection, () => new DataBuffer())
-    const retained = cache.repository.getOrCreateBars(unrelated, () => new DataBuffer())
-    context.applyConnection('shared', 'http://localhost:9000')
-    expect(cache.repository.getBars(selection)).toBeUndefined()
-    expect(cache.repository.getBars(unrelated)).toBe(retained)
-    cache.destroy()
-    context.dispose()
-  })
-
   it('times out providers that ignore cancellation', async () => {
     vi.useFakeTimers()
     const context = new MarketDataContext()
@@ -174,9 +132,10 @@ describe('MarketDataContext', () => {
       vi.useRealTimers()
     }
   })
+
   it('shares connection configuration within an instance and isolates hosts', () => {
-    const first = createBuiltinMarketDataContext()
-    const second = createBuiltinMarketDataContext()
+    const first = createHost()
+    const second = createHost()
     first.applyConnection('baostock-tradingview', 'http://localhost:9000')
     expect(first.registry.getConfig('baostock').baseUrl).toBe('http://localhost:9000')
     expect(first.registry.getConfig('tradingview').baseUrl).toBe('http://localhost:9000')

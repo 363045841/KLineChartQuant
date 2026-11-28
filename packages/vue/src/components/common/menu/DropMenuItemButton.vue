@@ -1,10 +1,9 @@
-<!-- 菜单项按钮：顶层与二级菜单共用一份渲染，角色、勾选和快捷键只在这里定义一次。 -->
+<!-- 菜单项按钮：顶层与二级菜单共用一份渲染；菜单语义与对话框语义的角色在这里分开。 -->
 <template>
   <button
     type="button"
     class="drop-menu__item-main klc-motion-icon-feedback"
-    :role="menuItemRole"
-    :aria-checked="item.checked === undefined ? undefined : item.checked"
+    v-bind="a11y"
     :aria-haspopup="item.children?.length ? 'menu' : undefined"
     :aria-expanded="item.children?.length ? expanded : undefined"
     :disabled="item.disabled"
@@ -38,7 +37,7 @@
   import IconTablerChevronRight from '~icons/tabler/chevron-right'
   import { computed } from 'vue'
   import DropMenuCheck from './DropMenuCheck.vue'
-  import type { DropMenuItem } from './dropMenuTypes.js'
+  import type { DropMenuItem, MenuPopupSemantics } from './dropMenuTypes.js'
 
   const props = withDefaults(
     defineProps<{
@@ -49,15 +48,24 @@
       showCheck?: boolean
       /** 含子菜单的行展开态；其它行不设置。 */
       expanded?: boolean
+      /** 面板语义：menu 用 menuitem 角色，dialog 用普通按钮 + aria-pressed。 */
+      semantics?: MenuPopupSemantics
     }>(),
-    { showCheck: true },
+    { showCheck: true, semantics: 'menu' },
   )
   const emit = defineEmits<{ activate: [] }>()
 
-  /** 角色由选中语义决定：单选、开关和命令在无障碍树里是三种不同控件。 */
-  const menuItemRole = computed(() => {
-    if (props.item.selection === 'radio') return 'menuitemradio'
-    if (props.item.selection === 'checkbox') return 'menuitemcheckbox'
-    return 'menuitem'
+  /** menu 用 menuitem 角色和 aria-checked；dialog 用原生按钮和 aria-pressed。 */
+  const a11y = computed(() => {
+    if (props.semantics === 'dialog') {
+      return { role: undefined, 'aria-checked': undefined, 'aria-pressed': props.item.checked }
+    }
+    const role =
+      props.item.selection === 'radio'
+        ? 'menuitemradio'
+        : props.item.selection === 'checkbox'
+          ? 'menuitemcheckbox'
+          : 'menuitem'
+    return { role, 'aria-checked': props.item.checked, 'aria-pressed': undefined }
   })
 </script>

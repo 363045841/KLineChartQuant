@@ -1,6 +1,6 @@
 // 本文件实现对比品种的统一写原语：消歧、去重、显隐与重绘只有一个入口。
-import type { SymbolSpec } from '../../controllers/types.js'
-import { matchesInstrumentFilter } from '../../data/provider/impl/instrumentSearch.js'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
+import { matchesInstrumentFilter } from '../../data/provider/instrumentSearch.js'
 import type {
   InstrumentDescriptor,
   InstrumentRef,

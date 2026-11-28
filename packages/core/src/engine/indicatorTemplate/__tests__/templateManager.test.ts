@@ -3,7 +3,8 @@ import 'fake-indexeddb/auto'
 import { beforeEach, expect, it } from 'vitest'
 import { makeSymbolSpec } from '@/engine/data/__tests__/helpers/symbolSpecFixture'
 import { ChartWorkspaceId } from '../../../foundation/types/chartView.js'
-import { registerIndicators } from '../../indicators/pipeline/index.js'
+import { createTestDefinitions } from '@/engine/indicators/__tests__/helpers/definitionsTestKit.js'
+import type { DefinitionRegistry } from '@/engine/indicators/registry/index.js'
 import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel.js'
 import { extractTemplate, selectTemplateIndicators } from '../impl/templateExtract.js'
 import { IndicatorTemplateManager } from '../impl/templateManager.js'
@@ -11,8 +12,12 @@ import type { TemplateWorkspaces } from '../types.js'
 
 const DATABASE_NAME = '@363045841yyt/klinechart-indicator-templates'
 
-/** 每个用例使用独立数据库，避免归档相互污染。 */
+/** 本用例独立的定义注册表。 */
+let definitions: DefinitionRegistry
+
+/** 每个用例使用独立数据库与注册表，避免归档与定义相互污染。 */
 beforeEach(async () => {
+  definitions = createTestDefinitions()
   await new Promise<void>((resolve, reject) => {
     const request = indexedDB.deleteDatabase(DATABASE_NAME)
     request.onsuccess = () => resolve()
@@ -22,11 +27,12 @@ beforeEach(async () => {
 
 /** 注册一个只用于摘要断言的原生指标定义；title 用于验证摘要取 name 而不是可本地化标题。 */
 function registerTestIndicator(displayName: string, title?: string): string {
-  registerIndicators([
+  definitions.register([
     {
       kind: 'descriptor',
       candidate: { key: displayName, origin: 'third-party', identity: 'native' },
       descriptor: {
+        kind: 'indicator',
         name: displayName,
         ...(title === undefined ? {} : { title }),
         displayName,
@@ -41,7 +47,7 @@ function registerTestIndicator(displayName: string, title?: string): string {
 
 /** 以生产 Kernel 捕获与应用方法构造领域管理器。 */
 function createManager() {
-  const kernel = createTestChartStateKernel({ initialSettings: { theme: 'light' } })
+  const kernel = createTestChartStateKernel({ initialSettings: { theme: 'light' }, definitions })
   let applied: TemplateWorkspaces | null = null
   const manager = new IndicatorTemplateManager({
     extractIndicators: () => extractTemplate(kernel.snapshotViewWorkspaces()),
@@ -50,6 +56,7 @@ function createManager() {
       kernel.applyIndicatorTemplate(workspaces)
     },
     userIndicatorConfigurations: kernel.indicator.readonly.configurations,
+    definitions,
   })
   return { kernel, manager, appliedSnapshot: () => applied }
 }
@@ -124,18 +131,18 @@ it('应用模板只替换指标与副图，商品与周期保持不变', async (
   const own = createManager()
   try {
     registerTestIndicator('MACD')
-    own.kernel.dataManager.actions.setCurrentSpec(
+    own.kernel.actions.setSymbols([
       makeSymbolSpec({ symbol: 'BTCUSDT', market: 'crypto', period: '4h' }),
-    )
+    ])
     addSubIndicator(own.kernel, 'MACD', { fast: 12, slow: 26 })
     await own.manager.initialize()
     const id = await own.manager.saveTemplate({ name: '加密' })
 
     // 换掉图上指标与品种，再应用模板：指标回来，品种不回来。
     own.kernel.indicator.actions.removeInstance('instance-MACD')
-    own.kernel.dataManager.actions.setCurrentSpec(
+    own.kernel.actions.setSymbols([
       makeSymbolSpec({ symbol: 'AAPL', market: 'us', period: '1d' }),
-    )
+    ])
     await own.manager.applyTemplate({ id })
 
     const spec = own.kernel.dataManager.readonly.currentSpec.peek()
@@ -331,3 +338,4 @@ it('按 indicatorIds 过滤模板实例并移除无引用副图', () => {
   expect(kline.instances.map((instance) => instance.indicatorId)).toEqual(['MA'])
   expect(kline.paneSpecs.map((spec) => spec.id)).toEqual(['main'])
 })
+

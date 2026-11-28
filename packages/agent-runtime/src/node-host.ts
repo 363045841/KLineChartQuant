@@ -12,7 +12,8 @@ import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context'
 
 import { AgentRuntimeError } from './contracts/errors.js'
 import { AgentHost } from './host/impl/agent-host.js'
-import { type AgentSettingsStorage, AgentSettingsStore } from './host/impl/agent-settings.js'
+import { AgentSettingsStore } from './host/impl/agent-settings.js'
+import type { AgentSettingsStorage } from './host/settings.js'
 import type { AgentRuntimeSessions } from './host/types.js'
 import { createNodeRuntimeSessions, type NodeRuntimeSessions } from './node.js'
 

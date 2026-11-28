@@ -110,6 +110,16 @@ const HINTS: Readonly<Record<KLineChartErrorCode, string>> = {
   REPLAY_CONFIG_INVALID:
     'Replay config check failed. Range needs finite start/end with end >= start; speed must be a positive finite number (reverse playback is rejected in v1).',
 
+  // Alerts
+  ALERT_LIMIT_REACHED:
+    'The alert cap is reached. Remove old alerts or raise the limit where the service is created.',
+  ALERT_NOT_FOUND:
+    'The alert id is unknown to this service. Read `alerts` or list() before mutating.',
+  ALERT_INVALID_CONDITION:
+    'An alert needs a non-empty name, a script definition and a message, plus at least one delivery channel.',
+  ALERT_INVALID_POLICY:
+    'Check frequency, cooldownMs and expiresAt: frequency must be a known value, cooldownMs a non-negative finite number, expiresAt a finite timestamp.',
+
   // Controller wiring
   CONTROLLER_CONFIG_INVALID:
     'Chart controller wiring is incomplete. Most often: container is null/undefined, opts is missing, or no ChartControllerFactory was registered via __setChartFactory before mount.',

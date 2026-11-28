@@ -8,15 +8,15 @@
 import type { TimeframeVisibility } from '@363045841yyt/klinechart-plot-contracts'
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import type { Layer, RenderObjectDescriptor } from '@/rendering/scene/types.js'
-import { resolveIndicatorLayerId } from '../../indicators/indicatorLayerNaming.js'
+import { createIndicatorLayerId } from '../../indicators/indicatorLayerNaming.js'
 import type { IndicatorMetadata } from '../../indicators/indicatorMetadata.js'
 import { isIndicatorVisibleOnPeriod } from '../../indicators/indicatorPeriodVisibility.js'
-import type { IndicatorRendererOptions } from './index.js'
+import type { IndicatorRendererOptions, RenderableIndicator } from './types.js'
 import { bindIndicatorAxis } from './shared/indicatorRendererLayer.js'
 
 /** createIndicatorLayer 选项：指标渲染器参数 + 目标 role。 */
-export interface IndicatorLayerOptions extends IndicatorRendererOptions {
-  definition: IndicatorMetadata
+export interface IndicatorLayerOptions extends Omit<IndicatorRendererOptions, 'layerId'> {
+  definition: RenderableIndicator
   timeframeVisibility?: TimeframeVisibility | undefined
   /** 显式 Layer role；缺省沿用渲染器按 pane 推导的结果（main → primary）。 */
   role?: Layer['role']
@@ -52,16 +52,23 @@ function withPeriodVisibility(
  */
 export function createIndicatorLayer(options: IndicatorLayerOptions): Layer<RenderContext> {
   const { definition, role } = options
+  const layerId = createIndicatorLayerId(
+    definition.getRendererName,
+    definition.name,
+    options.paneId,
+    options.instanceId,
+  )
   const created = definition.rendererFactory({
     paneId: options.paneId,
     indicatorId: options.indicatorId,
     instanceId: options.instanceId,
     axisId: options.axisId,
+    layerId,
     params: options.params,
   })
   const layer = withPeriodVisibility(created, definition, options.timeframeVisibility)
   const identity = {
-    id: resolveIndicatorLayerId(definition.name, options.paneId, 'renderer', options.instanceId),
+    id: layerId,
     pane: options.paneId,
     role: role ?? layer.role,
   }

@@ -5,7 +5,7 @@ import { SCALE_X_STRATEGIES } from '@/engine/scale'
 import { createInteractionState } from '@/engine/state/interactionState'
 import { createPaneState } from '@/engine/state/paneState'
 import { KLINE_GAP_RATIOS } from '@/foundation/config/chartSettings'
-import { writableRef } from '@/foundation/reactivity/signal'
+import { createSignal } from '@/foundation/reactivity/signal'
 import { type ChartDataView, ChartDataViewId } from '@/foundation/types/chartView'
 import type { ChartSeriesDatum, KLineData, TimeShareData } from '@/foundation/types/price'
 import { ASHARE_MARKET_SESSION } from '@/foundation/utils/timeShareAxisLabels'
@@ -13,9 +13,9 @@ import { ASHARE_MARKET_SESSION } from '@/foundation/utils/timeShareAxisLabels'
 /** 交互内核替身：直接复用生产实现，测试不再手抄 snapshot 字段。 */
 export function createMockInteractionState() {
   return createInteractionState({
-    visibleRange$: writableRef({ start: 0, end: 0 }),
-    scrollLeftLogical$: writableRef(0),
-    dpr$: writableRef(1),
+    visibleRange$: createSignal({ start: 0, end: 0 }),
+    scroll$: createSignal(0),
+    dpr$: createSignal(1),
     scheduleDraw: () => {},
   })
 }
@@ -56,7 +56,7 @@ export function createChartStub(args: {
   dpr: number
   plotWidth: number
   plotHeight: number
-  /** 逻辑滚动偏移：getViewport().scrollLeft 与 kernel.viewport.readonly.scrollLeft/scrollLeftLogical.peek() 同源。 */
+  /** 逻辑滚动偏移：getViewport().scrollLeft 与 kernel.viewport.readonly.domScroll/scrollLeftLogical.peek() 同源。 */
   scrollLeft?: number
   /** 内部序列数据；省略时使用 2 根默认 K 线。 */
   data?: ReadonlyArray<ChartSeriesDatum>
@@ -147,30 +147,25 @@ export function createChartStub(args: {
       dpr: args.dpr,
     }),
     getCurrentDpr: () => args.dpr,
-    checkVisibleRangeGapWhenIdle: () => undefined,
+    finishNavigation: () => undefined,
+    panTo: (value: number) => {
+      const bounds = viewSnapshot().scrollBounds
+      const next = Math.max(bounds.min, Math.min(bounds.max, value))
+      const changed = scrollLeft !== next
+      scrollLeft = next
+      if (args.scrollTo) args.scrollTo(next)
+      if (changed) args.scheduleDraw?.()
+      return changed
+    },
     kernel: {
       pane: paneState,
       viewport: {
         readonly: {
-          scrollLeft: { peek: () => scrollLeft },
-          scrollLeftLogical: { peek: () => scrollLeft },
+          scroll: { peek: () => scrollLeft },
+          domScroll: { peek: () => scrollLeft },
           slotGrid: { peek: () => viewSnapshot().grid },
           viewSnapshot: { peek: viewSnapshot },
           maxScrollLeft: { peek: () => 1_000 },
-        },
-        actions: {
-          scrollToLogical: (value: number) => {
-            const bounds = viewSnapshot().scrollBounds
-            const next = Math.max(bounds.min, Math.min(bounds.max, value))
-            const changed = scrollLeft !== next
-            scrollLeft = next
-            if (args.scrollTo) args.scrollTo(next)
-            return changed
-          },
-          scrollTo: (value: number) => {
-            scrollLeft = value
-            return args.scrollTo ? args.scrollTo(value) : true
-          },
         },
       },
       settings: {

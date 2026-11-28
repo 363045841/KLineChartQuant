@@ -8,9 +8,6 @@
  */
 
 import type {
-  AlertController,
-  AlertEvent,
-  AlertRule,
   ChartController,
   ChartMountOptions,
   ChartViewport,
@@ -34,13 +31,13 @@ import {
 } from '@363045841yyt/klinechart-core/config'
 import type { LegendTemplateContext } from '@363045841yyt/klinechart-core/controllers'
 import { MAIN_PANE_ID } from '@363045841yyt/klinechart-core/controllers'
-import type { Signal } from '@363045841yyt/klinechart-core/reactivity'
+import type { WritableSignal } from '@363045841yyt/klinechart-core/reactivity'
 
 // ---------------------------------------------------------------------------
 // 内联 mini-signal：Object.is 相等性短路、同步通知，仅用于测试替身。
 // ---------------------------------------------------------------------------
 
-type TestSignal<T> = Signal<T> & { subscriberCount: () => number }
+type TestSignal<T> = WritableSignal<T> & { subscriberCount: () => number }
 
 /** `updateOptionsFacade` 接收的 chart options 补丁。 */
 type OptionsFacadePatch = Parameters<ChartController['updateOptionsFacade']>[0]
@@ -190,19 +187,6 @@ export function createMockChartController(
     objectGroups
       .peek()
       .some((group) => group.paneId === paneId && group.rows.some((row) => row.kind === 'system'))
-  const alertController: AlertController = {
-    rules: createSignal<ReadonlyArray<AlertRule>>([]),
-    events: createSignal<ReadonlyArray<AlertEvent>>([]),
-    failures: createSignal([]),
-    addRule: () => false,
-    removeRule: () => false,
-    setRuleEnabled: () => false,
-    updateRule: () => false,
-    evaluate: () => [],
-    clearEvents: () => {},
-    onEvent: () => () => {},
-    dispose: () => {},
-  }
 
   const controller: Partial<ChartController> = {
     viewport,
@@ -329,7 +313,7 @@ export function createMockChartController(
       throw new Error('测试图表未配置临时计算行情')
     },
     getZoomLevelCount: () => 10,
-    setPrimaryMarket: () => {},
+    setPrimaryMarket: async (spec) => { symbolsSignal.set(spec ? [spec] : []) },
     registerSymbols: () => {},
     setComparisonSpecs: () => {},
     addComparisonSymbol: () => {},
@@ -434,7 +418,6 @@ export function createMockChartController(
     getDrawingPeriod: () => 'daily',
     getDrawingSymbolKey: () => undefined,
     getDrawingWorkspaceId: () => 'kline' as const,
-    alertController,
     getViewport: () => null,
     getKWidthKGap: () => ({ kWidth: 6, kGap: 2 }),
     getCurrentDpr: () => 1,
@@ -500,6 +483,6 @@ export function createMockChartController(
 }
 
 /** Signal helper used by reactivity bridge tests. */
-export function createTestSignal<T>(initial: T): Signal<T> {
+export function createTestSignal<T>(initial: T): WritableSignal<T> {
   return createSignal(initial)
 }

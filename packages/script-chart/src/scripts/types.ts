@@ -1,5 +1,5 @@
 /** 脚本服务公开契约；源码版本、定义和执行端口属于同一提交。 */
-import type { IndicatorFailure, ReadonlySignal } from '@363045841yyt/klinechart-core'
+import type { IndicatorFailure, ReadonlySignal } from '@363045841yyt/klinechart-core/node'
 import type {
   IndicatorSourceDefinition,
   IndicatorSourceDocument,
@@ -9,7 +9,7 @@ import type {
 
 /** 文件树中的文件夹；路径按 kind 命名空间隔离，'' 表示分组根。 */
 export interface ScriptFolder {
-  readonly kind: 'indicator' | 'library'
+  readonly kind: 'indicator' | 'alert' | 'library'
   /** 以 / 分隔的层级路径，例如 策略/均线。 */
   readonly path: string
 }
@@ -34,7 +34,10 @@ interface ScriptDocumentFields {
 
 export type ScriptDocument = ScriptDocumentFields &
   (
-    | { readonly kind: 'indicator'; readonly definition: IndicatorSourceDefinition }
+    | {
+        readonly kind: 'indicator' | 'alert'
+        readonly definition: IndicatorSourceDefinition
+      }
     | { readonly kind: 'library'; readonly definition: { readonly name: string } }
   )
 
@@ -46,8 +49,9 @@ export interface ScriptService {
   /** 用当前图表行情直接执行草稿，不注册或保存定义。 */
   run(options: ScriptRunOptions): Promise<void>
   create(source: string, trusted?: boolean, folder?: string): Promise<ScriptDocument>
-  /** 只创建指标脚本；源码声明库时在任何写入前失败。 */
+  /** 只创建指标脚本；源码声明库或警报时在任何写入前失败。 */
   createIndicator(source: string, folder?: string): Promise<ScriptDocument>
+  /** 只创建警报脚本；源码声明其他类型时在任何写入前失败。 */
   createFolder(folder: ScriptFolder): Promise<void>
   /** 删除文件夹及其内部文档；仍被目录外脚本引用的库会阻止删除。 */
   removeFolder(folder: ScriptFolder): Promise<ScriptFolderRemoval>
@@ -81,10 +85,18 @@ export interface ScriptWorkspace {
 export interface ScriptPersistence {
   load(): Promise<ScriptWorkspace | null>
   save(workspace: ScriptWorkspace): Promise<boolean>
+  dispose?(): Promise<void>
 }
 
 /** 内置源码只参与启动注册，不进入用户持久化。 */
 export interface ScriptServiceOptions {
-  readonly builtinSources?: readonly string[]
-  readonly persistence?: ScriptPersistence
+  /** 共享定义注册表；脚本服务只向它写入，不创建第二份目录。 */
+  readonly definitions: import('@363045841yyt/klinechart-core/node').DefinitionRegistry
+  readonly builtinSources: readonly string[]
+  /** Worker 池工厂；浏览器传 Web Worker，Node 传 worker_threads。 */
+  readonly createWorkerPool: import('@363045841yyt/klinechart-script/worker').ScriptWorkerPoolFactory
+  /** 用户脚本工作区持久化。 */
+  readonly persistence: ScriptPersistence
+  /** 定义是否仍被宿主引用（例如警报规则）；为 true 时拒绝删除。 */
+  readonly isDefinitionReferenced?: (definitionId: string) => boolean | Promise<boolean>
 }

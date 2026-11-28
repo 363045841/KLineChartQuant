@@ -4,7 +4,13 @@
 -->
 <template>
   <div class="option-picker">
-    <DropMenu :label="title" :groups="groups" tooltip-placement="bottom" @select="select">
+    <DropMenu
+      :label="title"
+      :groups="groups"
+      tooltip-placement="bottom"
+      semantics="dialog"
+      @select="select"
+    >
       <template #trigger>
         <span class="selection-menu__value">{{ selectedLabel }}</span>
         <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />

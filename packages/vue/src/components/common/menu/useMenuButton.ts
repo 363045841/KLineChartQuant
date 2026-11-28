@@ -3,13 +3,13 @@
  * 按钮本身是普通 button 语义，不复用下拉触发器的外观变量与实现。
  */
 import { computed, type ComputedRef, shallowRef } from 'vue'
-import type { MenuAnchor } from './dropMenuTypes.js'
+import type { MenuAnchor, MenuPopupSemantics } from './dropMenuTypes.js'
 import { useMenuAnchor } from './useMenuAnchor.js'
 
 export interface MenuButtonState {
   /** v-bind 给锚点按钮：aria 关系、点击开合与方向键打开。 */
   readonly buttonProps: ComputedRef<{
-    'aria-haspopup': 'menu'
+    'aria-haspopup': MenuPopupSemantics
     'aria-expanded': boolean
     onPointerdown: () => void
     onClick: (event: MouseEvent) => void
@@ -27,9 +27,14 @@ export interface MenuButtonState {
 /**
  * 创建锚点按钮的菜单绑定。
  *
+ * @param focusOpenMenu 键盘打开后把焦点移入面板的入口
+ * @param semantics 弹出面板的无障碍语义；含行内控件时传 dialog
  * @returns 开关、按钮属性、菜单属性与关闭入口
  */
-export function useMenuButton(focusOpenMenu?: () => void): MenuButtonState {
+export function useMenuButton(
+  focusOpenMenu?: () => void,
+  semantics: MenuPopupSemantics = 'menu',
+): MenuButtonState {
   const menu = useMenuAnchor()
   // 键盘打开才把焦点交进菜单；指针打开只预置 tabindex，避免菜单项常驻高亮。
   const focusOnOpen = shallowRef(false)
@@ -41,7 +46,7 @@ export function useMenuButton(focusOpenMenu?: () => void): MenuButtonState {
   }
 
   const buttonProps = computed(() => ({
-    'aria-haspopup': 'menu' as const,
+    'aria-haspopup': semantics,
     'aria-expanded': menu.open.value,
     onPointerdown(): void {
       wasOpenOnPointerDown = menu.open.value

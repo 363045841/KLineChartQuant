@@ -1,7 +1,7 @@
 /** 对比品种写原语：解析、歧义、去重、显隐与删除的领域行为。 */
 import { describe, expect, it, vi } from 'vitest'
 
-import type { SymbolSpec } from '@/controllers/types'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
 import type { InstrumentDescriptor } from '@/data/provider/types'
 import { COMPARISON_ERROR_CODES, ERROR_CODES, KLineChartError } from '@/errors'
 import { DEFAULT_COMPARISON_COLOR } from '../../chartModel/impl/comparison/comparisonState'

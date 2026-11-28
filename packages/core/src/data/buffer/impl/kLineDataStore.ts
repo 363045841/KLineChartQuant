@@ -4,7 +4,8 @@
  * 所有写路径只负责算出「新序列 + 变化区间」，由 `commit` 统一维护
  * 时间戳唯一性、序号索引与变更信号；不在链路中途做第二套规范化。
  */
-import type { KLineData } from '@/controllers/types.js'
+import type { KLineData } from '@/foundation/types/bar.js'
+import type { UpdateBarsResult } from '../types.js'
 import {
   asReadonlySignal,
   createSignal,
@@ -18,12 +19,6 @@ import {
 } from '../types.js'
 import { UniqueTimestampIndex } from './uniqueTimestampIndex.js'
 
-/** updateBars 的写入结果：区分追加、替换与陈旧拒绝。 */
-export interface UpdateBarsResult {
-  readonly appendedCount: number
-  readonly replacedCount: number
-  readonly rejected: ReadonlyArray<KLineData>
-}
 
 /** 一次提交的变化区间；kind 决定消费方需要失效的范围。 */
 interface CommitChange {

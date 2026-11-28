@@ -5,11 +5,11 @@
 import { describe, it } from 'vitest'
 import { createViewportStateDeps } from '../engine/state/__tests__/helpers/createViewportStateDeps'
 import { createViewportState } from '../engine/state/viewportState'
-import { createSubState, type ReadonlySignal, writableRef } from '../foundation/reactivity/signal'
+import { createSignal, createSubState, type ReadonlySignal } from '../foundation/reactivity/signal'
 
 describe('StateKernel type constraints (compile-time)', () => {
   it('ReadonlySignal<T> has no .set property', () => {
-    const s = writableRef(0)
+    const s = createSignal(0)
     const r: ReadonlySignal<number> = s
     // @ts-expect-error `.set` should not exist on ReadonlySignal
     void r.set

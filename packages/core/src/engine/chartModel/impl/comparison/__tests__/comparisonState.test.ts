@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { SymbolSpec } from '@/controllers/types'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
 import { makeSymbolSpec } from '../../../../data/__tests__/helpers/symbolSpecFixture'
 import { symbolSpecIdentityKey } from '../../../../data/symbolIdentity'
 import { createTestChartStateKernel } from '../../../../state/__tests__/helpers/createTestChartStateKernel'

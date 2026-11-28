@@ -11,7 +11,7 @@
   - `chartModelState.ts`：`createChartModel()` 保存 `dataView` / `lastBarPeriod` / `primaryRendererByView`，派生 `effectivePrimaryRenderer` 与 `interactionCapabilities`。
 - `impl/modes/`：视图的**行为实现**。
   - `types.ts`：`ChartModeHandler` 契约（`computePaneRange` / `onActivate` / `onDeactivate` / `useIndicatorScheduler`）。
-  - `kLineMode.ts` / `timeShareMode.ts`：各视图逐帧价格范围计算；分时实现持有运行时 `marketSession`。
+  - `kLineMode.ts` / `timeShareMode.ts`：各视图逐帧价格范围计算；分时市场 session 由 `ChartStateKernel` 的 `marketSession$` 统一解析，模式本身不持有会话状态。
   - `timeShareMath.ts` / `timeShareGeometry.ts`：分时数学与单日/五日共享几何。
 - `impl/comparison/`：视图上的**比较叠加**。
   - `types.ts`：`ComparisonProjection` / `ComparisonData` / `ComparisonSeriesProjection` 一帧投影契约。
@@ -32,5 +32,5 @@
 ChartModel 承载「视图是谁、怎么画、叠了什么」三类纯视图计算与状态，不碰行情拉取与存储。
 
 - **属于本模块**：视图声明与状态、逐帧价格范围计算、比较折线投影与其选择状态。
-- **不属于本模块**：比较品种的**数据协调**（订阅 Buffer、触发行情分页，见 `engine/data/comparisonManager.ts`）与**CRUD 命令**（`engine/data/comparisonCommands.ts`）——它们依赖 `SeriesRepository` / `MarketDataCache`，属于「数据从哪来」的职责。
+- **不属于本模块**：比较品种的**数据协调**（订阅序列、触发行情分页，见 `engine/data/comparisonManager.ts`）与**CRUD 命令**（`engine/data/comparisonCommands.ts`）。数据统一来自 `MarketDataService`。
 - 视图切换的渲染副作用（清屏、图例清理、模式处理器激活）仍编排在 `Chart`，本模块不产生除 `ChartModeHandler` 回调之外的副作用。

@@ -19,8 +19,9 @@ describe('InteractionController DPR consumption', () => {
       dpr: 1,
       plotWidth: 300,
       plotHeight: 160,
-      scrollTo,
-      scheduleDraw,
+        scrollTo,
+        scheduleDraw,
+        data: createInteractionBars(100),
     })
     const interaction = new InteractionController(chart as never, createMockInteractionState())
 
@@ -198,7 +199,7 @@ describe('InteractionController DPR consumption', () => {
 
   it('keeps an active pan through pointerleave caused by a layout change', () => {
     const scrollTo = vi.fn(() => true)
-    const chart = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 160, scrollTo })
+    const chart = createChartStub({ dpr: 1, plotWidth: 300, plotHeight: 160, scrollTo, data: createInteractionBars(100) })
     const interaction = new InteractionController(chart as never, createMockInteractionState())
 
     interaction.onPointerDown({

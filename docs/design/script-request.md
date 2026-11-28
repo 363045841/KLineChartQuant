@@ -23,12 +23,12 @@ QuickJS 注入保留 NaN/Infinity，不用 JSON 的 null 替换缺值。
 
 ## 行情与所有权
 
-事实仍由 MarketDataCache 与 SeriesRepository 保存。历史加载坚持游标之前 N 根，
+事实由 MarketDataService 及其查询缓存保存。历史加载坚持游标之前 N 根，
 根据实际返回时间戳继续分页，直到覆盖主图已加载历史并补足预热，或 Provider 声明耗尽。
 不估算交易日历起点，不增加第二套网络查询实现。
 
-主图、比较和 Request 的实时连接统一由 MarketRuntime 协调。
-比较与 Request 共用一张行情需求表，按完整序列身份复用 Buffer 和连接。
+主图、比较和 Request 的实时连接统一由 `MarketDataService` 按完整序列身份复用。
+比较与 Request 共用同一份序列缓存与连接，按完整序列身份复用。
 比较保留展示与加载状态；Request 保留目标周期计算和对齐。
 移除比较时保留脚本仍使用的 Buffer；脚本释放时保留比较或主图仍使用的 Buffer。
 实时帧更新现有缓存条目及 Repository 叶子，依赖版本参与现有指标缓存身份。

@@ -1,13 +1,13 @@
 /** 统一行情领域模型公共入口。 */
 
-export { createMarketDataHost } from '../management/impl/context.js'
+export { createMarketDataHost } from '../management/context.js'
 export type {
   MarketConnection,
   MarketDataConfiguration,
   MarketProviderHealth,
   MarketRegistryState,
 } from '../management/index.js'
-export { defaultMarketDataContext, MarketDataContext } from '../management/index.js'
+export { MarketDataContext } from '../management/index.js'
 export type {
   StreamBar,
   StreamChannel,
@@ -31,9 +31,9 @@ export type {
   InstrumentLookupRequest,
   InstrumentSearchRequest,
   InstrumentSearchResult,
-} from './impl/instrumentSearch.js'
-export { lookupInstrumentsBySymbol, searchInstruments } from './impl/instrumentSearch.js'
-export { MarketDataProviderRegistry, marketDataProviderRegistry } from './impl/registry.js'
+} from './instrumentSearch.js'
+export { lookupInstrumentsBySymbol, searchInstruments } from './instrumentSearch.js'
+export { MarketDataProviderRegistry } from './registry.js'
 export { SourceRouter, SourceRoutingError } from './impl/router.js'
 export type { DataSourceRegistration } from './impl/sourceRegistry.js'
 export { dataSourceRegistry } from './impl/sourceRegistry.js'
@@ -68,6 +68,11 @@ export type {
   ProtocolTradingCalendar,
   ProtocolTradingCalendarRequest,
 } from './protocol/index.js'
+export type {
+  EventStream,
+  EventStreamFactory,
+  EventStreamHandlers,
+} from '../stream/types.js'
 export {
   createHttpMarketDataTransport,
   createMarketDataProvider,
@@ -118,7 +123,7 @@ export type {
   TimeShareRangeCapability,
   TimeShareRangeDataSource,
   TimeShareRangeQuery,
-  TimeShareSeries,
+  ProviderTimeShareSeries,
   TradingCalendar,
   TradingCalendarDataSource,
   TradingCalendarQuery,

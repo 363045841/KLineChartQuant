@@ -5,16 +5,22 @@
 <template>
   <div class="drop-menu" :class="{ 'drop-menu--fill': fill }">
     <!-- 触发器提示固定向上：提示方向与菜单弹出方向无关，同一工具栏里不会出现一上一下。 -->
+    <!-- field 触发器用 contents：按钮直接参与 DropMenu 根的布局，width:100% 才能吃到根节点宽度。 -->
     <BaseTooltip
       :content="tooltip ? label : ''"
       :placement="tooltipPlacement"
       :disabled="open || disabled"
       :fill="fill"
+      :trigger-display="triggerVariant === 'field' ? 'contents' : 'inline-flex'"
     >
       <ControlTrigger
         v-bind="buttonProps"
         class="drop-menu__trigger"
-        :class="{ 'control-button--sm': triggerSize === 'sm' }"
+        :class="{
+          'control-button--sm': triggerSize === 'sm',
+          'control-button--field': triggerVariant === 'field',
+        }"
+        :id="triggerId"
         :label="label"
         :disabled="disabled"
       >
@@ -30,6 +36,7 @@
       :density="density"
       :keep-open-on-select="keepOpenOnSelect"
       :placement="placement"
+      :semantics="semantics"
       @open="emit('open')"
       @close="emit('close')"
       @select="onSelect"
@@ -58,18 +65,24 @@
   import type { TooltipPlacement } from '@vue-src/composables/ui/useTooltip.js'
   import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import ControlTrigger from './ControlTrigger.vue'
-  import type { DropMenuGroup } from './dropMenuTypes.js'
+  import type { DropMenuGroup, MenuPopupSemantics } from './dropMenuTypes.js'
   import MenuSurface from './MenuSurface.vue'
   import { useMenuButton } from './useMenuButton.js'
 
   export type { DropMenuGroup, DropMenuItem } from './dropMenuTypes.js'
 
-  withDefaults(
+  const props = withDefaults(
     defineProps<{
       label: string
       groups: ReadonlyArray<DropMenuGroup>
+      /** 面板语义：纯菜单项用 menu；行内带按钮或输入时用 dialog。 */
+      semantics?: MenuPopupSemantics
       disabled?: boolean
       triggerSize?: 'sm'
+      /** 触发器外观：field 用于表单里的字段，默认是工具栏文字触发器。 */
+      triggerVariant?: 'default' | 'field'
+      /** 触发按钮 id；表单可见标签用它建立关联。 */
+      triggerId?: string
       /** 菜单相对触发按钮的弹出方向。 */
       placement?: 'auto' | 'top' | 'bottom'
       /** 触发器提示方向；默认向上，顶部工具栏这类触发器贴页面顶边时传 bottom。 */
@@ -85,7 +98,7 @@
       /** 撑满父容器：设置行里的下拉与输入同宽，轴边入口占满整格。 */
       fill?: boolean
     }>(),
-    { tooltipPlacement: 'top', tooltip: true, density: 'compact' },
+    { tooltipPlacement: 'top', tooltip: true, density: 'compact', semantics: 'menu', triggerVariant: 'default' },
   )
 
   const emit = defineEmits<{
@@ -95,7 +108,10 @@
   }>()
 
   const surface = useTemplateRef<InstanceType<typeof MenuSurface>>('surface')
-  const { buttonProps, menuProps } = useMenuButton(() => surface.value?.focusFirst())
+  const { buttonProps, menuProps } = useMenuButton(
+    () => surface.value?.focusFirst(),
+    props.semantics,
+  )
   const open = computed(() => menuProps.value.open)
 
   /** 选择事件按原有参数个数转发：顶层两项，二级菜单带父项 id。 */

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { plotValues, shippedSource } from '../../__tests__/marketData.js'
 import type { ScriptValues } from '../../__tests__/marketData.js'
 import type { Bar } from '../../contracts/input.js'
-import { runQuickJSScript } from '../impl/runQuickJSScript.js'
+import { runQuickJSScript } from '../../__tests__/helpers/quickJSScript.js'
 import type { ScriptRequestContext } from '../../request/types.js'
 
 /** 上海常规双段交易时段，用来区分午休与隔夜：09:30–11:30、13:00–15:00。 */

@@ -2,7 +2,21 @@
 import 'fake-indexeddb/auto'
 
 import source from '@363045841yyt/klinechart-script/scripts/sma.ts?raw'
-import { createScriptService, type ScriptWorkspace } from '@363045841yyt/klinechart-script-chart'
+import type { QuickJSLibrary } from '@363045841yyt/klinechart-script'
+import {
+  COMPILER_WORKER_URL,
+  createScriptWorkerPool,
+  fromEventTarget,
+  SCRIPT_WORKER_URL,
+} from '@363045841yyt/klinechart-script/worker'
+import { createIndexedDbScriptPersistence } from '@363045841yyt/klinechart-script-chart/browser'
+import {
+  createScriptService as createService,
+  type ScriptService,
+  type ScriptServiceOptions,
+  type ScriptWorkspace,
+} from '@363045841yyt/klinechart-script-chart'
+import { createDefinitionRegistry } from '@363045841yyt/klinechart-core'
 import { describe, expect, it, vi } from 'vitest'
 import { effectScope, shallowRef } from 'vue'
 import { NodeScriptWorker } from '../../../../../script/src/worker/__tests__/nodeWorker.js'
@@ -12,6 +26,29 @@ import type { ScriptSourceStore } from '../scriptEditor/types.js'
 import { useScriptEditor } from '../useScriptEditor.js'
 
 vi.stubGlobal('Worker', NodeScriptWorker)
+
+/** 用例只声明差异：线程与存储由浏览器默认实现补齐。 */
+function createScriptService(
+  libraries: readonly QuickJSLibrary[],
+  options: Omit<
+    ScriptServiceOptions,
+    'builtinSources' | 'createWorkerPool' | 'persistence'
+  > &
+    Partial<Pick<ScriptServiceOptions, 'builtinSources' | 'createWorkerPool' | 'persistence'>>,
+): Promise<ScriptService> {
+  return createService(libraries, {
+    builtinSources: [],
+    persistence: createIndexedDbScriptPersistence(),
+    createWorkerPool: (runtime) =>
+      createScriptWorkerPool({
+        ...runtime,
+        size: 2,
+        createThread: () => fromEventTarget(new Worker(SCRIPT_WORKER_URL)),
+        createCompilerThread: () => fromEventTarget(new Worker(COMPILER_WORKER_URL)),
+      }),
+    ...options,
+  })
+}
 
 describe('useScriptEditor', () => {
   it('无需仓库即可删除未保存文件并选择相邻标签', async () => {
@@ -35,7 +72,7 @@ describe('useScriptEditor', () => {
   })
 
   it('服务稍后就绪时同步目录，保留草稿并启用脚本删除', async () => {
-    const scripts = await createScriptService([], {
+    const scripts = await createScriptService([], { definitions: createDefinitionRegistry(),
       persistence: { load: async () => null, save: async () => true },
     })
     const scope = effectScope()
@@ -72,7 +109,7 @@ describe('useScriptEditor', () => {
   })
 
   it('草稿直接运行产生输出，添加才保存并启用，重复添加不增加实例', async () => {
-    const scripts = await createScriptService([], {
+    const scripts = await createScriptService([], { definitions: createDefinitionRegistry(),
       persistence: { load: async () => null, save: async () => true },
     })
     const chart = createMockChartController()
@@ -106,7 +143,6 @@ describe('useScriptEditor', () => {
           id: 'debug-instance',
           definitionId: id,
           label: 'EditorDebug',
-          name: 'EditorDebug',
           paneId: 'pane-script',
           ordinal: 0,
           params: {},
@@ -123,7 +159,7 @@ describe('useScriptEditor', () => {
   })
 
   it('调试失败只写执行通道，编辑源码后旧结论作废', async () => {
-    const scripts = await createScriptService([], {
+    const scripts = await createScriptService([], { definitions: createDefinitionRegistry(),
       persistence: { load: async () => null, save: async () => true },
     })
     const chart = createMockChartController()
@@ -169,7 +205,7 @@ describe('useScriptEditor', () => {
 
   it('文件夹与文件操作走同一脚本服务，复制保留目录、删除关闭标签', async () => {
     let saved: ScriptWorkspace | null = null
-    const scripts = await createScriptService([], {
+    const scripts = await createScriptService([], { definitions: createDefinitionRegistry(),
       persistence: {
         load: async () => saved,
         save: async (workspace) => {
@@ -219,7 +255,7 @@ describe('useScriptEditor', () => {
 
   it('删除提交失败保留标签和未保存源码，错误由统一动作入口反馈', async () => {
     let writable = true
-    const scripts = await createScriptService([], {
+    const scripts = await createScriptService([], { definitions: createDefinitionRegistry(),
       persistence: {
         load: async () => null,
         save: async () => writable,
@@ -254,7 +290,7 @@ describe('useScriptEditor', () => {
   })
 
   it('信任随草稿保存并恢复，源码变化、新建和副本不会继承信任', async () => {
-    const scripts = await createScriptService()
+    const scripts = await createScriptService([], { definitions: createDefinitionRegistry() })
     const editor = useScriptEditor(scripts)
     editor.openBlank()
     expect(editor.trusted.value).toBe(false)
@@ -284,7 +320,7 @@ describe('useScriptEditor', () => {
 
   it('内置脚本只读，副本生成独立用户身份并沿同一入口保存', async () => {
     const builtinSource = source.replace("name: 'SMA'", "name: 'Builtin SMA'")
-    const scripts = await createScriptService([], { builtinSources: [builtinSource] })
+    const scripts = await createScriptService([], { definitions: createDefinitionRegistry(), builtinSources: [builtinSource] })
     const editor = useScriptEditor(scripts)
     editor.openFor('Builtin SMA')
     expect(editor.identity.value).toBe('builtin')
@@ -307,7 +343,7 @@ describe('useScriptEditor', () => {
   })
 
   it('工具栏新建的是可直接保存的用户脚本', async () => {
-    const scripts = await createScriptService()
+    const scripts = await createScriptService([], { definitions: createDefinitionRegistry() })
     const editor = useScriptEditor(scripts)
     editor.openBlank()
     expect(editor.identity.value).toBe('user')
@@ -343,7 +379,7 @@ describe('useScriptEditor', () => {
     await scripts.remove(created.id, created.revision + 1)
   })
   it('重命名后可连续保存和重新打开，错误及过期草稿不覆盖已提交文档', async () => {
-    const scripts = await createScriptService()
+    const scripts = await createScriptService([], { definitions: createDefinitionRegistry() })
     const initial = await scripts.create(source)
     const editor = useScriptEditor(scripts)
     const stale = useScriptEditor(scripts)

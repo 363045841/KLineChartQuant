@@ -64,7 +64,7 @@ describe('horizontal pan inertia', () => {
       time += 10
       interaction.onPointerUp(pointer(150 + direction * dragDistance))
     }
-    const scroll = () => chart.kernel.viewport.readonly.scrollLeftLogical.peek()
+    const scroll = () => chart.kernel.viewport.readonly.scroll.peek()
     return { chart, state, interaction, pointer, fling, scroll }
   }
 
@@ -116,7 +116,7 @@ describe('horizontal pan inertia', () => {
   it('stops at the current view boundary', () => {
     const { chart, fling, scroll } = scene()
     const left = chart.kernel.viewport.readonly.viewSnapshot.peek().scrollBounds.min
-    chart.kernel.viewport.actions.scrollToLogical(600)
+    chart.panTo(600)
     fling(1, 600)
     for (let i = 0; i < 100 && frames.size; i++) step()
     expect(scroll()).toBe(left)
@@ -157,7 +157,7 @@ describe('horizontal pan inertia', () => {
   it('does not overwrite an external navigation update', () => {
     const { chart, fling, scroll } = scene()
     fling()
-    chart.kernel.viewport.actions.scrollToLogical(500)
+    chart.panTo(500)
     step()
     expect(scroll()).toBe(500)
     expect(frames.size).toBe(0)

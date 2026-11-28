@@ -22,7 +22,7 @@ export interface DetachedEditorDraft {
 /** 宿主负责身份和持久化，新窗口负责实时编辑及语言服务。 */
 export interface DetachedEditorSnapshot extends DetachedEditorDraft {
   tabs: readonly ScriptEditorTab[]
-  kind?: 'indicator' | 'library'
+  kind?: 'indicator' | 'alert' | 'library'
   documents?: readonly ScriptEditorDocument[]
   folders?: readonly ScriptEditorFolder[]
   libraries?: readonly { name: string; source: string }[]

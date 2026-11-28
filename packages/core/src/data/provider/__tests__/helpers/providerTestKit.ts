@@ -5,7 +5,7 @@
  * 约束：项目自有类型 MarketDataProvider 用 satisfies 全量约束，缺成员在编译期暴露。
  */
 
-import type { KLineData } from '@/controllers/types.js'
+import type { KLineData } from '@/foundation/types/bar.js'
 import type { StreamTransportHandlers } from '../../../stream/types.js'
 import type {
   BarDataSource,

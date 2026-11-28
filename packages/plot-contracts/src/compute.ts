@@ -1,49 +1,23 @@
-/** 计算依赖与重算区间：数据层只描述输入变化，计算层据此决定重算范围。 */
+/** 行情变化描述：数据层只说明本次写入影响哪一段，计算端据此决定从哪根重算。 */
 
 /**
- * 计算对历史的依赖。
+ * 变化种类。
  *
- * - stateless：每根 bar 只依赖最近 lookback 根；lookback 为 unbounded 时依赖整段。
- * - stateful：结果依赖窗口起点的累积状态，无法只靠区间平移。
+ * - append：尾部追加，既有下标与结果都有效，从新根开始算
+ * - update：已有 bar 被修订，长度可能不变；从 start 起的结果全部失效
+ * - replace：从 start 起整体替换（历史回补、前置插入）；start 之后的下标全部失效
+ * - reset：整体替换，旧下标全部失效
  */
-export type ComputeDependency =
-  | { readonly kind: 'stateless'; readonly lookback: number | 'unbounded' }
-  | { readonly kind: 'stateful' }
+export type DataChangeKind = 'append' | 'update' | 'replace' | 'reset'
 
-/** 左闭右开的重算区间，相对当前序列。 */
-export interface ComputeRange {
+/**
+ * 一次行情变化。
+ *
+ * `start` 是首个受影响的下标；计算端从它重放到序列末尾。
+ * `revision` 是该序列的修订号，单调递增；消费端据此发现丢帧并退化为 reset。
+ */
+export interface ComputeChange {
+  readonly kind: DataChangeKind
   readonly start: number
-  readonly end: number
-  /** 旧计算结果已失效，需要从空运行态重算。 */
-  readonly reset?: boolean
-}
-
-/** 数据层提供变化区间和缓存失效信息。 */
-export type ComputeChange = ComputeRange
-
-/** 构造可证明的无状态依赖。 */
-export function stateless(lookback: number | 'unbounded'): ComputeDependency {
-  return Object.freeze({ kind: 'stateless', lookback })
-}
-
-/** 顺序折叠：状态依赖窗口起点，无法只靠区间平移。 */
-export const STATEFUL: ComputeDependency = Object.freeze({ kind: 'stateful' })
-
-/**
- * 按依赖推导本次需要重算的区间。
- *
- * 有状态或无界回看一律整段；有界回看把变化区间前后各扩 lookback 根。
- */
-export function resolveComputeRange(
-  change: ComputeChange,
-  dependency: ComputeDependency,
-  length: number,
-): ComputeRange {
-  if (change.reset) return { start: 0, end: length, reset: true }
-  if (dependency.kind === 'stateful' || dependency.lookback === 'unbounded')
-    return { start: 0, end: length }
-  return {
-    start: Math.max(0, change.start - dependency.lookback),
-    end: Math.min(length, change.end + dependency.lookback),
-  }
+  readonly revision: number
 }

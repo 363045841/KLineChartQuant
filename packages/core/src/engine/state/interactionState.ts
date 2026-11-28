@@ -78,7 +78,7 @@ export function createIdleInteractionSnapshot(): InteractionSnapshot {
 
 export interface InteractionDeps {
   visibleRange$: ReadonlySignal<{ start: number; end: number } | null>
-  scrollLeftLogical$: ReadonlySignal<number>
+  scroll$: ReadonlySignal<number>
   dpr$: ReadonlySignal<number>
   scheduleDraw: (level?: unknown) => void
 }

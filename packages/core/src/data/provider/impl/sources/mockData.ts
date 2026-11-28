@@ -5,7 +5,7 @@
  * 锚点之间的布朗桥。布朗桥两端固定，因此相邻区段必然首尾相连；每根 K 线只依赖自己的
  * 日索引，无论先取哪一页、取多少次、在哪个宿主里取，结果都一样。
  */
-import type { KLineData } from '@/controllers/types.js'
+import type { KLineData } from '@/foundation/types/bar.js'
 
 export const MOCK_DAY_MS = 86_400_000
 /** 锚点间距：段内布朗桥的步数，也是价格连续性的校验点间隔。 */
@@ -16,12 +16,6 @@ const MOCK_BASE_PRICE = 12.5
 const MOCK_BRIDGE_SIGMA = 0.012
 /** 影线相对实体端点的最大外扩比例。 */
 const MOCK_WICK_SIGMA = 0.008
-
-/** 日 K 桶使用 UTC 零点，与实时更新的时间戳保持一致。 */
-export function mockDayStart(timestamp: number): number {
-  const date = new Date(timestamp)
-  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
-}
 
 /** 时间戳所属的 UTC 日索引；向前取整，负时间戳同样成立。 */
 export function mockDayIndex(timestamp: number): number {

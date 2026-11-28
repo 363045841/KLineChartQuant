@@ -33,7 +33,7 @@ flowchart TB
         Ctl["ChartController<br/>只读信号 + 命令方法"]
         Chart["Chart 门面"]
         Kernel["StateKernel<br/>Reactive SSOT"]
-        Data["数据层<br/>SeriesRepository · Buffer · 调度"]
+        Data["数据层<br/>MarketDataService · Buffer · 调度"]
         Pipe["渲染管线<br/>FrameTransaction · Scene/Layer"]
         GPU["WebGPU / WebGL2 / Canvas2D"]
         Plugin["插件子系统<br/>PluginHost · RendererPlugin"]
@@ -120,7 +120,7 @@ flowchart TB
 
 适配器只测桥接，不实例化完整引擎：用 mock `ChartControllerFactory` 验证生命周期、signal 桥接与错误处理。
 
-- Vue：`__setControllerFactory(factory)` 覆盖，测试后重置为 `null`；生产入口在 import 时注入 `createChartController`。
+- Vue：组件直接调用 `createChartController`，不再提供工厂注入；契约测试通过真实或桩容器验证挂载、信号桥接与释放。
 - React：`<KLineChart factory={mockFactory} />` 或 `useKLineChart(ref, { factory })`。
 - Angular：`provideKLineChart({ factory: mockFactory })`。
 
@@ -243,7 +243,7 @@ flowchart TB
 ### 4.1 数据加载
 
 1. 绑定层调用 `controller.setPrimaryMarket(spec)`，行情统一由 Provider 链路加载。
-2. `Chart` 通过 `ChartDataManager` 在 `SeriesRepository` 中定位 / 创建对应 Buffer。
+2. `Chart` 通过 `ChartDataManager` 向 `MarketDataService` 获取行情序列租约。
 3. 图表与 Agent 共用图表实例级 `MarketDataCache`；它根据 latest 或时间范围处理缓存覆盖、
    Provider cursor 分页、重试与请求去重。
 4. `MarketDataCache` 将结果写入图表 Buffer 快照；Buffer 数据变更经订阅回调更新 StateKernel 的 data 信号，并触发
@@ -314,10 +314,12 @@ Vite 开发代理 `/api/public` → `:8080`、
 
 **数据层**
 
+- `packages/core/src/data/buffer/seriesSelection.ts`
 - `packages/core/src/data/buffer/impl/seriesRepository.ts`
 - `packages/core/src/data/buffer/impl/dataBuffer.ts`
 - `packages/core/src/data/buffer/impl/marketDataCache.ts`
-- `packages/core/src/data/provider/impl/registry.ts`
+- `packages/core/src/data/service/impl/createMarketDataService.ts`
+- `packages/core/src/data/provider/registry.ts`
 
 **渲染**
 

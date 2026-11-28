@@ -50,21 +50,22 @@ while series parameters such as `ta.sma(close, 20)` still receive the whole seri
 
 ## Execution
 
-The runtime is WASM-backed and loads asynchronously once. Preload it, then use the synchronous
-entry points, which is what the chart's synchronous compute port calls:
+Scripts run in a dedicated worker pool: the compiler thread turns TypeScript into executable
+source, execution threads install the module and run it bar by bar.
 
 ```ts
-import { preloadQuickJS, runQuickJSScriptSync, readQuickJSScriptDefinitionSync } from '@363045841yyt/klinechart-script'
+import { createScriptWorkerPool } from '@363045841yyt/klinechart-script/worker'
 
-await preloadQuickJS()
-const definition = readQuickJSScriptDefinitionSync(source) // metadata only, no bars
-const collection = runQuickJSScriptSync({ source, bars, params: { n: 2 } })
-// → { plots: [...], fills: [...] }
+const pool = createScriptWorkerPool({ size, createThread, createCompilerThread, onOutput })
+const definition = await pool.prepare(handle, source, libraries, trusted)
+await pool.run(handle, { bars, change, params, live })
 ```
 
-`runQuickJSScript` is the async variant used before the module is preloaded.
+`change` carries the kind (`append` / `update` / `replace` / `reset`), the first affected bar
+and the series revision. A discontinuous revision is sent as a full reset, so a worker never
+guesses what it missed.
 
-Both entry points run each Context with a time and memory budget, so a runaway user script
+Both backends run each Context with a time and memory budget, so a runaway user script
 fails instead of hanging the host.
 
 ## Libraries

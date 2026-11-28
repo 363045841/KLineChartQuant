@@ -475,7 +475,6 @@ export class ChartRenderer {
         }
         const countdown = this.deriveCountdown((this.deps.clock ?? systemClock).now())
         // 帧也只能通过统一协调者安装正式与预览对象的坐标资源。
-        this.deps.synchronizeRuntime()
         const mainChanged = !this.sameVersion(this.paintedMainVersion, this.mainContentVersion())
         const overlayChanged = !this.sameVersion(
           this.paintedOverlayVersion,
@@ -587,10 +586,6 @@ export class ChartRenderer {
     if (!renderer)
       throw new KLineChartError(GENERIC_ERROR_CODES.NOT_REGISTERED, `Pane 未注册：${paneId}`)
     return renderer.getPane().axisLayout
-  }
-
-  getDrawingStore(): DrawingStore {
-    return this.drawingStore
   }
 
   /**
@@ -771,7 +766,7 @@ export class ChartRenderer {
 
   /** 将最新 viewport 位置同步到原生滚动容器，作为绘制帧的第一项 DOM 副作用。 */
   private commitViewportScroll(): void {
-    this.deps.commitViewportScroll(this.deps.viewport.readonly.scrollLeft.peek())
+    this.deps.commitViewportScroll(this.deps.viewport.readonly.domScroll.peek())
   }
 
   /** 将 prepareFrameData 的帧几何按 level 画到 canvas，含所有 pane 的 main/overlay 及时间轴 */
@@ -1525,7 +1520,7 @@ export class ChartRenderer {
       yAxisOverlayCtx: optional(contexts.yAxisOverlayCtx),
       leftAxisCtx: optional(contexts.leftAxisCtx),
       leftAxisOverlayCtx: optional(contexts.leftAxisOverlayCtx),
-      zoomLevel: this.deps.zoom.readonly.zoomLevel.peek(),
+      zoomLevel: this.deps.viewport.readonly.zoomLevel.peek(),
       zoomLevelCount: this.deps.options.readonly.options.peek().zoomLevelCount,
       viewport: {
         scrollLeft: vp.scrollLeft,

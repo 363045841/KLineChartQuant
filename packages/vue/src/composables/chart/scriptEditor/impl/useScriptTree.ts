@@ -11,6 +11,7 @@ import type {
 type ScriptKind = ScriptEditorFolder['kind']
 const ROOTS: readonly (readonly [ScriptKind, string])[] = [
   ['indicator', '指标'],
+  ['alert', '警报'],
   ['library', '库'],
 ]
 

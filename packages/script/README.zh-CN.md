@@ -47,20 +47,20 @@ VM prelude 在脚本运行前注入以下全局：
 
 ## 执行
 
-运行时基于 WASM，首次异步加载。预加载后使用同步入口——图表的同步计算端口就是这么调用的：
+脚本在专用 Worker 池中运行：编译线程把 TypeScript 转成可执行源码，执行线程安装模块并逐 bar 运行。
 
 ```ts
-import { preloadQuickJS, runQuickJSScriptSync, readQuickJSScriptDefinitionSync } from '@363045841yyt/klinechart-script'
+import { createScriptWorkerPool } from '@363045841yyt/klinechart-script/worker'
 
-await preloadQuickJS()
-const definition = readQuickJSScriptDefinitionSync(source) // 只读元数据，不需要行情
-const collection = runQuickJSScriptSync({ source, bars, params: { n: 2 } })
-// → { plots: [...], fills: [...] }
+const pool = createScriptWorkerPool({ size, createThread, createCompilerThread, onOutput })
+const definition = await pool.prepare(handle, source, libraries, trusted)
+await pool.run(handle, { bars, change, params, live })
 ```
 
-模块未预加载时使用异步入口 `runQuickJSScript`。
+`change` 携带变化类型（`append` / `update` / `replace` / `reset`）、首个受影响的下标与序列修订号。
+修订号不连续时自动改发全量，Worker 不需要猜测自己漏掉了什么。
 
-两个入口都给每个 Context 设定时间与内存上限，失控脚本会失败而不是挂住宿主。
+两种后端都为每个 Context 设置时间与内存预算，失控脚本会失败而不是挂住宿主。
 
 ## 库
 

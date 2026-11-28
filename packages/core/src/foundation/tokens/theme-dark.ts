@@ -290,6 +290,9 @@ export const darkTheme: Theme = {
       neutral: darkInterfaceColors.neutral,
       onAccent: darkInterfaceColors.onAccent,
       secondaryButtonText: darkInterfaceColors.secondaryButtonText,
+      switchOn: darkInterfaceColors.switchOn,
+      switchOff: darkInterfaceColors.switchOff,
+      switchThumb: darkInterfaceColors.switchThumb,
     },
     agent: {
       composerControlBackground: darkInterfaceColors.controlBackground,

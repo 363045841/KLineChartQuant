@@ -1,6 +1,5 @@
 // Fisher Transform：中位价窗口归一化后做双极点递推，signal 为上一根 fisher。
-let value = 0
-let fisher = 0
+const acc = state({ value: 0, fisher: 0 })
 
 defineIndicator({
   version: 2,
@@ -24,11 +23,11 @@ defineIndicator({
     const range = highest - lowest
     const normalized = range === 0 ? 0 : (median[0] - lowest) / range
     const raw = 2 * (normalized - 0.5)
-    value = Math.min(0.999, Math.max(-0.999, 0.33 * raw + 0.67 * value))
-    const signal = fisher
-    fisher = 0.5 * Math.log((1 + value) / (1 - value)) + 0.5 * fisher
+    acc.value = Math.min(0.999, Math.max(-0.999, 0.33 * raw + 0.67 * acc.value))
+    const signal = acc.fisher
+    acc.fisher = 0.5 * Math.log((1 + acc.value) / (1 - acc.value)) + 0.5 * acc.fisher
 
-    plot.Line(fisher, 'fisher', { label: 'FISHER', color: Color.orange })
+    plot.Line(acc.fisher, 'fisher', { label: 'FISHER', color: Color.orange })
     plot.Line(signal, 'signal', { label: 'SIGNAL', color: Color.blue })
     plot.Line(0, 'guide0', { label: '0', color: Color.gray, dash: [4, 4] })
   },

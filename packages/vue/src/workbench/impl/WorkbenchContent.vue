@@ -17,7 +17,7 @@
       <KlineChart
         ref="chart"
         v-bind="{ ...chart, ...$attrs }"
-        :market-data-context="market.context"
+        :runtime="runtime.market"
         :restore-layout="restoreLayout"
         :layout-storage-id="layoutStorageId"
         :symbols="market.symbols.value"
@@ -36,6 +36,15 @@
       />
     </template>
 
+    <template #panel-alert>
+      <AlertPanel
+        :controller="controller"
+        :search-symbols="searchSymbols"
+        :aggregation-sources="aggregationSources"
+        :enabled-source-names="enabledSourceNameSet"
+      />
+    </template>
+
     <template #panel-watchlist>
       <WatchlistPanel @select="onWatchlistSelect" />
     </template>
@@ -48,17 +57,23 @@
 
 <script setup lang="ts">
   import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
+  import AlertPanel from '@vue-src/components/alert/AlertPanel.vue'
   import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import { computed, defineAsyncComponent, shallowRef, useTemplateRef } from 'vue'
   import IconBookmark from '~icons/tabler/bookmark'
+  import IconTablerBell from '~icons/tabler/bell'
   import IconSettings from '~icons/tabler/settings'
   import IconSparkles from '~icons/tabler/sparkles'
   import IconStack2 from '~icons/tabler/stack-2'
   import KlineChart from '../../components/chart/KLineChart.vue'
   import WatchlistPanel from '../../components/watchlist/WatchlistPanel.vue'
   import { provideChartCommands } from '../../composables/commands/useCommands.js'
+  import { useAggregationSources } from '../../composables/market/useAggregationSources.js'
+  import { useMarketDataSourceCatalog } from '../../composables/market/useMarketDataSourceCatalog.js'
+  import { createInstrumentSearch } from '../../composables/symbol/createInstrumentSearch.js'
   import { switchChartSymbol } from '../../composables/symbol/chartSymbolSwitch.js'
   import type { SearchableSymbol } from '../../composables/symbol/useSymbolSearch.js'
+  import { useAppRuntime } from '../../composables/runtime/useAppRuntime.js'
   import { useToast } from '../../composables/toast/useToast.js'
   import { provideWatchlist } from '../../composables/watchlist/useWatchlist.js'
   import ObjectTreePanel from '../../features/object-tree/ObjectTreePanel.vue'
@@ -70,7 +85,6 @@
   import type { SidePanelDefinition } from '../../features/side-panel/types.js'
   import type { KlineWorkbenchProps } from '../types.js'
   import { useWorkbenchMarket } from './useWorkbenchMarket.js'
-  import { useWorkbenchServices } from './useWorkbenchServices.js'
 
   defineOptions({ inheritAttrs: false })
   const props = withDefaults(defineProps<KlineWorkbenchProps>(), {
@@ -86,12 +100,14 @@
     error: [error: Error]
   }>()
 
-  /** 侧边菜单：Agent 在前，自选股、对象树依次在后；关闭 Agent 时只保留后两项。 */
+  /** 侧边菜单：Agent、警报、自选股、对象树；警报和 Agent 一样按功能开关决定是否出现。 */
   const AGENT_PANEL_ID = 'agent'
+  const ALERT_PANEL_ID = 'alert'
   const WATCHLIST_PANEL_ID = 'watchlist'
   const OBJECT_TREE_PANEL_ID = 'object-tree'
   const panels = computed<ReadonlyArray<SidePanelDefinition>>(() => [
     ...(props.agent ? [{ id: AGENT_PANEL_ID, label: 'Agent', icon: IconSparkles }] : []),
+    ...(props.scripts ? [{ id: ALERT_PANEL_ID, label: '警报', icon: IconTablerBell }] : []),
     { id: WATCHLIST_PANEL_ID, label: '自选股', icon: IconBookmark },
     { id: OBJECT_TREE_PANEL_ID, label: '对象树', icon: IconStack2 },
   ])
@@ -109,12 +125,13 @@
   const widthStorage = createSidePanelWidthStorage()
   const sideStorage = createSidePanelSideStorage()
   const toast = useToast()
-  const { initialize } = useWorkbenchServices(props.scripts)
-  const market = useWorkbenchMarket(props, (error) => emit('error', error))
+  const runtime = useAppRuntime()
+  const market = useWorkbenchMarket(props, runtime.market.market, (error) => emit('error', error))
+  const aggregationSources = useMarketDataSourceCatalog(market.context)
+  const { enabledNames: enabledSourceNames, enabledNameSet: enabledSourceNameSet } =
+    useAggregationSources(aggregationSources, market.context)
+  const searchSymbols = createInstrumentSearch(market.context, () => enabledSourceNames.value)
   void market.initialize()
-  void initialize().catch((cause: unknown) => {
-    emit('error', cause instanceof Error ? cause : new Error(String(cause)))
-  })
 
   /** 对外转发同一个图表控制器，Agent 和宿主不再各自组装图表。 */
   function onControllerReady(value: ChartController): void {

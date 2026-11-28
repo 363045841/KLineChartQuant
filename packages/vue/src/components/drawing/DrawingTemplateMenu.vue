@@ -18,6 +18,7 @@
     :groups="groups"
     :message="message"
     empty-text="暂无模板"
+    semantics="dialog"
     @open="emit('open')"
     @select="select"
   >
@@ -79,7 +80,7 @@
     saveExisting: [name: string]
     remove: [name: string]
   }>()
-  const menu = useMenuButton()
+  const menu = useMenuButton(undefined, 'dialog')
   const groups = computed<DropMenuGroup[]>(() => [
     ...(props.showSave
       ? [

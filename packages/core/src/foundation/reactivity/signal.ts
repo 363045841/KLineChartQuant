@@ -58,36 +58,6 @@ export type WritableSignal<T> = ReadonlySignal<T> & {
   set: (next: T) => void
 }
 
-/**
- * 为向后兼容保留的别名。
- *
- * @remarks Signal 等价于 WritableSignal，即 createSignal 返回的完整读/写形状。
- * 已有的 import 继续可用。
- */
-export type Signal<T> = WritableSignal<T>
-
-/**
- * 为向后兼容保留的别名。
- *
- * @remarks Computed 等价于 ReadonlySignal，即 computed() 返回的只读形状。
- */
-export type Computed<T> = ReadonlySignal<T>
-
-/**
- * 可写 ref：kernel 内部对一段状态的句柄。
- *
- * @remarks 与 WritableSignal 完全等同；命名上镜像 Vue 的 shallowRef / writableRef
- * 惯例，使子状态定义中的迁移读起来更自然。
- */
-export type WritableRef<T> = WritableSignal<T>
-
-/**
- * writable ref 的只读面 —— 对外暴露给消费者的类型。
- *
- * @remarks 形状与 ReadonlySignal 相同。
- */
-export type ReadonlyRef<T> = ReadonlySignal<T>
-
 type Tracker = {
   deps: Set<Set<() => void>>
   run: () => void
@@ -161,7 +131,7 @@ function notify(listener: () => void): void {
 }
 
 /**
- * 创建一个 writable signal（别名：writableRef）。
+ * 创建一个可写 signal。
  *
  * @param initial - 初始值
  * @returns WritableSignal，内部可变更，外部可通过赋值或返回类型注解降级为 ReadonlySignal
@@ -206,13 +176,6 @@ export function createSignal<T>(initial: T): WritableSignal<T> {
 
   return Object.assign(read, { peek, set, subscribe }) as WritableSignal<T>
 }
-
-/**
- * createSignal 的别名，镜像 Vue 的 writableRef 惯例。
- *
- * @remarks 在 kernel 子状态定义中使用，如 signals.scrollLeft = writableRef(0)。
- */
-export const writableRef = createSignal
 
 /**
  * 创建一个自动追踪依赖的 effect。
@@ -383,7 +346,7 @@ export type SelectedSignal<U> = ReadonlySignal<U> & {
 }
 
 /**
- * 从源 Signal 投影只读 Signal。
+ * 从源 signal 投影出只读 signal。
  * 仅当 selector 结果相对上一值 equal 判定为不等时通知。
  *
  * @remarks

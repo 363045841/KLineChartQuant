@@ -81,15 +81,16 @@ function tool(name: string, effect: RuntimeToolDefinition['effect']): RuntimeToo
 }
 
 describe('OpenAI-compatible Provider HTTP boundary', () => {
-  it('normalizes valid endpoints and rejects credentials, queries, and non-HTTP URLs', () => {
+  it('normalizes valid endpoints', () => {
     expect(normalizeProviderBaseUrl('https://models.example.test/v1///')).toBe(baseUrl)
-    expect(() => normalizeProviderBaseUrl('file:///tmp/provider')).toThrowError(
-      expect.objectContaining<Partial<AgentRuntimeError>>({ code: 'INVALID_PAYLOAD' }),
-    )
-    expect(() => normalizeProviderBaseUrl('https://user:pass@example.test/v1')).toThrowError(
-      expect.objectContaining<Partial<AgentRuntimeError>>({ code: 'INVALID_PAYLOAD' }),
-    )
-    expect(() => normalizeProviderBaseUrl('https://example.test/v1?key=value')).toThrowError(
+  })
+
+  it.each([
+    ['file URL', 'file:///tmp/provider'],
+    ['embedded credentials', 'https://user:pass@example.test/v1'],
+    ['query string', 'https://example.test/v1?key=value'],
+  ])('rejects %s', (_label, url) => {
+    expect(() => normalizeProviderBaseUrl(url)).toThrowError(
       expect.objectContaining<Partial<AgentRuntimeError>>({ code: 'INVALID_PAYLOAD' }),
     )
   })
@@ -334,19 +335,5 @@ describe('OpenAI-compatible runtime support', () => {
     // 浏览器预检只允许固定的几个头；目录请求多带一个头就会被整条拦掉。
     expect([...headers.keys()].sort()).toEqual(['accept', 'authorization'])
     expect(headers.get('authorization')).toBe(`Bearer ${secret}`)
-  })
-
-  it('blocks subsequent runs after the credential is deleted', async () => {
-    const { credentials, settings } = configuredStores()
-    await configure(credentials, settings)
-    const support = createOpenAiCompatibleRuntimeSupport({
-      credentials,
-      settings,
-      fetch: providerFetch(),
-    })
-    await credentials.delete()
-    await expect(
-      support.createPlan({ sessionId: '1', prompt: 'x', mode: 'plan' }),
-    ).rejects.toMatchObject({ code: 'PROVIDER_NOT_CONFIGURED' })
   })
 })

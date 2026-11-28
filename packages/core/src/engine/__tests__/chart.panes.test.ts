@@ -5,10 +5,10 @@ import { PRICE_AXIS_RANGE_MODE } from '@/foundation/config/priceAxisRangeMode.js
 import { batch } from '@/foundation/reactivity/signal.js'
 import { ScaleType } from '@/foundation/types/scaleType'
 import {
+  indicatorLayerId,
   registerEmptyPlot,
   registerPlotDefinition,
 } from '../indicators/__tests__/helpers/plotIndicatorTestKit'
-import { resolveIndicatorLayerId } from '../indicators/indicatorLayerNaming'
 import { LAYOUT_DOCUMENT_VERSION } from '../layout/types'
 import { AXIS_GROUP_PRICE, axisGroupId } from '../pane/axisGroups.js'
 import { INSTANCE_MOVE_KIND, MAIN_PANE_ID } from '../pane/types'
@@ -25,10 +25,10 @@ describe('Chart pane layout', () => {
   installChartTestHooks()
 
   it('fills every pane axis to the shared right width and publishes column changes immediately', async () => {
-    const chart = mountChart()
+    const { chart, definitions } = mountChart()
     try {
       const id = 'shared-axis-width'
-      registerEmptyPlot(id)
+      registerEmptyPlot(definitions, id)
       const instanceId = chart.indicators.add(id)!
       const binding = chart.axes.bindingFor(instanceId)
       for (const requested of [80, 120]) {
@@ -52,7 +52,7 @@ describe('Chart pane layout', () => {
   })
 
   it('runtime synchronization does not commitLayout back to kernel', async () => {
-    const chart = mountChart()
+    const { chart } = mountChart()
     try {
       const commit = vi.spyOn(chart.kernel.pane.actions, 'commitLayout')
       commit.mockClear()
@@ -64,11 +64,11 @@ describe('Chart pane layout', () => {
   })
 
   it('installs price axes before configuring layers through repeated pane migrations', async () => {
-    const chart = mountChart()
+    const { chart, definitions } = mountChart()
     const errors = vi.spyOn(console, 'error')
     try {
       const id = 'price-axis-migration'
-      registerPlotDefinition({
+      registerPlotDefinition(definitions, {
         id,
         name: id,
         source: 'native',
@@ -95,7 +95,7 @@ describe('Chart pane layout', () => {
           .getPane()
         expect(pane.axis(binding.axisId).getScaleType()).toBe(ScaleType.Log)
         expect(
-          chart.getRenderer(resolveIndicatorLayerId(id, paneId, 'renderer', instanceId))?.pane,
+          chart.getRenderer(indicatorLayerId(definitions, id, paneId, instanceId))?.pane,
         ).toBe(paneId)
         expect(chart.axes.configuration(binding.axisId).rangeMode).toBe(PRICE_AXIS_RANGE_MODE.All)
       }
@@ -108,14 +108,14 @@ describe('Chart pane layout', () => {
   })
 
   it('keeps layers mounted when only axis configuration changes and keeps observing later migrations', async () => {
-    const chart = mountChart()
+    const { chart, definitions } = mountChart()
     const errors = vi.spyOn(console, 'error')
     try {
       const id = 'projection-configuration'
-      registerEmptyPlot(id)
+      registerEmptyPlot(definitions, id)
       const instanceId = chart.indicators.add(id)!
       const original = chart.axes.bindingFor(instanceId)
-      const layerId = resolveIndicatorLayerId(id, original.paneId, 'renderer', instanceId)
+      const layerId = indicatorLayerId(definitions, id, original.paneId, instanceId)
       const layer = chart.getRenderer(layerId)
       chart.axes.setScaleType(original.axisId, ScaleType.Log)
       expect(chart.getRenderer(layerId)).toBe(layer)
@@ -136,7 +136,9 @@ describe('Chart pane layout', () => {
   })
 
   it('derives the initial primary scale from settings without writing projection defaults into layout', async () => {
-    const chart = mountChart(1000, 600, {
+    const { chart } = mountChart({
+      width: 1000,
+      height: 600,
       initialSettings: { mainRightAxisTypeSetting: ScaleType.Log },
     })
     try {
@@ -148,7 +150,7 @@ describe('Chart pane layout', () => {
   })
 
   it('restores all panes before definitions arrive and keeps geometry and configuration stable as content loads', async () => {
-    const chart = mountChart(1000, 1000)
+    const { chart, definitions } = mountChart({ width: 1000, height: 1000 })
     try {
       const document = chart.kernel.createLayout()
       const paneSpecs = [
@@ -184,13 +186,13 @@ describe('Chart pane layout', () => {
       const commit = vi.spyOn(chart.kernel.pane.actions, 'commitLayout')
 
       for (const pane of paneSpecs.slice(1)) {
-        registerEmptyPlot(pane.id)
+        registerEmptyPlot(definitions, pane.id)
         chart.draw()
         const instance = chart.indicators.instances
           .peek()
           .find((entry) => entry.paneId === pane.id)!
         expect(
-          chart.getRenderer(resolveIndicatorLayerId(pane.id, pane.id, 'renderer', instance.id)),
+          chart.getRenderer(indicatorLayerId(definitions, pane.id, pane.id, instance.id)),
         ).toBeDefined()
         chart
           .getPaneRenderers()
@@ -216,15 +218,15 @@ describe('Chart pane layout', () => {
   })
 
   it('applies ratio patches without remounting indicator layers or publishing unchanged layouts', async () => {
-    const chart = mountChart(1000, 1000)
+    const { chart, definitions } = mountChart({ width: 1000, height: 1000 })
     try {
       const id = 'layout-resource-fixture'
-      registerEmptyPlot(id)
+      registerEmptyPlot(definitions, id)
       const instanceId = chart.indicators.add(id)!
       const paneId = chart.indicators.instances
         .peek()
         .find((instance) => instance.id === instanceId)!.paneId!
-      const layerId = resolveIndicatorLayerId(id, paneId, 'renderer', instanceId)
+      const layerId = indicatorLayerId(definitions, id, paneId, instanceId)
       const layer = chart.getRenderer(layerId)
       expect(layer).toBeDefined()
       const observer = new MutationObserver(() => {})
@@ -250,7 +252,7 @@ describe('Chart pane layout', () => {
   })
 
   it('clears hidden geometry and uses visible adjacency for hit testing, including after drawing', async () => {
-    const chart = mountChart(1000, 1000)
+    const { chart } = mountChart({ width: 1000, height: 1000 })
     try {
       importPaneFixture(chart)
       const hidden = chart
@@ -280,7 +282,7 @@ describe('Chart pane layout', () => {
   })
 
   it('fits panes and gaps into a container shorter than their combined minimum heights', async () => {
-    const chart = mountChart(1000, 50)
+    const { chart } = mountChart({ width: 1000, height: 50 })
     try {
       importPaneFixture(chart)
       chart.updateOptions({ paneGap: 3 })
@@ -299,7 +301,7 @@ describe('Chart pane layout', () => {
   })
 
   it('uses the initial drag snapshot regardless of move frequency and changes only adjacent panes', async () => {
-    const chart = mountChart(1000, 1000)
+    const { chart } = mountChart({ width: 1000, height: 1000 })
     try {
       importPaneFixture(chart)
       const geometry = chart.kernel.pane.readonly.paneGeometry.peek()
@@ -326,7 +328,7 @@ describe('Chart pane layout', () => {
   })
 
   it('restores original weights on returning a constrained drag to its origin', async () => {
-    const chart = mountChart(1000, 1000)
+    const { chart } = mountChart({ width: 1000, height: 1000 })
     try {
       importPaneFixture(chart)
       chart.panes.updatePane('layout-a', { minHeightPx: 300 })
@@ -343,7 +345,7 @@ describe('Chart pane layout', () => {
   })
 
   it('reorders all pane identities in one publication and preserves their content', async () => {
-    const chart = mountChart()
+    const { chart } = mountChart()
     try {
       importPaneFixture(chart)
       const notify = vi.fn()
@@ -370,10 +372,10 @@ describe('Chart pane layout', () => {
   })
 
   it('starts with a 3:1 split, preserves proportions on addition and persists boundary changes', async () => {
-    const chart = mountChart(1000, 1000)
+    const { chart, definitions } = mountChart({ width: 1000, height: 1000 })
     try {
       const indicatorId = 'pane-ratio-fixture'
-      registerEmptyPlot(indicatorId)
+      registerEmptyPlot(definitions, indicatorId)
       const first = chart.indicators.add(indicatorId)
       expect(first).not.toBeNull()
       const paneId = chart.indicators.instances
@@ -388,7 +390,7 @@ describe('Chart pane layout', () => {
       const next = chart.paneRatios.peek()
       expect(next.main! / next[paneId]!).toBeCloseTo(previous.main! / previous[paneId]!)
       chart.draw()
-      expect(chart.panes.resizeBoundary('main', -40)).toBe(true)
+      expect(chart.panes.beginBoundaryResize('main')!.resize(-40)).toBe(true)
       const resized = chart.kernel.exportLayout().workspaces
       expect(resized.kline.paneSpecs).not.toEqual(
         chart.kernel.createLayout().workspaces.kline.paneSpecs,
@@ -402,9 +404,9 @@ describe('Chart pane layout', () => {
   })
 
   it('sorts panes and their indicator rows independently for added and moved instances', async () => {
-    const chart = mountChart()
+    const { chart, definitions } = mountChart()
     const definitionId = 'independent-order'
-    registerEmptyPlot(definitionId)
+    registerEmptyPlot(definitions, definitionId)
     try {
       const first = chart.indicators.add(definitionId)!
       const second = chart.indicators.add(definitionId)!
@@ -475,11 +477,13 @@ describe('Chart pane layout', () => {
   })
 
   it('can turn off a restored main log axis when settings are already linear', async () => {
-    const source = mountChart()
+    const { chart: source } = mountChart()
     source.axes.setScaleType(PRICE_SERIES_AXIS_ID, ScaleType.Log)
     const workspaces = source.kernel.snapshotViewWorkspaces()
     await source.destroy()
-    const chart = mountChart(1000, 600, {
+    const { chart } = mountChart({
+      width: 1000,
+      height: 600,
       initialSettings: { mainRightAxisTypeSetting: ScaleType.Linear },
     })
     try {

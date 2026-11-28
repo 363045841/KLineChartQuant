@@ -1,7 +1,7 @@
 /** 控制器层公共出口：导出 framework-agnostic 控制器类型、工厂函数与引擎子模块的 facade 重导出。 */
 // -- Controller types (framework-agnostic) --
 
-export { isSymbolSpec } from '../engine/data/symbolSpecGuard.js'
+export { isSymbolSpec } from '@/data/symbolSpecGuard.js'
 export type {
   IndicatorTemplateApi,
   IndicatorTemplateApplyResult,
@@ -31,6 +31,16 @@ export {
   createChartToolCatalog,
   SCRIPT_REFERENCE_TOPICS,
 } from '../features/agent/index.js'
+export type {
+  Alert,
+  AlertChannel,
+  AlertDraft,
+  AlertFire,
+  AlertFrequency,
+  AlertId,
+  AlertService,
+  AlertStatus,
+} from '../features/alerts/types.js'
 export {
   FIVE_DAY_TIME_SHARE_PERIOD,
   isTimeSharePeriod,
@@ -76,7 +86,6 @@ export type {
   IndicatorInputDef,
   IndicatorInstance,
   IndicatorLoadingMode,
-  IndicatorPaneRole,
   IndicatorRole,
   InstanceMoveTarget,
   InteractionSnapshot,
@@ -88,7 +97,6 @@ export type {
   RangeWindow,
   SubPaneInfo,
   SymbolInfo,
-  SymbolSpec,
   UpdateDrawingPatch,
 } from './types.js'
 
@@ -108,8 +116,10 @@ export type {
 export { createHeatmapController } from '../components/orderBookHeatmap/index.js'
 // 选择器与公共 API 共用同一个目录信号，注册表变更即重建。
 export {
+  type AlertScriptDefinition,
+  createAlertCatalog,
+  createIndicatorCatalog,
   findIndicatorDefinition,
-  indicatorCatalog,
 } from '../controllers/indicatorCatalog/index.js'
 export type {
   BarAggregation,
@@ -140,6 +150,7 @@ export type {
   MarketDataSourceStatus,
   MarketTrade,
   ProviderRef,
+  ProviderTimeShareSeries,
   SourceProbeResult,
   StreamBar,
   StreamChannel,
@@ -158,7 +169,6 @@ export type {
   StreamTransportHandlers,
   TimeShareDataSource,
   TimeShareQuery,
-  TimeShareSeries,
   TradeBatch,
   TradeDataSource,
   TradeFrame,
@@ -173,21 +183,17 @@ export type {
 export {
   ALIGNED_BAR_AGGREGATION,
   BAR_AGGREGATIONS,
-  baostockMarketDataProvider,
-  binanceMarketDataProvider,
+  createBuiltinMarketDataContext,
   createMockDataSource,
   DataBuffer,
   DepthConnector,
   dataSourceRegistry,
   EUROPE_TRADITIONAL_BAR_AGGREGATION,
-  gotdxMarketDataProvider,
+  installBuiltinProviders,
   MarketDataProviderRegistry,
-  marketDataProviderRegistry,
-  mt5MarketDataProvider,
   ORIGINAL_BAR_AGGREGATION,
   STREAM_ERROR_CODES,
   searchInstruments,
-  tradingviewMarketDataProvider,
 } from '../data/index.js'
 export type {
   ActiveMagnetMode,
@@ -204,6 +210,7 @@ export {
   MagnetMode,
 } from '../engine/drawing/index.js'
 export { loadBuiltinIndicators } from '../engine/indicators/registerBuiltins.js'
+export type { DefinitionRegistry } from '../engine/indicators/registry/index.js'
 export type {
   LayoutApi,
   LayoutDocument,

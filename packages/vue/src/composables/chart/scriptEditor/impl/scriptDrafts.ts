@@ -7,7 +7,7 @@ export interface EditorDraft {
   definitionId: string | null
   name: string | null
   title: string
-  kind: 'indicator' | 'library'
+  kind: 'indicator' | 'alert' | 'library'
   identity: ScriptIdentity
   source: string
   trusted: boolean

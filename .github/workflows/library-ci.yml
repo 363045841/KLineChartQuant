@@ -82,6 +82,12 @@ jobs:
           pnpm build:packages
           pnpm --filter @363045841yyt/klinechart-react build
           pnpm --filter @363045841yyt/klinechart-angular build
+          pnpm --filter @363045841yyt/klinechart-server build
+
+      - name: Verify the Node host and Worker boundary
+        run: |
+          pnpm type-check:node
+          pnpm --filter @363045841yyt/klinechart-server test:node
 
       - name: Type-check source (pnpm type-check:src) [REQUIRED]
         run: pnpm type-check:src

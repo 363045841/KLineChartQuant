@@ -1,18 +1,12 @@
 // 指标周期可见性契约的单测：解析、区间判定与渲染层拦截。
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createMockRenderContext } from '@/engine/__tests__/helpers/renderTestKit.js'
-import {
-  clearIndicatorLayerNamingForTest,
-  registerIndicatorLayerNaming,
-} from '@/engine/indicators/indicatorLayerNaming.js'
 import { createIndicatorLayer } from '@/engine/renderers/Indicator/factory.js'
 import type { RenderContext } from '@/foundation/plugin/index.js'
 import type { Layer } from '@/rendering/scene/types.js'
 import type { IndicatorMetadata } from '../indicatorMetadata.js'
+import type { RenderableIndicator } from '../../renderers/Indicator/types.js'
 import { isIndicatorVisibleOnPeriod, parseIndicatorPeriod } from '../indicatorPeriodVisibility.js'
-
-beforeAll(() => registerIndicatorLayerNaming(['fake'], ({ paneId }) => `fake_${paneId}`))
-afterAll(() => clearIndicatorLayerNamingForTest())
 
 describe('parseIndicatorPeriod', () => {
   it.each([
@@ -63,9 +57,10 @@ function fakeLayer(): Layer<RenderContext> {
 /** 构造携带指定 Layer 与可见范围的最小指标定义。 */
 function fakeDefinition(
   layer: Layer<RenderContext>,
-  visiblePeriods?: IndicatorMetadata['visiblePeriods'],
-): IndicatorMetadata {
+  visiblePeriods?: RenderableIndicator['visiblePeriods'],
+): RenderableIndicator {
   return {
+    kind: 'indicator',
     name: 'fake',
     displayName: 'FAKE',
     category: 'main',
@@ -115,3 +110,4 @@ describe('renderer layer gating', () => {
     expect(paint).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ period: '5min' }))
   })
 })
+

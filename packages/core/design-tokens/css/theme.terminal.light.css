@@ -201,6 +201,9 @@
   --klc-color-ui-neutral: #666666;
   --klc-color-ui-on-accent: #FFFFFF;
   --klc-color-ui-secondary-button-text: #666666;
+  --klc-color-ui-switch-on: #666666;
+  --klc-color-ui-switch-off: #8C8C8C;
+  --klc-color-ui-switch-thumb: #FFFFFF;
   --klc-color-agent-composer-control-background: #F4F4F4;
   --klc-color-agent-composer-control-hover: #0000000A;
   --klc-color-agent-user-message: #E8ECF1;
@@ -220,7 +223,6 @@
   --klc-typography-font-size-sm: 10px;
   --klc-typography-font-size-md: 12px;
   --klc-typography-font-size-lg: 14px;
-  --klc-typography-font-weight-bold: 500;
   --klc-typography-line-height-tight: 1.2;
   --klc-typography-line-height-standard: 1.4;
 }

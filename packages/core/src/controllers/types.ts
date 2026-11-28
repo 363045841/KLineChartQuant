@@ -9,11 +9,12 @@
  */
 
 import type { Bar, IndicatorMarketContext } from '@363045841yyt/klinechart-plot-contracts'
-import type {
-  InstrumentCapabilities,
-  InstrumentDescriptor,
-  InstrumentType,
-} from '../data/provider/types.js'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
+import type { InstrumentCapabilities, InstrumentType } from '../data/provider/types.js'
+import type { KLineData } from '../foundation/types/bar.js'
+
+export type { KLineData }
+
 import type {
   IndicatorInstance,
   IndicatorRole,
@@ -25,12 +26,12 @@ import type {
   CreateDrawingInput,
   DrawingLabelPosition,
   DrawingLabelTarget,
+  DrawingObject,
   DrawingStyle,
   DrawingStyleKey,
   DrawingTimeframeVisibility,
   DrawingToolId,
   PersistedDrawingAnchor,
-  DrawingObject as PluginDrawingObject,
   UpdateDrawingPatch,
 } from '../engine/drawing/index.js'
 import type { IndicatorTemplateApi } from '../engine/indicatorTemplate/types.js'
@@ -50,7 +51,6 @@ export type { RangePreset, RangeWindow } from '../engine/viewport/rangePreset.js
 
 import type { CoverageResult } from '../data/buffer/types.js'
 import type { ChartAgentController, ChartAgentScripts } from '../features/agent/types.js'
-import type { AlertController } from '../features/alerts/types.js'
 
 export type { CoverageResult } from '../data/buffer/types.js'
 
@@ -66,8 +66,6 @@ export {
   isTimeSharePeriod,
   TIME_SHARE_PERIOD,
 } from '../foundation/types/chartPeriod.js'
-
-import type { MarketSessionConfig } from '../foundation/utils/sessionTimeLabels.js'
 
 // Controller-owned public surface. Legacy engine types may mirror these
 // shapes internally, but adapters depend only on core-defined contracts.
@@ -95,49 +93,22 @@ export interface ChartIndicatorConfig {
   params?: Record<string, unknown>
 }
 
-export type DrawingObject = PluginDrawingObject
 export type {
   BatchDrawingPatch,
   CreateDrawingInput,
   DrawingLabelPosition,
   DrawingLabelTarget,
+  DrawingObject,
   DrawingStyle,
   DrawingStyleKey,
   DrawingTimeframeVisibility,
   UpdateDrawingPatch,
-}
-
-export type IndicatorPaneRole = IndicatorRole
+} from '../engine/drawing/index.js'
 
 // ---------------------------------------------------------------------------
 // Data shapes (mirror src/types/price.ts — single source of truth lives here
 // long-term; the legacy types re-export from here once migration completes)
 // ---------------------------------------------------------------------------
-
-export interface KLineData {
-  timestamp: number
-  open: number
-  high: number
-  low: number
-  close: number
-  volume?: number
-  turnover?: number
-  symbol?: string
-  amplitude?: number
-  changePercent?: number
-  changeAmount?: number
-  turnoverRate?: number
-}
-
-export interface TimeShareData {
-  timestamp: number
-  price: number
-  average: number
-  /** 分时成交量，单位手；上游未提供时缺失。 */
-  volume?: number
-  /** 分时成交额，单位元；上游未提供时缺失。 */
-  amount?: number
-}
 
 export type { InstanceMoveTarget, PaneGeometry, PaneSpec }
 
@@ -162,26 +133,6 @@ export interface SymbolInfo {
   params?: DataSourceParams
 }
 
-// Symbol specification
-// ---------------------------------------------------------------------------
-
-export interface SymbolSpec {
-  /** 统一行情模型提供的品种；身份、请求路由与展示都只从这里读取。 */
-  instrument: InstrumentDescriptor
-  /** K 线周期；缺省按日线。 */
-  period?: string
-  /** 复权方式；缺省不复权。 */
-  adjust?: string
-  /** 显式历史查询边界；仅历史窗口查询使用。 */
-  startDate?: string
-  endDate?: string
-  /**
-   * 该序列是否支持向前分页；缺省支持。
-   * false 表示数据全部由调用方提供，不再向数据源请求更早历史。
-   */
-  incremental?: boolean
-}
-
 // ---------------------------------------------------------------------------
 // Indicator metadata
 // ---------------------------------------------------------------------------
@@ -204,7 +155,7 @@ export interface IndicatorDefinition {
   label: string
   name?: string
   description?: string
-  role: IndicatorPaneRole
+  role: IndicatorRole
   inputs: ReadonlyArray<IndicatorInputDef>
   /** 脚本身份：内置只读或用户可编辑；原生指标没有该字段。 */
   documentIdentity?: import('../engine/indicators/pipeline/types.js').IndicatorDocumentIdentity
@@ -371,14 +322,12 @@ export interface DrawingControllerCallbacks {
 
 export interface ChartMountOptions {
   container: HTMLElement
-  /** 宿主持有的行情管理实例；多个图表可以显式共享。 */
-  marketDataContext?: import('../data/management/impl/context.js').MarketDataContext
+  /** 共享运行时；图表只消费，不创建也不释放。 */
+  runtime: import('../engine/runtime/index.js').MarketRuntime
   symbols?: ReadonlyArray<SymbolSpec>
   initialZoomLevel?: number
   zoomLevels?: number
   theme?: 'light' | 'dark'
-  marketSessions?: Readonly<Record<string, MarketSessionConfig>>
-
   // Pre-existing DOM elements (skip buildDom when provided)
   canvasLayer?: HTMLElement
   rightAxisLayer?: HTMLElement
@@ -478,7 +427,7 @@ export interface ChartController
   readonly dataError: ReadonlySignal<string | null>
   /** 图表实例缓存的近似内存使用量与配置上限。 */
   readonly marketDataCacheStats: ReadonlySignal<
-    import('../data/buffer/impl/marketDataCache.js').MarketDataCacheStats
+    import('../data/buffer/types.js').MarketDataCacheStats
   >
   readonly symbols: ReadonlySignal<ReadonlyArray<SymbolSpec>>
   readonly theme: ReadonlySignal<'light' | 'dark'>
@@ -565,12 +514,9 @@ export interface ChartController
   // indicator catalog（注册表投影，随注册表变更自动重建）
   readonly catalog: ReadonlySignal<ReadonlyArray<IndicatorDefinition>>
 
-  // ---- Alerts ----
-  readonly alertController: AlertController
-
   // ---- Data ----
   /** 整体替换 K 线主品种（含周期、复权与来源）；对比集合由 setComparisonSpecs 管理。 */
-  setPrimaryMarket(spec: SymbolSpec | null, options?: { date?: number }): void
+  setPrimaryMarket(spec: SymbolSpec | null, options?: { date?: number }): Promise<void>
   /** Register symbols into the available symbol catalog for UI pickers */
   registerSymbols(symbols: ReadonlyArray<SymbolInfo>): void
   /** 设置 K 线主图的原生比较折线集合，不改变 chartMode 或主品种。 */
@@ -627,7 +573,7 @@ export interface ChartController
 
   // ---- Indicators ----
   /**
-   * 按需加载指标实现（名称、展示名或别名）；已加载与未知 ID 直接跳过。
+   * 按需加载指标实现（名称或展示名）；已加载与未知 ID 直接跳过。
    * 同步指标方法只接受已加载的定义，调用前先 await 本方法。
    */
   loadIndicators(definitionIds: ReadonlyArray<string>): Promise<void>

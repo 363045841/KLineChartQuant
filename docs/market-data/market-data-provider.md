@@ -85,21 +85,25 @@ const provider = {
 
 ## 注册与配置
 
-默认注册表只保存当前会话配置，应用层负责 localStorage 等持久化。
+注册表按宿主实例创建，应用层负责 localStorage 等配置持久化；需要内置来源时显式安装。
 
 ```ts
-import { marketDataProviderRegistry } from '@363045841yyt/klinechart-core/market-data'
+import { MarketDataProviderRegistry } from '@363045841yyt/klinechart-core/market-data'
+import { installBuiltinProviders } from '@363045841yyt/klinechart-core/market-data/sources'
 
-marketDataProviderRegistry.register(provider, {
+const registry = new MarketDataProviderRegistry()
+installBuiltinProviders(registry)
+
+registry.register(provider, {
   enabled: true,
   baseUrl: 'http://127.0.0.1:8080',
 })
 
-marketDataProviderRegistry.setConfig('gotdx', {
+registry.setConfig('gotdx', {
   enabled: false,
 })
 
-const enabledProviders = marketDataProviderRegistry.getEnabled()
+const enabledProviders = registry.getEnabled()
 ```
 
 ## 前端消费规则

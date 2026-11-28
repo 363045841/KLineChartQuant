@@ -18,7 +18,11 @@
  */
 
 import { HEATMAP_ERROR_CODES, KLineChartError } from '@/errors.js'
-import { asReadonlySignal, createSignal, type Signal } from '@/foundation/reactivity/index.js'
+import {
+  asReadonlySignal,
+  createSignal,
+  type WritableSignal,
+} from '@/foundation/reactivity/index.js'
 import type {
   BookSnapshot,
   DeltaArchive,
@@ -62,7 +66,7 @@ export function createHeatmapController(
     config.logColorRange.sizeMax,
   )
 
-  const state: Signal<HeatmapState> = createSignal<HeatmapState>({
+  const state: WritableSignal<HeatmapState> = createSignal<HeatmapState>({
     latestSnapshot: null,
     snapshotCount: 0,
     deltaCount: 0,

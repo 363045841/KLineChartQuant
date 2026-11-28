@@ -1,6 +1,5 @@
 // KAMA：用效率比把快慢 EMA 的平滑系数自适应地插值，再逐 bar 递推。
-let kama = Number.NaN
-let barCount = 0
+const acc = state({ value: Number.NaN, barCount: 0 })
 
 defineIndicator({
   version: 2,
@@ -12,14 +11,14 @@ defineIndicator({
     const period = input.int(10, { title: '效率周期', min: 1 })
     const fastPeriod = input.int(2, { title: '快周期', min: 1 })
     const slowPeriod = input.int(30, { title: '慢周期', min: 1 })
-    barCount++
-    if (barCount < period) {
+    acc.barCount++
+    if (acc.barCount < period) {
       plot.Line(null, 'kama', { label: 'KAMA', color: Color.orange })
       return
     }
-    if (barCount === period) {
-      kama = close[0]
-      plot.Line(kama, 'kama', { label: 'KAMA', color: Color.orange })
+    if (acc.barCount === period) {
+      acc.value = close[0]
+      plot.Line(acc.value, 'kama', { label: 'KAMA', color: Color.orange })
       return
     }
     const absChange = derive('kama:abs-change', (_self, offset) =>
@@ -31,7 +30,7 @@ defineIndicator({
     const fast = 2 / (fastPeriod + 1)
     const slow = 2 / (slowPeriod + 1)
     const smoothing = (efficiency * (fast - slow) + slow) ** 2
-    kama = kama + smoothing * (close[0] - kama)
-    plot.Line(kama, 'kama', { label: 'KAMA', color: Color.orange })
+    acc.value = acc.value + smoothing * (close[0] - acc.value)
+    plot.Line(acc.value, 'kama', { label: 'KAMA', color: Color.orange })
   },
 })

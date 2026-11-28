@@ -4,7 +4,7 @@
  * 不写指标注册表；指标注册由管线在拿到文档快照后执行。库校验失败逐条记录，
  * 不阻断其余文档与指标的恢复。
  */
-import type { IndicatorFailure } from '@363045841yyt/klinechart-core'
+import type { IndicatorFailure } from '@363045841yyt/klinechart-core/node'
 import { inspectScript } from '@363045841yyt/klinechart-script'
 import type {
   SavedScript,

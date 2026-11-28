@@ -1,22 +1,25 @@
 /**
- * ChartIndicatorManager —— 指标实例链路的宿主接线。
+ * ChartIndicatorManager —— 指标视图适配器。
  *
- * 职责：
- * 1. 把 Kernel 的指标实例状态投影为 instances/ 链路的实例快照与计算计划；
- * 2. 执行计划并提交按 instanceId 索引的结果池；
- * 3. 逐实例生成渲染投影，主图与副图共用同一套实例身份；
- * 4. 消费协调者提交的轴绑定，维护对应指标图层，不自行调度结构投影。
+ * 职责只有三件事：
+ * 1. 把 Kernel 的指标实例投影为计算请求，交给计算层；
+ * 2. 订阅计算提交，按实例生成渲染投影；
+ * 3. 维护图层与异步可用性。
+ *
+ * 计算、调度、结果仓库全部在会话级 `engine/calculation`；本类只创建自己的 client，
+ * 不创建也不释放中枢，不持有行情或任务状态。
  */
 
 import { GENERIC_ERROR_CODES, INDICATOR_SERIES_ERROR_CODES, KLineChartError } from '@/errors.js'
 import type { ObjectAxisBinding } from '@/foundation/geometry/axisBinding.js'
+import { generateUUID } from '@/foundation/utils/uuid.js'
 import type {
   IndicatorAvailabilityReader,
   IndicatorRenderStateReader,
   PluginHostImpl,
   RenderContext,
 } from '../../foundation/plugin/index.js'
-import { type Computed, computed, type ReadonlySignal } from '../../foundation/reactivity/signal.js'
+import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal.js'
 import type { ColorTokens } from '../../foundation/tokens/index.js'
 import type { KLineData } from '../../foundation/types/price.js'
 import type {
@@ -24,6 +27,14 @@ import type {
   RenderObjectCommands,
   RenderObjectDescriptor,
 } from '../../rendering/scene/types.js'
+import {
+  type CalculationClient,
+  type CalculationHub,
+  type CalculationInputValue,
+  type CalculationRequest,
+  type CalculationResult,
+  createLocalCalculationKey,
+} from '../calculation/index.js'
 import type { ChartOptions, IndicatorInstance, SubPaneInfo } from '../chart/index.js'
 import { type PaneAxisSpec, resolveObjectAxisMap } from '../pane/axisResolver.js'
 import { UpdateLevel } from '../pane/index.js'
@@ -32,6 +43,7 @@ import { updatePlotRange } from '../plots/impl/projectPlots.js'
 import { isPlotRenderState } from '../plots/impl/readPlotState.js'
 import type { PlotRenderState } from '../plots/types.js'
 import { createIndicatorLayer } from '../renderers/Indicator/factory.js'
+import { resolveIndicatorRendering } from '../renderers/Indicator/plotBinding.js'
 import type { IndicatorInstanceSpec, IndicatorStateModule } from '../state/indicatorState.js'
 import type { VisibleRange } from '../viewport/viewport.js'
 import type { IndicatorMetadata } from './indicatorMetadata.js'
@@ -45,39 +57,12 @@ import {
   type IndicatorInstanceCatalog,
   type IndicatorInstanceDescriptor,
 } from './instances/api/indicatorRenderBinding.js'
-import { createIndicatorCalculators } from './instances/assembly/indicatorCalculatorCatalog.js'
-import {
-  createIndicatorInstancePipeline,
-  type IndicatorInstancePipeline,
-} from './instances/assembly/indicatorInstancePipeline.js'
-import { isResultRevision } from './instances/domain/calculationPlan.js'
-import {
-  createIndicatorCalculationKey,
-  type IndicatorInputs,
-  type IndicatorInputValue,
-  type IndicatorInstance as IndicatorPipelineInstance,
-  type IndicatorResult,
-  type IndicatorSeriesPool,
-} from './instances/domain/indicatorModel.js'
-import { createIndicatorCalculationScheduler } from './instances/execution/indicatorCalculationScheduler.js'
-import {
-  createIndicatorExecutor,
-  type IndicatorExecutor,
-} from './instances/execution/indicatorExecutor.js'
-import { createIndicatorResultStore } from './instances/execution/indicatorResultStore.js'
-import type { IndicatorCalculationScheduler, MarketSnapshot } from './instances/execution/types.js'
-import {
-  getIndicatorDescriptor,
-  getRegisteredIndicatorDefinition,
-  indicatorCatalogRevision,
-  readRegisteredDefinitions,
-  resolveCanonicalIndicatorId,
-} from './pipeline/index.js'
 import {
   createIndicatorTimelineProjection,
   projectIndicatorSeries,
 } from './projection/impl/indicatorTimelineProjection.js'
 import type { IndicatorTimelineProjection } from './projection/types.js'
+import type { DefinitionRegistry } from './registry/index.js'
 import { composeInstanceRenderState } from './stateComposer.js'
 
 type ResolvedChartOptions = ChartOptions & {
@@ -86,28 +71,23 @@ type ResolvedChartOptions = ChartOptions & {
 }
 
 /** 把 Kernel 参数值规范化为计算身份可编码的 JSON 值；拒绝非 JSON 结构。 */
-function toIndicatorInputValue(value: unknown): IndicatorInputValue {
+function toCalculationInputValue(value: unknown): CalculationInputValue {
   if (value === null) return null
   if (typeof value === 'boolean' || typeof value === 'number' || typeof value === 'string') {
     return value
   }
-  if (Array.isArray(value)) return value.map(toIndicatorInputValue)
+  if (Array.isArray(value)) return value.map(toCalculationInputValue)
   if (typeof value === 'object') {
-    const result: Record<string, IndicatorInputValue> = {}
+    const result: Record<string, CalculationInputValue> = {}
     for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
-      result[key] = toIndicatorInputValue(nested)
+      result[key] = toCalculationInputValue(nested)
     }
     return result
   }
   throw new TypeError(`Unsupported indicator parameter value: ${String(value)}`)
 }
 
-/**
- * 指标实例的渲染对象身份。
- *
- * 能力按对象事实声明：可删除、可显隐、可排序、可跨 pane；指标不参与锁定。
- * 命令由图表注入，管理器不直接写 kernel。
- */
+/** 指标实例的渲染对象身份；命令由图表注入，管理器不直接写 kernel。 */
 function createIndicatorObjectDescriptor(
   instanceId: string,
   definition: IndicatorMetadata,
@@ -116,7 +96,6 @@ function createIndicatorObjectDescriptor(
   return {
     kind: 'indicator',
     domainId: instanceId,
-    // 对象树显示指标 Name（displayName），不使用选择器里的长标题 title。
     label: definition.displayName,
     capabilities: {
       removable: true,
@@ -129,8 +108,18 @@ function createIndicatorObjectDescriptor(
   }
 }
 
+/** 一个实例与它的计算请求；仅渲染型指标没有请求。 */
+interface PlannedInstance {
+  readonly spec: IndicatorInstanceSpec
+  readonly metadata: IndicatorMetadata
+  readonly request: CalculationRequest | null
+  readonly presentation: Readonly<Record<string, unknown>>
+}
+
 export interface IndicatorDependencies {
-  getMarketData?: () => import('./instances/execution/marketDataTypes.js').IndicatorMarketData
+  /** 会话级计算中枢；图表只是消费者，不创建也不释放。 */
+  readonly hub: CalculationHub
+  /** 行情修订参与结果新旧判断；来自图表自己的行情运行时。 */
   getPeriod: () => string
   plotColors$: ReadonlySignal<ColorTokens>
   getOption: () => ResolvedChartOptions
@@ -151,6 +140,8 @@ export interface IndicatorDependencies {
   getLayer: (id: string) => Layer | null
   /** 主图/副图统一的指标实例配置状态 */
   indicator: IndicatorStateModule
+  /** 指标与警报定义注册表；图表只读取已提交定义。 */
+  definitions: DefinitionRegistry
   /** 定义注销时统一走 Pane 命令，避免绕过布局与轴偏好清理。 */
   removeInstancesByDefinition: (definitionId: string) => void
 }
@@ -164,34 +155,30 @@ export interface IndicatorRuntimeInputs {
 
 export class ChartIndicatorManager {
   private deps: IndicatorDependencies
-  private readonly pipeline: IndicatorInstancePipeline
-  private readonly executor: IndicatorExecutor
-  private installedDefinitions: ReadonlyMap<string, IndicatorMetadata> = new Map()
-  private appliedDefinitionRevision = -1
-  private calculationPlanNeedsRefresh = false
-  private readonly calculationScheduler: IndicatorCalculationScheduler
-  private _indicatorsComputed: Computed<ReadonlyArray<IndicatorInstance>>
-  private _subPanesComputed: Computed<ReadonlyArray<SubPaneInfo>>
+  private readonly hub: CalculationHub
+  private readonly client: CalculationClient
+  private readonly definitions: DefinitionRegistry
+  private readonly unsubscribeDefinitions: () => void
+  private _indicatorsComputed: ReadonlySignal<ReadonlyArray<IndicatorInstance>>
+  private _subPanesComputed: ReadonlySignal<ReadonlyArray<SubPaneInfo>>
   /** 只记录实际拥有的图层资源，不承载实例归属、参数或更新判断。 */
   private readonly layerResources = new Set<string>()
   /** 已安装到 Pane 的轴声明；帧消费者不重新派生尚未安装的轴。 */
   private paneAxes: ReadonlyMap<string, ReadonlyArray<PaneAxisSpec>> = new Map()
-  /** destroy 后不再发起计算，也不把 Worker 的拆除错误当作运行期失败。 */
+  /** destroy 后不再接收提交，也不把拆除错误当作运行期失败。 */
   private destroyed = false
 
-  // ========== 计算与投影运行时 ==========
-  private currentData: readonly KLineData[] = []
-  private currentChange: import('@363045841yyt/klinechart-plot-contracts').ComputeChange = {
-    start: 0,
-    end: 0,
-  }
-  private currentTimestamps: readonly number[] = []
+  // ========== 视图投影状态（只读消费） ==========
+  /** 当前行情身份；没有数据时为 null。 */
+  private feedKey: string | null = null
+  /** 当前行情修订；提交只接受该修订的结果。 */
+  /** 当前状态下的实例与请求映射。 */
+  private planned: readonly PlannedInstance[] = []
+  /** 最近一次提交；滚动/缩放只重投影，不重算。 */
+  private results: ReadonlyMap<string, CalculationResult> | null = null
   private visibleRange: VisibleRange = { start: 0, end: 0 }
   /** 非空时，计算结果需投影到该展示序列的时间戳。 */
   private displayTimestamps: readonly number[] | null = null
-  private dataRevision = 0
-  private hasData = false
-  private resultPool: IndicatorSeriesPool | null = null
   private renderStates: ReadonlyMap<string, unknown> = new Map()
   /** 映射只随计算或行情时间轴变化重建，滚动和缩放复用整列投影。 */
   private timelineProjection: {
@@ -209,7 +196,7 @@ export class ChartIndicatorManager {
   } | null = null
   /** 绘图点由结果和展示配置派生；可见区间变化只重算范围。 */
   private readonly plotProjections = new WeakMap<
-    IndicatorResult,
+    CalculationResult,
     {
       presentation: Readonly<Record<string, unknown>>
       colors: ColorTokens
@@ -235,7 +222,7 @@ export class ChartIndicatorManager {
     const visible = new Map<string, unknown>()
     for (const instance of instances) {
       if (instance.hidden === true || !this.renderStates.has(instance.instanceId)) continue
-      const definition = this.getInstalledDefinition(instance.indicatorId)
+      const definition = this.definitions.getDefinition(instance.indicatorId)
       if (
         !isIndicatorVisibleOnPeriod(
           period,
@@ -249,23 +236,25 @@ export class ChartIndicatorManager {
     this.visibleRenderStatesCache = { states: this.renderStates, instances, period, visible }
     return visible
   }
-  private onResultsAppliedCallback: (() => void) | null = null
 
   constructor(deps: IndicatorDependencies) {
     this.deps = deps
-    this.pipeline = createIndicatorInstancePipeline()
-    // 计算经注册定义委派；Script 服务管理自己的 Worker，不创建平行执行链路。
-    this.executor = createIndicatorExecutor([], deps.getMarketData)
-    this.calculationScheduler = createIndicatorCalculationScheduler({
-      pipeline: this.pipeline,
-      executor: this.executor,
-      store: createIndicatorResultStore(),
-      onCommit: (pool) => this.publishSeries(pool),
-      onPending: (instanceIds, pending) => {
-        for (const id of instanceIds)
+    this.hub = deps.hub
+    this.definitions = deps.definitions
+    this.client = this.hub.createClient(generateUUID(), {
+      onCommit: (commit) => this.publishResults(commit.results),
+      onPending: (owners, pending) => {
+        for (const id of owners)
           this.reportAvailability(id, INDICATOR_AVAILABILITY_SOURCE.compute, pending)
       },
       onError: (error) => this.handleCalculationError(error),
+    })
+    this.unsubscribeDefinitions = this.definitions.commits.subscribe(() => {
+      const commit = this.definitions.commits.peek()
+      if (!commit) return
+      for (const definition of commit.removed) {
+        this.deps.removeInstancesByDefinition(this.definitions.resolveCanonicalId(definition))
+      }
     })
 
     this.registerPluginServices()
@@ -274,12 +263,11 @@ export class ChartIndicatorManager {
     this._indicatorsComputed = computed<ReadonlyArray<IndicatorInstance>>(() =>
       this.deps.indicator.readonly.instances().map((instance) => {
         const label =
-          getIndicatorDescriptor(instance.indicatorId)?.displayName ?? instance.indicatorId
+          this.definitions.getDescriptor(instance.indicatorId)?.displayName ?? instance.indicatorId
         return {
           id: instance.instanceId,
           definitionId: instance.indicatorId,
           label,
-          name: label,
           paneId: instance.paneId,
           ordinal: instance.ordinal,
           params: { ...instance.params },
@@ -312,7 +300,7 @@ export class ChartIndicatorManager {
     return {
       instances: this.deps.indicator.readonly.instances(),
       colors: this.deps.plotColors$(),
-      definitionRevision: indicatorCatalogRevision(),
+      definitionRevision: this.definitions.revision(),
     }
   }
 
@@ -321,132 +309,86 @@ export class ChartIndicatorManager {
     this.paneAxes = axes
   }
 
-  /** 目标行情更新复用现有调度器，旧任务结果由请求版本屏障丢弃。 */
-  invalidateMarketData(): void {
-    this.requestRefresh()
-  }
-
-  /** 在协调者的提交内同步计算器、发布完整计划、挂载图层，再启动计算。 */
+  /** 在协调者的提交内同步计算器、发布完整计划、挂载图层。 */
   projectIndicators(inputs: IndicatorRuntimeInputs): void {
-    const definitionsInvalidated = this.synchronizeDefinitions(inputs.definitionRevision)
-    this.calculationPlanNeedsRefresh ||= definitionsInvalidated
-    const instances = inputs.instances
-    const readyInstances = instances.flatMap((instance) => {
-      const definition = this.getInstalledDefinition(instance.indicatorId)
-      return definition ? [{ instance, definition }] : []
-    })
-    const calculationInstances = readyInstances.flatMap(({ instance, definition }) => {
-      const calculation = this.toPipelineInstance(instance, definition)
-      return calculation === null ? [] : [calculation]
-    })
-    const planChanged = this.pipeline.publish(calculationInstances)
-    this.calculationPlanNeedsRefresh ||= planChanged
-    const activeInstanceIds = new Set(instances.map((instance) => instance.instanceId))
+    this.planned = this.createPlan(inputs.instances)
+    this.applyPlan()
+    const activeInstanceIds = new Set(inputs.instances.map((instance) => instance.instanceId))
     for (const instanceId of [...this.availabilitySources.keys()]) {
       if (!activeInstanceIds.has(instanceId)) this.availabilitySources.delete(instanceId)
     }
 
     const instanceAxes = resolveObjectAxisMap(this.paneAxes)
-    // 协调者已经判断资源输入变化，这里完整应用同一份输入。
     this.releaseLayerResources()
-    for (const { instance, definition } of readyInstances) {
+    for (const { spec, metadata } of this.planned) {
+      // 注册表只保证计算描述；图表要建 Layer 必须先有渲染绑定。
+      const rendering = resolveIndicatorRendering(metadata)
+      if (!rendering)
+        throw new Error(`[Indicator] definition '${spec.indicatorId}' has no renderer binding`)
       const layer = createIndicatorLayer({
-        definition,
-        paneId: instance.paneId,
-        indicatorId: instance.indicatorId,
-        instanceId: instance.instanceId,
-        axisId: instanceAxes.get(instance.instanceId)!,
-        params: { ...instance.params },
-        timeframeVisibility: instance.timeframeVisibility,
+        definition: rendering,
+        paneId: spec.paneId,
+        indicatorId: spec.indicatorId,
+        instanceId: spec.instanceId,
+        axisId: instanceAxes.get(spec.instanceId)!,
+        params: { ...spec.params },
+        timeframeVisibility: spec.timeframeVisibility,
         object: createIndicatorObjectDescriptor(
-          instance.instanceId,
-          definition,
-          this.deps.objectCommands(instance.instanceId),
+          spec.instanceId,
+          metadata,
+          this.deps.objectCommands(spec.instanceId),
         ),
       })
-      // 隐藏只切换可见性：对象与命令常驻，对象树才能重新显示它。
-      layer.visible = instance.hidden !== true
-      // 同 pane 的实例按 ordinal 叠加：z 是层带内唯一排序键，对象树顺序与绘制顺序一致。
-      layer.z += instance.ordinal
+      layer.visible = spec.hidden !== true
+      layer.z += spec.ordinal
       this.mountLayerResource(layer)
-    }
-    if (this.calculationPlanNeedsRefresh) {
-      this.requestRefresh()
-      this.calculationPlanNeedsRefresh = false
     }
     this.reprojectRenderStates(inputs.colors)
     this.deps.scheduleDraw()
   }
 
-  /** 比对完整目录快照，合并通知时也能同步全部新增、替换和注销。 */
-  private synchronizeDefinitions(revision: number): boolean {
-    if (revision === this.appliedDefinitionRevision) return false
-    const next = new Map(
-      readRegisteredDefinitions().map((definition) => [definition.name, definition]),
-    )
-    const previous = this.installedDefinitions
-    const outdated = [...previous.values()].filter(
-      (definition) => next.get(definition.name) !== definition,
-    )
-    const install = [...next.values()].filter(
-      (definition) => previous.get(definition.name) !== definition,
-    )
-    if (outdated.length > 0) {
-      const changed = outdated.map(({ name }) => name)
-      this.calculationScheduler.invalidateDefinitions(changed)
-      this.executor.removeDefinitions(changed)
+  /** 把当前实例映射为渲染计划；只有声明 runtime 的实例产生计算请求。 */
+  private createPlan(instances: readonly IndicatorInstanceSpec[]): readonly PlannedInstance[] {
+    const planned: PlannedInstance[] = []
+    for (const spec of instances) {
+      const metadata = this.definitions.getDefinition(spec.indicatorId)
+      if (!metadata) continue
+      planned.push({
+        spec,
+        metadata,
+        request: metadata.runtime
+          ? {
+              ...this.createRequest(metadata.name, metadata.runtime, spec.params),
+              owners: [spec.instanceId],
+            }
+          : null,
+        presentation: ChartIndicatorManager.resolvePresentation(metadata, spec.params),
+      })
     }
-    this.executor.addDefinitions(createIndicatorCalculators(install))
-    this.installedDefinitions = next
-    this.appliedDefinitionRevision = revision
-    for (const definition of outdated) {
-      if (!next.has(definition.name)) {
-        this.deps.removeInstancesByDefinition(resolveCanonicalIndicatorId(definition))
-      }
-    }
-    return outdated.length > 0
+    return Object.freeze(planned)
   }
 
-  /** 解析别名，并确认当前图表已装配这份实现。 */
-  private getInstalledDefinition(id: string): IndicatorMetadata | undefined {
-    const definition = getRegisteredIndicatorDefinition(id)
-    return definition && this.installedDefinitions.get(definition.name) === definition
-      ? definition
-      : undefined
-  }
-
-  /** 将 Kernel 实例规格转换为实例领域模型。 */
-  private toPipelineInstance(
-    spec: IndicatorInstanceSpec,
-    metadata: IndicatorMetadata,
-  ): IndicatorPipelineInstance | null {
-    if (!metadata.runtime) return null
-    const definitionId = metadata.name
-    const defaults = ChartIndicatorManager.resolveDefaultInputs(metadata.runtime.defaultInputs)
-    const inputs: Record<string, IndicatorInputValue> = {}
-    for (const name of Object.keys(defaults)) {
-      const value = spec.params[name] ?? defaults[name]
-      if (value === undefined) continue
-      inputs[name] = toIndicatorInputValue(value)
+  /** 生成一个实例的计算请求；参数与上下文完整快照。 */
+  private createRequest(
+    definitionId: string,
+    runtime: NonNullable<IndicatorMetadata['runtime']>,
+    overrides: Readonly<Record<string, unknown>> | undefined,
+  ): CalculationRequest {
+    const inputs: Record<string, CalculationInputValue> = {}
+    for (const [name, value] of Object.entries(runtime.defaultInputs)) {
+      inputs[name] = toCalculationInputValue(overrides?.[name] ?? value)
     }
-    return {
-      instanceId: spec.instanceId,
+    return Object.freeze({
+      key: createLocalCalculationKey({ definitionId, inputs }),
       definitionId,
-      paneId: spec.paneId,
-      calculation: {
-        definitionId,
-        inputs,
-        context: { definitionRevision: metadata.runtime.revision ?? 0 },
-      },
-      presentation: ChartIndicatorManager.resolvePresentation(metadata, spec.params),
-    }
+      inputs: Object.freeze(inputs),
+    })
   }
 
-  /** 解析 runtime.defaultInputs，支持函数与常量两种声明。 */
-  private static resolveDefaultInputs(value: unknown): Record<string, unknown> {
-    if (typeof value === 'function') return (value as () => Record<string, unknown>)()
-    if (value && typeof value === 'object') return value as Record<string, unknown>
-    return {}
+  /** 把计划提交给计算层；渲染型实例不产生请求。 */
+  private applyPlan(): void {
+    const requests = this.planned.flatMap((entry) => (entry.request ? [entry.request] : []))
+    this.client.setPlan(this.feedKey === null ? [] : [{ feed: this.feedKey, requests }])
   }
 
   /** 从 Kernel 实例参数中提取展示配置。 */
@@ -539,51 +481,30 @@ export class ChartIndicatorManager {
     })
   }
 
-  /** 数据更新入口：K 线计算，可选把结果投影到展示时间戳序列。 */
-  updateIndicatorData(
-    data: readonly KLineData[],
-    change: import('@363045841yyt/klinechart-plot-contracts').ComputeChange,
-    visibleRange: VisibleRange,
-    dataRevision?: number,
-    displayTimestamps: readonly number[] | null = null,
-  ): void {
-    this.currentData = data
-    this.currentChange = change
-    this.currentTimestamps = data.map((item) => item.timestamp)
-    this.visibleRange = visibleRange
+  /** 选择运行时持有的序列，图表只保留展示投影。 */
+  projectFeed(feedKey: string | null, displayTimestamps: readonly number[] | null): void {
     this.displayTimestamps = displayTimestamps
-    this.dataRevision = dataRevision ?? this.dataRevision + 1
-    this.hasData = data.length > 0
-    if (this.reprojectRenderStates()) this.deps.scheduleDraw()
-    this.requestRefresh()
+    if (this.feedKey !== feedKey) {
+      this.feedKey = feedKey
+      this.resetResults()
+      this.applyPlan()
+    }
+    this.reprojectRenderStates()
+    this.deps.scheduleDraw()
   }
 
-  /** 计算计划或数据变化后请求一次调度；无数据时不触发。 */
-  private requestRefresh(): void {
-    if (this.destroyed) return
-    if (!this.hasData) {
-      this.calculationScheduler.invalidate()
-      return
-    }
-    this.calculationScheduler.refresh(this.marketSnapshot())
-  }
-
-  /** 当前行情快照；调度与读取使用同一份修订身份。 */
-  private marketSnapshot(): MarketSnapshot {
-    return {
-      dataRevision: this.dataRevision,
-      marketRevision: this.deps.getMarketData?.().revision ?? 0,
-      timestamps: this.currentTimestamps,
-      data: this.currentData,
-      change: this.currentChange,
-    }
+  /** 结果与投影同时失效；实例配置保留，等下一份行情重新计算。 */
+  private resetResults(): void {
+    this.results = null
+    this.renderStates = new Map()
+    this.visibleRenderStatesCache = null
+    this.timelineProjection = null
   }
 
   /**
    * 读取一个指标定义的数值序列。
    *
-   * 计算身份与图表实例共用：`inputs` 省略或等于实例当前输入时直接命中已提交结果；
-   * 不同输入时提交一次预览计算，结果进入同一仓库但不进入图表结果池。
+   * 与图表实例共用计算身份：参数一致时直接命中已提交结果；不同参数走预览提交。
    */
   async readSeries(
     request: {
@@ -591,41 +512,20 @@ export class ChartIndicatorManager {
       readonly inputs?: Readonly<Record<string, unknown>>
     },
     signal: AbortSignal,
-  ): Promise<IndicatorResult> {
-    if (!this.hasData)
+  ): Promise<CalculationResult> {
+    if (!this.feedKey || this.hub.readDataRevision(this.feedKey) === undefined)
       throw new KLineChartError(
         INDICATOR_SERIES_ERROR_CODES.NO_DATA,
         'Reading indicator series requires active market data.',
       )
-    const metadata = this.getInstalledDefinition(request.definitionId)
+    const metadata = this.definitions.getDefinition(request.definitionId)
     if (!metadata?.runtime)
       throw new KLineChartError(
         INDICATOR_SERIES_ERROR_CODES.INDICATOR_NOT_REGISTERED,
         `Unknown indicator '${request.definitionId}'. Load or register it before reading its series.`,
       )
-    const defaults = ChartIndicatorManager.resolveDefaultInputs(metadata.runtime.defaultInputs)
-    const inputs: Record<string, IndicatorInputValue> = {}
-    for (const name of Object.keys(defaults)) {
-      const value = request.inputs?.[name] ?? defaults[name]
-      if (value === undefined) continue
-      inputs[name] = toIndicatorInputValue(value)
-    }
-    const context = { definitionRevision: metadata.runtime.revision ?? 0 }
-    const task = {
-      calculationKey: createIndicatorCalculationKey({
-        definitionId: metadata.name,
-        inputs,
-        context,
-      }),
-      definitionId: metadata.name,
-      inputs,
-      context,
-      instanceIds: [] as const,
-    }
-    const snapshot = this.marketSnapshot()
-    const cached = this.calculationScheduler.get(task.calculationKey)
-    if (cached && isResultRevision(cached, snapshot)) return cached
-    const result = await this.calculationScheduler.submit(task, snapshot, signal)
+    const calculationRequest = this.createRequest(metadata.name, metadata.runtime, request.inputs)
+    const result = await this.hub.submit(this.feedKey, calculationRequest, signal)
     if (result.error) {
       throw new KLineChartError(
         INDICATOR_SERIES_ERROR_CODES.COMPUTE_FAILED,
@@ -635,23 +535,17 @@ export class ChartIndicatorManager {
     return result
   }
 
-  /** 结果池始终保留计算时的时间轴；展示映射在投影边界生成。 */
-  private publishSeries(pool: IndicatorSeriesPool): void {
-    this.resultPool = pool
-    this.renderStates = this.composeRenderStates(pool)
+  /** 计算层提交：保存结果并重建渲染投影。 */
+  private publishResults(results: ReadonlyMap<string, CalculationResult>): void {
+    this.results = results
+    this.renderStates = this.composeRenderStates(results)
     this.deps.scheduleDraw()
-    this.onResultsAppliedCallback?.()
   }
 
   /** 调度错误直接报告，不切换执行链路或重试另一份实现。 */
   private handleCalculationError(error: unknown): void {
     if (this.destroyed) return
     console.error('[ChartIndicatorManager] Indicator calculation failed:', error)
-  }
-
-  /** 设置计算结果应用完毕回调，用于串联 Alert 等管线。 */
-  setOnResultsApplied(callback: () => void): void {
-    this.onResultsAppliedCallback = callback
   }
 
   /** 按 instanceId 读取已提交结果；同帧 renderer 看到同一份投影。 */
@@ -674,33 +568,34 @@ export class ChartIndicatorManager {
     return this.reprojectRenderStates()
   }
 
-  /** 用当前结果池重算渲染投影，不触发计算。 */
+  /** 用当前提交结果重算渲染投影，不触发计算。 */
   private reprojectRenderStates(colors: ColorTokens = this.deps.plotColors$.peek()): boolean {
-    if (!this.resultPool) return false
-    this.renderStates = this.composeRenderStates(this.resultPool, colors)
+    if (!this.results) return false
+    this.renderStates = this.composeRenderStates(this.results, colors)
     return true
   }
 
-  /** 逐实例生成渲染投影；结果池是唯一事实来源。 */
+  /** 逐实例生成渲染投影；提交结果与实例计划是唯一事实来源。 */
   private composeRenderStates(
-    pool: IndicatorSeriesPool,
+    results: ReadonlyMap<string, CalculationResult>,
     colors: ColorTokens = this.deps.plotColors$.peek(),
   ): ReadonlyMap<string, unknown> {
     const timestamp = Date.now()
     const renderStates = new Map<string, unknown>()
-    for (const instance of this.pipeline.snapshot().instances.values()) {
-      const metadata = this.installedDefinitions.get(instance.definitionId)
-      const result = pool.results.get(instance.instanceId)
-      if (!metadata || !result) continue
+    for (const entry of this.planned) {
+      const { metadata, spec, presentation, request } = entry
+      if (!request) continue
+      const result = results.get(request.key)
+      if (!result) continue
       const timeline = this.getTimelineProjection(result.timestamps)
       const previous = this.plotProjections.get(result)
       if (
         metadata.plots &&
         previous &&
-        this.canReusePlotProjection(previous, timeline, instance.presentation, colors)
+        this.canReusePlotProjection(previous, timeline, presentation, colors)
       ) {
         renderStates.set(
-          instance.instanceId,
+          spec.instanceId,
           updatePlotRange(previous.state, metadata.plots, this.visibleRange, timestamp),
         )
         continue
@@ -708,17 +603,18 @@ export class ChartIndicatorManager {
       const state = composeInstanceRenderState(
         metadata,
         result,
-        instance.calculation.inputs,
-        instance.presentation,
+        request.inputs,
+        presentation,
         this.visibleRange,
         timestamp,
         colors,
       )
       if (state === undefined) continue
       this.storeComposedState(
-        instance,
+        spec.instanceId,
         result,
         metadata,
+        presentation,
         timeline,
         timestamp,
         colors,
@@ -731,9 +627,10 @@ export class ChartIndicatorManager {
 
   /** 写入单实例渲染状态；Plot 状态额外投影范围并缓存。 */
   private storeComposedState(
-    instance: IndicatorPipelineInstance,
-    result: IndicatorResult,
-    metadata: NonNullable<ReturnType<typeof getRegisteredIndicatorDefinition>>,
+    instanceId: string,
+    result: CalculationResult,
+    metadata: IndicatorMetadata,
+    presentation: Readonly<Record<string, unknown>>,
     timeline: IndicatorTimelineProjection,
     timestamp: number,
     colors: ColorTokens,
@@ -741,7 +638,7 @@ export class ChartIndicatorManager {
     renderStates: Map<string, unknown>,
   ): void {
     if (!isPlotRenderState(state) || !metadata.plots) {
-      renderStates.set(instance.instanceId, state)
+      renderStates.set(instanceId, state)
       return
     }
     const projected = updatePlotRange(
@@ -751,12 +648,12 @@ export class ChartIndicatorManager {
       timestamp,
     )
     this.plotProjections.set(result, {
-      presentation: instance.presentation,
+      presentation,
       colors,
       state: projected,
       timeline,
     })
-    renderStates.set(instance.instanceId, projected)
+    renderStates.set(instanceId, projected)
   }
 
   /** 时间轴、展示配置与颜色一致时复用上一帧的 Plot 投影。 */
@@ -775,7 +672,7 @@ export class ChartIndicatorManager {
 
   /** 从权威计算时间轴映射到当前展示时间轴，缓存完整的映射身份。 */
   private getTimelineProjection(source: readonly number[]): IndicatorTimelineProjection {
-    const target = this.displayTimestamps ?? this.currentTimestamps
+    const target = this.displayTimestamps ?? source
     const byMinute = this.displayTimestamps !== null
     const cached = this.timelineProjection
     if (cached?.source === source && cached.target === target && cached.byMinute === byMinute)
@@ -785,11 +682,11 @@ export class ChartIndicatorManager {
     return projection
   }
 
-  get indicatorsComputed(): Computed<ReadonlyArray<IndicatorInstance>> {
+  get indicatorsComputed(): ReadonlySignal<ReadonlyArray<IndicatorInstance>> {
     return this._indicatorsComputed
   }
 
-  get subPanesComputed(): Computed<ReadonlyArray<SubPaneInfo>> {
+  get subPanesComputed(): ReadonlySignal<ReadonlyArray<SubPaneInfo>> {
     return this._subPanesComputed
   }
 
@@ -839,11 +736,13 @@ export class ChartIndicatorManager {
   }
 
   destroy(): void {
-    this.calculationScheduler.dispose()
-    this.executor.dispose()
+    this.unsubscribeDefinitions()
+    this.client.dispose()
     this.destroyed = true
     this.releaseLayerResources()
     this.paneAxes = new Map()
-    this.onResultsAppliedCallback = null
+    this.planned = []
+    this.results = null
+    this.feedKey = null
   }
 }

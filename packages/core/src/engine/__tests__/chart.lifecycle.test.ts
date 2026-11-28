@@ -2,6 +2,7 @@
 /** 与行情数组注入无关的 Chart 生命周期、DPR、渲染调度与设置回归。 */
 import { describe, expect, it, vi } from 'vitest'
 import { Chart } from '@/core/chart/index'
+import { makeTestSymbolSpec } from '../data/__tests__/helpers/chartDataManagerTestKit'
 import { PRICE_AXIS_RANGE_MODE } from '@/foundation/config/priceAxisRangeMode.js'
 import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId'
 import {
@@ -12,6 +13,7 @@ import { MAIN_PANE_ID } from '../pane/types'
 import { PRICE_SERIES_AXIS_ID } from '../renderers/rendererIds.js'
 import { createChartDom, ResizeObserverMock } from './helpers/chartDomTestKit'
 import {
+  createTestChartRuntime,
   defaultOptions,
   installChartTestHooks,
   mountChart,
@@ -23,7 +25,7 @@ describe('Chart lifecycle without a market selection', () => {
   installChartTestHooks()
 
   it('applies options without mutating a frozen caller object', async () => {
-    const chart = mountChart()
+    const { chart } = mountChart()
     try {
       const patch = Object.freeze({ yPaddingPx: 7 })
       chart.updateOptions(patch)
@@ -35,8 +37,8 @@ describe('Chart lifecycle without a market selection', () => {
   })
 
   it('轴配置下发当前可用的范围口径', async () => {
-    registerEmptyPlot('range-axis-indicator')
-    const chart = mountChart()
+    const { chart, definitions } = mountChart()
+    registerEmptyPlot(definitions, 'range-axis-indicator')
     try {
       // 主价格轴承载行情：三档自动口径与手动都可用。
       expect(chart.axes.configuration(PRICE_SERIES_AXIS_ID).availableRangeModes).toEqual([
@@ -57,18 +59,15 @@ describe('Chart lifecycle without a market selection', () => {
     }
   })
 
-  it('resets the time view through the single frame commit before adapting the price axis', async () => {
-    const chart = mountChart()
+  it('resets the projected zoom and the price axis together', async () => {
+    const { chart } = mountChart()
     try {
-      const initialZoom = chart.kernel.zoom.readonly.zoomLevel.peek()
+      const initialZoom = chart.viewport.peek().zoomLevel
       chart.zoom.toLevel(initialZoom + 2)
-      const frame = vi.spyOn(chart['zoomController'], 'frame')
       const price = vi.spyOn(chart.axes, 'resetRange')
       chart.resetChart()
-      expect(chart.kernel.zoom.readonly.zoomLevel.peek()).toBeCloseTo(initialZoom, 5)
-      expect(frame).toHaveBeenCalledOnce()
+      expect(chart.viewport.peek().zoomLevel).toBeCloseTo(initialZoom, 5)
       expect(price).toHaveBeenCalledWith(PRICE_SERIES_AXIS_ID)
-      expect(frame.mock.invocationCallOrder[0]).toBeLessThan(price.mock.invocationCallOrder[0]!)
     } finally {
       await chart.destroy()
     }
@@ -79,7 +78,7 @@ describe('Chart lifecycle without a market selection', () => {
     dom.container.setPointerCapture = () => {}
     dom.container.hasPointerCapture = () => false
     dom.container.releasePointerCapture = () => {}
-    const chart = new Chart(dom, defaultOptions)
+    const chart = new Chart(dom, defaultOptions, createTestChartRuntime())
     try {
       chart.resize()
       const check = vi.spyOn(chart, 'checkVisibleRangeGap').mockImplementation(() => {})
@@ -110,7 +109,7 @@ describe('Chart lifecycle without a market selection', () => {
     dom.container.setPointerCapture = () => {}
     dom.container.hasPointerCapture = () => false
     dom.container.releasePointerCapture = () => {}
-    const chart = new Chart(dom, defaultOptions)
+    const chart = new Chart(dom, defaultOptions, createTestChartRuntime())
     try {
       chart.resize()
       chart.handlePointerEvent(
@@ -140,7 +139,7 @@ describe('Chart lifecycle without a market selection', () => {
     dom.container.setPointerCapture = () => {}
     dom.container.hasPointerCapture = () => false
     dom.container.releasePointerCapture = () => {}
-    const chart = new Chart(dom, defaultOptions)
+    const chart = new Chart(dom, defaultOptions, createTestChartRuntime())
     try {
       chart.resize()
       const check = vi.spyOn(chart, 'checkVisibleRangeGap').mockImplementation(() => {})
@@ -167,7 +166,7 @@ describe('Chart lifecycle without a market selection', () => {
   })
 
   it('registers the latest price layers and follows the data view', async () => {
-    const chart = mountChart()
+    const { chart } = mountChart()
     try {
       const scene = chart['renderer'].getScene()
       expect(chart.kernel.indicator.readonly.instances.peek()).toEqual([])
@@ -188,7 +187,7 @@ describe('Chart lifecycle without a market selection', () => {
 
   it('falls back to default observe when device-pixel-content-box observe fails', async () => {
     ResizeObserverMock.failWithDevicePixelBox = true
-    const chart = mountChart()
+    const { chart } = mountChart()
     try {
       const observer = ResizeObserverMock.instances[0]!
       expect(observer.observe).toHaveBeenCalledTimes(2)
@@ -216,7 +215,7 @@ describe('Chart lifecycle without a market selection', () => {
       writable: true,
       value: ratio,
     })
-    const chart = mountChart()
+    const { chart } = mountChart()
     try {
       ResizeObserverMock.instances[0]!.emit({
         contentRect: DOMRect.fromRect({ width: 1000, height: 600 }),
@@ -241,7 +240,7 @@ describe('Chart lifecycle without a market selection', () => {
       writable: true,
       value: 3,
     })
-    const chart = mountChart(6000, 4000)
+    const { chart } = mountChart({ width: 6000, height: 4000 })
     try {
       chart.resize()
       expect(chart.getViewport()).not.toBeNull()
@@ -252,14 +251,14 @@ describe('Chart lifecycle without a market selection', () => {
   })
 
   it('disconnects ResizeObserver on destroy', async () => {
-    const chart = mountChart()
+    const { chart } = mountChart()
     const observer = ResizeObserverMock.instances[0]!
     await chart.destroy()
     expect(observer.disconnect).toHaveBeenCalledTimes(1)
   })
 
   it('does not emit viewport change on draw when viewport is unchanged', async () => {
-    const chart = mountChart()
+    const { chart } = mountChart()
     try {
       const onViewportChange = vi.fn()
       chart.viewport.subscribe(onViewportChange)
@@ -272,7 +271,7 @@ describe('Chart lifecycle without a market selection', () => {
   })
 
   it('does not schedule redraw for identical render state', async () => {
-    const chart = mountChart()
+    const { chart } = mountChart()
     try {
       const schedule = vi.spyOn(chart, 'scheduleDraw')
       chart.zoom.toLevel(2)
@@ -286,9 +285,9 @@ describe('Chart lifecycle without a market selection', () => {
   it.each([300, 800])(
     'lays out OHLC and indicator titles together at pane width %s',
     async (paneWidth) => {
-      const chart = mountChart()
+      const { chart, definitions } = mountChart()
       const definitionId = `title-layout-${paneWidth}`
-      registerPlotDefinition({
+      registerPlotDefinition(definitions, {
         id: definitionId,
         name: definitionId,
         source: 'script',
@@ -333,13 +332,13 @@ describe('Chart lifecycle without a market selection', () => {
   )
 
   it('clears stale canvases and cached geometry when switching data views', async () => {
-    const chart = mountChart()
+    const { chart } = mountChart()
     try {
       const renderer = chart['renderer']
       const clearCanvases = vi.spyOn(renderer, 'clearAllCanvases')
       const clearFrame = vi.spyOn(renderer, 'clearCachedFrame')
       const clearLegend = vi.spyOn(chart.legend, 'clearFrame')
-      chart.setActiveMode(chart['_timeShareMode'])
+      await chart.setPrimaryMarket(makeTestSymbolSpec('000001', { period: 'timeshare' }))
       expect(clearCanvases).toHaveBeenCalledOnce()
       expect(clearFrame).toHaveBeenCalledOnce()
       expect(clearLegend).toHaveBeenCalled()
@@ -350,7 +349,7 @@ describe('Chart lifecycle without a market selection', () => {
   })
 
   it('merges settings patches in kernel SSOT and exposes them to renderer', async () => {
-    const chart = mountChart()
+    const { chart } = mountChart()
     try {
       chart.updateSettings({ showGridLines: false })
       chart.updateSettings({ mainRightAxisTypeSetting: 'log' })
@@ -364,7 +363,7 @@ describe('Chart lifecycle without a market selection', () => {
   })
 
   it('restores layout settings into the actual renderer and cache resources', async () => {
-    const chart = mountChart()
+    const { chart } = mountChart()
     try {
       const switchBackend = vi.spyOn(chart['rendererHost'], 'switchTo')
       const originalBackend = chart.kernel.settings.readonly.settings.peek().rendererBackend
@@ -378,9 +377,9 @@ describe('Chart lifecycle without a market selection', () => {
         },
       })
       expect(switchBackend).toHaveBeenCalledWith(originalBackend === 'canvas' ? 'webgl' : 'canvas')
-      expect(chart.getMarketDataCache().stats.peek().maxBytes).toBe(200 * 1024 * 1024)
+      expect(chart.getMarketData().stats.peek().maxBytes).toBe(200 * 1024 * 1024)
       chart.kernel.applyLayout({ ...document, settings: {} })
-      expect(chart.getMarketDataCache().stats.peek().maxBytes).toBe(50 * 1024 * 1024)
+      expect(chart.getMarketData().stats.peek().maxBytes).toBe(50 * 1024 * 1024)
       expect(chart.kernel.settings.readonly.settings.peek().rendererBackend).toBe(originalBackend)
     } finally {
       await chart.destroy()

@@ -16,3 +16,9 @@ export interface CompilationLease {
   readonly module: Promise<CompiledScriptSources>
   release(): void
 }
+
+/** 编译结果来源；一个线程池持有一个，负责线程生命周期与结果缓存。 */
+export interface CompilationHost {
+  acquire(source: string, libraries?: readonly QuickJSLibrary[]): CompilationLease
+  dispose(): void
+}

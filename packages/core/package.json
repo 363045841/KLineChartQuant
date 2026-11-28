@@ -23,6 +23,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js"
+    },
     "./reactivity": {
       "types": "./dist/foundation/reactivity/index.d.ts",
       "import": "./dist/foundation/reactivity/index.js"

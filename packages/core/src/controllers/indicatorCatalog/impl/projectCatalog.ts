@@ -1,18 +1,11 @@
 /**
- * 指标目录投影：把注册表快照映射成界面契约，并提供唯一的目录信号。
+ * 定义目录投影：把注册表快照映射成界面契约。
  *
- * 目录信号是选择器、公共 API 与 Agent 共用的读取入口；它只依赖注册表修订号，
- * 不维护第二份列表状态。
+ * 目录是注册表的只读投影，不维护第二份列表状态；每个运行时各自持有一份。
  */
-
 import type { IndicatorInputDisplay } from '@/engine/indicators/indicatorMetadata.js'
-import {
-  type IndicatorDescriptor,
-  indicatorCatalogRevision,
-  readIndicatorDescriptors,
-  resolveCanonicalIndicatorId,
-  resolveIndicatorDefinitionId,
-} from '@/engine/indicators/pipeline/index.js'
+import type { DefinitionRegistry } from '@/engine/indicators/registry/index.js'
+import type { IndicatorDescriptor } from '@/engine/indicators/pipeline/index.js'
 import { computed, type ReadonlySignal } from '@/foundation/reactivity/index.js'
 import { INDICATOR_ROLE, type IndicatorDefinition, type IndicatorInputDef } from '../../types.js'
 
@@ -42,14 +35,7 @@ function toOptions(
   )
 }
 
-/**
- * 把一条参数声明映射成界面契约。
- *
- * @param key 参数键
- * @param value 默认值
- * @param input 展示声明
- * @returns 参数定义；非标量默认值不展示
- */
+/** 把一条参数声明映射成界面契约。 */
 function toParamDef(
   key: string,
   value: unknown,
@@ -69,42 +55,86 @@ function toParamDef(
   }
 }
 
-/** 把一个目录项映射成控制器层的指标定义。 */
-function toIndicatorDefinition(descriptor: IndicatorDescriptor): IndicatorDefinition {
+/** 目录项的参数声明投影；指标与警报共用同一套参数结构。 */
+function resolveInputs(descriptor: IndicatorDescriptor): readonly IndicatorInputDef[] {
   const defaults = { ...descriptor.defaultInputs, ...descriptor.defaultOptions }
-  const inputs = Object.entries(defaults).flatMap(([key, value]) => {
+  return Object.entries(defaults).flatMap(([key, value]) => {
     const input = toParamDef(key, value, descriptor.inputDefs?.[key])
     return input === undefined ? [] : [input]
   })
+}
+
+/** 把一个目录项映射成控制器层的指标定义。 */
+function toIndicatorDefinition(
+  registry: DefinitionRegistry,
+  descriptor: IndicatorDescriptor,
+): IndicatorDefinition {
   return {
-    id: resolveCanonicalIndicatorId(descriptor),
+    id: registry.resolveCanonicalId(descriptor),
     source: descriptor.source,
     label: descriptor.displayName,
     name: descriptor.title === undefined ? descriptor.displayName : descriptor.title,
     description: descriptor.info,
     role: descriptor.category === 'main' ? 'main' : 'sub',
     documentIdentity: descriptor.documentIdentity,
-    inputs,
+    inputs: resolveInputs(descriptor),
   }
 }
 
-/**
- * 指标目录信号：注册表任意增删改后重建。
- *
- * 选择器与公共 API 直接订阅它，不再各自复制一份列表。
- */
-export const indicatorCatalog: ReadonlySignal<readonly IndicatorDefinition[]> = computed(() => {
-  indicatorCatalogRevision()
-  return readIndicatorDescriptors()
-    .map(toIndicatorDefinition)
-    .sort(
-      (a, b) =>
-        (a.role === INDICATOR_ROLE.MAIN ? 0 : 1) - (b.role === INDICATOR_ROLE.MAIN ? 0 : 1) ||
-        a.label.localeCompare(b.label),
-    )
-})
+/** 警报脚本在选择器中的最小投影；没有渲染位置与角色。 */
+export interface AlertScriptDefinition {
+  readonly id: string
+  readonly label: string
+  readonly name: string
+  readonly description?: string
+  readonly inputs: readonly IndicatorInputDef[]
+}
 
-/** 目录中的指标数量与顺序以 `indicatorCatalog` 为准，这里只做名称匹配。 */
+/** 把一个目录项映射成警报脚本定义。 */
+function toAlertDefinition(
+  registry: DefinitionRegistry,
+  descriptor: IndicatorDescriptor,
+): AlertScriptDefinition {
+  return {
+    id: registry.resolveCanonicalId(descriptor),
+    label: descriptor.displayName,
+    name: descriptor.title === undefined ? descriptor.displayName : descriptor.title,
+    ...(descriptor.info === undefined ? {} : { description: descriptor.info }),
+    inputs: resolveInputs(descriptor),
+  }
+}
+
+/** 指标目录信号：注册表任意增删改后重建。 */
+export function createIndicatorCatalog(
+  registry: DefinitionRegistry,
+): ReadonlySignal<readonly IndicatorDefinition[]> {
+  return computed(() => {
+    registry.revision()
+    return registry
+      .readIndicatorDescriptors()
+      .map((descriptor) => toIndicatorDefinition(registry, descriptor))
+      .sort(
+        (a, b) =>
+          (a.role === INDICATOR_ROLE.MAIN ? 0 : 1) - (b.role === INDICATOR_ROLE.MAIN ? 0 : 1) ||
+          a.label.localeCompare(b.label),
+      )
+  })
+}
+
+/** 警报脚本目录信号：只含 `kind === 'alert'` 的定义。 */
+export function createAlertCatalog(
+  registry: DefinitionRegistry,
+): ReadonlySignal<readonly AlertScriptDefinition[]> {
+  return computed(() => {
+    registry.revision()
+    return registry
+      .readAlertDescriptors()
+      .map((descriptor) => toAlertDefinition(registry, descriptor))
+      .sort((left, right) => left.label.localeCompare(right.label))
+  })
+}
+
+/** 目录中的指标数量与顺序以注册表为准，这里只做名称匹配。 */
 function normalizeId(id: string): string {
   return id
     .trim()
@@ -112,20 +142,18 @@ function normalizeId(id: string): string {
     .replace(/[^a-z0-9]/g, '')
 }
 
-/**
- * 按规范 ID、展示名或别名查找目录项。
- *
- * @param id 指标 ID 或名称
- * @returns 匹配的定义；未注册时返回 undefined
- */
-export function findIndicatorDefinition(id: string): IndicatorDefinition | undefined {
+/** 按规范 ID 或展示名查找目录项。 */
+export function findIndicatorDefinition(
+  registry: DefinitionRegistry,
+  id: string,
+): IndicatorDefinition | undefined {
   const normalized = normalizeId(id)
-  const catalog = indicatorCatalog()
+  const catalog = createIndicatorCatalog(registry).peek()
   const direct = catalog.find(
     (item) => normalizeId(item.id) === normalized || normalizeId(item.label) === normalized,
   )
   if (direct) return direct
-  const canonical = resolveIndicatorDefinitionId(id)
+  const canonical = registry.resolveDefinitionId(id)
   return canonical === undefined
     ? undefined
     : catalog.find((item) => normalizeId(item.id) === normalizeId(canonical))

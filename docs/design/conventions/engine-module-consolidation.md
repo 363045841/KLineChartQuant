@@ -28,11 +28,11 @@
 `drawing/geometry/frameProjection`）本就属于渲染链路。`renderers` 无模块级 barrel，
 故标签模块保留自身 `index.ts` 作为契约，外部按 `renderers/impl/labels/index.js` 依赖。
 
-### 3. `facade/` → `chart/impl/facade/`
+### 3. `facade/` → `chart/facade/`
 
 6 个 `chartXxxFacade` 只被 `engine/chart/impl/chart.ts` 引用，是 Chart 对 controllers/Agent
-暴露的公共 API 适配层，本属装配层内部实现。归入 `chart/impl/facade/` 后 `chart.ts` 以
-`./facade/...` 直接引用，不再暴露为 engine 一级模块。
+暴露的公共 API 适配层，本属装配层内部实现。归入 `chart/facade/` 后 `chart.ts` 以
+`../facade/...` 直接引用，并允许 `engine/legend` 等契约模块从公开路径取类型。
 
 ### 4. `utils/` 拆解归位
 

@@ -1,21 +1,27 @@
 // 使用真实 Kernel 与 IndexedDB 替身验证布局归档、自动保存和列表顺序。
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { indicatorCatalog } from '../../../controllers/indicatorCatalog/index.js'
-import type { SymbolSpec } from '../../../controllers/types.js'
+import { createIndicatorCatalog } from '../../../controllers/indicatorCatalog/index.js'
+import { createTestDefinitions } from '@/engine/indicators/__tests__/helpers/definitionsTestKit.js'
+import type { DefinitionRegistry } from '@/engine/indicators/registry/index.js'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
 import { PRICE_AXIS_RANGE_MODE } from '../../../foundation/config/priceAxisRangeMode.js'
-import { createDocumentStore } from '../../../foundation/persistence/index.js'
+import { createIndexedDbDocumentStore } from '../../../foundation/persistence/index.js'
 import type { DrawingObject } from '../../drawing/types.js'
 import { registerEmptyPlot } from '../../indicators/__tests__/helpers/plotIndicatorTestKit.js'
-import { registerIndicators } from '../../indicators/pipeline/index.js'
 import { MAIN_PANE_ID } from '../../pane/types.js'
 import { PRICE_SERIES_AXIS_ID } from '../../renderers/rendererIds.js'
 import { createTestChartStateKernel } from '../../state/__tests__/helpers/createTestChartStateKernel.js'
 import { LayoutManager } from '../impl/layoutManager.js'
+import { layoutDatabase } from '../impl/layoutDatabase.js'
 import { LAYOUT_DOCUMENT_VERSION } from '../types.js'
 
-/** 每个用例使用独立数据库，避免归档相互污染。 */
+/** 本用例独立的定义注册表。 */
+let definitions: DefinitionRegistry
+
+/** 每个用例使用独立数据库与注册表，避免归档与定义相互污染。 */
 beforeEach(async () => {
+  definitions = createTestDefinitions()
   await new Promise<void>((resolve, reject) => {
     const request = indexedDB.deleteDatabase('@363045841yyt/klinechart-layouts')
     request.onsuccess = () => resolve()
@@ -27,7 +33,7 @@ afterEach(() => vi.useRealTimers())
 
 /** 以生产 Kernel 快照和恢复方法构造领域管理器。 */
 function createManager(restore = true, storageId?: string) {
-  const kernel = createTestChartStateKernel({ initialSettings: { theme: 'light' } })
+  const kernel = createTestChartStateKernel({ initialSettings: { theme: 'light' }, definitions })
   const manager = new LayoutManager(
     {
       exportLayout: () => kernel.exportLayout(),
@@ -41,17 +47,15 @@ function createManager(restore = true, storageId?: string) {
 
 /** 绕过当前文档编码，模拟浏览器里已有的旧记录。 */
 function createRawLayoutStorage() {
-  return createDocumentStore<unknown>({
-    databaseName: '@363045841yyt/klinechart-layouts',
-    version: LAYOUT_DOCUMENT_VERSION,
-    storeName: 'layouts',
+  return createIndexedDbDocumentStore<unknown>({
+    database: layoutDatabase,
     key: 'documents',
     codec: { decode: (value) => value ?? null, encode: (value) => value },
   })
 }
 
 it('独立标签归档并发自动保存，重新挂载恢复各自指标、参数、窗格与活动布局', async () => {
-  registerEmptyPlot('tab-layout-indicator')
+  registerEmptyPlot(definitions, 'tab-layout-indicator')
   const first = createManager(true, 'tab-a')
   const second = createManager(true, 'tab-b')
   await Promise.all([first.manager.initialize(), second.manager.initialize()])
@@ -287,11 +291,12 @@ function subscribeDrawingAutoSave({ kernel, manager }: ReturnType<typeof createM
 }
 
 it('收藏独立于开启状态，随布局保存、复制和恢复，旧布局清空收藏', async () => {
-  registerIndicators([
+  definitions.register([
     {
       kind: 'descriptor',
       candidate: { key: 'layout-test', origin: 'third-party', identity: 'native' },
       descriptor: {
+        kind: 'indicator',
         name: 'layout-test',
         displayName: 'Layout test',
         category: 'main',
@@ -299,7 +304,7 @@ it('收藏独立于开启状态，随布局保存、复制和恢复，旧布局�
       },
     },
   ])
-  const definition = indicatorCatalog()[0]
+  const definition = createIndicatorCatalog(definitions)()[0]
   if (!definition) throw new Error('测试指标未注册')
   const first = createManager()
   await first.manager.initialize()
@@ -562,13 +567,13 @@ it('当前品种的完整路由、周期和复权随布局落盘，重新打开�
   }
   const first = createManager()
   await first.manager.initialize()
-  first.kernel.dataManager.actions.setCurrentSpec(symbol)
+  first.kernel.actions.setSymbols([symbol])
   const snapshot = first.kernel.exportLayout()
   expect(snapshot.currentSymbol).toEqual(symbol)
   expect(snapshot.currentSymbol).not.toBe(symbol)
   const id = await first.manager.saveLayout({ name: 'Apple 日线' })
   // 品种切换也会触发自动保存；这里直接调用调度入口以隔离行情网络请求。
-  first.kernel.dataManager.actions.setCurrentSpec({ ...symbol, period: '60min', adjust: 'none' })
+  first.kernel.actions.setSymbols([{ ...symbol, period: '60min', adjust: 'none' }])
   first.manager.scheduleAutoSave()
   expect(first.manager.layoutDirty.peek()).toBe(true)
   await first.manager.dispose()
@@ -594,22 +599,25 @@ it('当前品种的完整路由、周期和复权随布局落盘，重新打开�
   }
 })
 
-it('视口快照随布局文档持久化，切换到该布局时恢复', async () => {
+it('视口快照随布局文档归档', async () => {
   const { kernel, manager } = createManager()
+  const storage = createRawLayoutStorage()
   try {
     await manager.initialize()
     const key = 'US:AAPL:daily:none:Kline'
-    const snapshot = { anchorTimestamp: 1_700_000_000_000, anchorOffsetSlots: 24, zoomLevel: 9 }
-    kernel.dataManager.actions.saveViewportSnapshot(key, snapshot)
+    const snapshot = { fromTime: 1_700_000_000_000, toTime: 1_700_086_400_000 }
+    kernel.viewMemory.importMap({ [key]: snapshot })
     const id = await manager.saveLayout({ name: '带视口' })
     expect(manager.exportLayout().viewport).toEqual({ [key]: snapshot })
 
-    // 模拟切换前视口内存态已被清空，切回该布局应从文档恢复。
-    kernel.dataManager.actions.restoreViewportSnapshots({})
-    await manager.switchLayout({ id })
-    expect(kernel.dataManager.readonly.viewportSnapshots.peek()).toEqual({ [key]: snapshot })
+    // 归档里保存的是同一份视图；应用到图表由 Chart.applyLayout 负责。
+    const archive = (await storage.read()) as {
+      documents: Record<string, { viewport?: Record<string, unknown> }>
+    }
+    expect(archive.documents[id]?.viewport).toEqual({ [key]: snapshot })
   } finally {
     await manager.dispose()
+    await storage.dispose()
     kernel.dispose()
   }
 })
@@ -768,3 +776,34 @@ it.each([true, false])('restore: %s 控制启动恢复，手动切换始终生�
     target.kernel.dispose()
   }
 })
+
+it('drops layout documents written before the current document version', async () => {
+  const { manager } = createManager()
+  const storage = createRawLayoutStorage()
+  try {
+    await storage.write({
+      activeId: 'legacy',
+      autoSave: true,
+      documents: {
+        legacy: {
+          version: LAYOUT_DOCUMENT_VERSION - 1,
+          id: 'legacy',
+          name: 'Old chart',
+          workspaces: {},
+          panePriceAxisModes: {},
+        },
+      },
+    })
+  } finally {
+    await storage.dispose()
+  }
+
+  try {
+    await manager.initialize()
+    expect(manager.layouts.peek().map((layout) => layout.id)).toEqual(['default'])
+    expect(manager.activeLayoutId.peek()).toBe('default')
+  } finally {
+    await manager.dispose()
+  }
+})
+

@@ -17,10 +17,9 @@ describe('workbench market selection', () => {
     resolve.mockRejectedValueOnce(new Error('Network unavailable'))
     let unregister = host.registerDataSource(fixture.source)
     const props = shallowReactive<KlineWorkbenchProps>({
-      marketDataContext: host,
       instrument: { source: 'test', id: 'A' },
     })
-    const market = scope.run(() => useWorkbenchMarket(props, onError))!
+    const market = scope.run(() => useWorkbenchMarket(props, host, onError))!
     try {
       await expect(market.initialize()).resolves.toBeUndefined()
       expect(market.error.value?.message).toBe('Network unavailable')
@@ -64,11 +63,10 @@ describe('workbench market selection', () => {
     })
     host.registerDataSource(fixture.source)
     const props = shallowReactive<KlineWorkbenchProps>({
-      marketDataContext: host,
       instrument: { source: 'test', id: 'A' },
     })
     const onError = vi.fn()
-    const market = scope.run(() => useWorkbenchMarket(props, onError))!
+    const market = scope.run(() => useWorkbenchMarket(props, host, onError))!
     try {
       const first = market.initialize()
       props.instrument = { source: 'test', id: 'B' }

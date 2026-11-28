@@ -69,7 +69,7 @@
       source: string
       tabs: readonly ScriptEditorTab[]
       activeTabId: string | null
-      kind?: 'indicator' | 'library'
+      kind?: 'indicator' | 'alert' | 'library'
       documents?: readonly ScriptEditorDocument[]
       folders?: readonly ScriptEditorFolder[]
       libraries?: readonly { name: string; source: string }[]

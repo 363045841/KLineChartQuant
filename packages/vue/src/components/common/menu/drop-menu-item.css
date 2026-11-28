@@ -120,7 +120,7 @@
 
 /* 行尾座位里的勾与动作共用右边缘：勾保留与主按钮一致的内缩。 */
 .drop-menu__item .drop-menu__item-trailing .drop-menu__check {
-  margin-right: var(--klc-space-12, 12px);
+  margin-right: var(--drop-menu-trailing-inset, var(--klc-space-12, 12px));
 }
 
 /* 状态层图标与菜单项图标同尺寸。 */
@@ -182,31 +182,10 @@
   cursor: default;
 }
 
+/* 行尾开关的布局壳：内缩由菜单行负责，视觉组件本身不带 margin。 */
 .drop-menu__item .drop-menu__switch {
-  margin-left: auto;
-  width: 28px;
-  height: 16px;
-  padding: var(--klc-space-2, 2px);
-  box-sizing: border-box;
-  border-radius: var(--klc-radius-full, 9999px);
-  background: var(--klc-color-ui-muted);
-}
-
-.drop-menu__item .drop-menu__switch[aria-checked='true'] {
-  background: var(--klc-color-ui-accent);
-}
-
-.drop-menu__item .drop-menu__switch span {
-  display: block;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--klc-color-ui-surface);
-  transition: transform var(--klc-motion-dur-base);
-}
-
-.drop-menu__item .drop-menu__switch[aria-checked='true'] span {
-  transform: translateX(12px);
+  display: inline-flex;
+  margin-right: var(--drop-menu-trailing-inset, var(--klc-space-12, 12px));
 }
 
 .drop-menu__item .drop-menu__submenu-arrow {

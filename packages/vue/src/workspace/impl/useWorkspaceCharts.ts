@@ -1,7 +1,8 @@
 /** 工作区内图表的恢复、订阅与清理；Web 和桌面共用相同的实例生命周期。 */
 
 import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
-import type { ChartController, SymbolSpec } from '@363045841yyt/klinechart-core/controllers'
+import type { ChartController } from '@363045841yyt/klinechart-core/controllers'
+import type { SymbolSpec } from '@363045841yyt/klinechart-core'
 import { onBeforeUnmount, watch } from 'vue'
 import type { WorkspaceTab } from '../types.js'
 

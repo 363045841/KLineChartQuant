@@ -1,20 +1,18 @@
-/** ChartDataManager 活动 Buffer lastError 向 dataError 的镜像测试。 */
+/** ChartDataManager 取数失败向 dataError 的投影。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { ChartDataManager } from '../chartDataManager'
+import type { TestChartDataManager } from './helpers/chartDataManagerTestKit'
 import {
   createTestChartDataManager,
   createTestDocument,
   createTestProvider,
-  makeBarsPage,
-  makeKLine,
   makeTestSymbolSpec,
   registerTestProvider,
   unregisterTestProvider,
 } from './helpers/chartDataManagerTestKit'
 
 describe('ChartDataManager error handling', () => {
-  let manager: ChartDataManager | null = null
+  let manager: TestChartDataManager | null = null
   let document: Document
 
   beforeEach(() => {
@@ -28,20 +26,22 @@ describe('ChartDataManager error handling', () => {
     vi.unstubAllGlobals()
   })
 
-  it('mirrors active buffer lastError onto dataError', async () => {
+  it('surfaces a failing provider through dataError', async () => {
     registerTestProvider(
       createTestProvider({
         fetchBars: {
-          fetch: async () => makeBarsPage([makeKLine(1)], { instrumentId: 'test:000001' }),
+          fetch: async () => {
+            throw new Error('upstream unavailable')
+          },
         },
       }),
     )
     manager = createTestChartDataManager(document, { viewport: { scrollLeft: 800 } }).manager
     manager.setPrimaryMarket(makeTestSymbolSpec('158017'))
-    await vi.waitFor(() => expect(manager!.dataBuffer.loading.peek()).toBe(false))
 
-    // 只验证镜像链路；取数失败的重试策略由数据层自行覆盖。
-    manager.dataBuffer.setError('upstream unavailable')
-    expect(manager.dataError.peek()).toBe('upstream unavailable')
+    await vi.waitFor(() => expect(manager!.dataError.peek()).toContain('upstream unavailable'), {
+      timeout: 5_000,
+    })
+    expect(manager.dataError.peek()).toContain('upstream unavailable')
   })
 })

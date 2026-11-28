@@ -4,7 +4,7 @@
  * 只做编排，不判断加载状态、不算几何：加载策略归数据层，定位归视图层。
  */
 
-import type { SymbolSpec } from '@363045841yyt/klinechart-core/controllers'
+import type { SymbolSpec } from '@363045841yyt/klinechart-core'
 import {
   type ChartController,
   ChartDataViewId,
@@ -70,7 +70,8 @@ export function useRangePresets(
       // 周期由窗口的真实跨度推导，不查任何预置到周期的映射。
       const period = pickRangePeriod(supportedPeriods(), target.to - target.from)
       if (period !== null && period !== current.period) {
-        chart.setPrimaryMarket({ ...current, period })
+        await chart.setPrimaryMarket({ ...current, period })
+        if (chart.symbols.peek()[0]?.period !== period) return
       }
       await chart.ensureCoverageFrom(target.from)
       const bars = chart.getData()
@@ -94,7 +95,8 @@ export function useRangePresets(
     const probe = coarsestPeriod(supportedPeriods())
     if (probe === null) return
     if (probe !== current.period) {
-      chart.setPrimaryMarket({ ...current, period: probe })
+      await chart.setPrimaryMarket({ ...current, period: probe })
+      if (chart.symbols.peek()[0]?.period !== probe) return
     }
     await chart.ensureCoverageFrom(Number.NEGATIVE_INFINITY)
     const loaded = chart.getData()
@@ -103,7 +105,8 @@ export function useRangePresets(
     if (!first || !last) return
     const period = pickRangePeriod(supportedPeriods(), last.timestamp - first.timestamp)
     if (period !== null && period !== probe) {
-      chart.setPrimaryMarket({ ...current, period })
+      await chart.setPrimaryMarket({ ...current, period })
+      if (chart.symbols.peek()[0]?.period !== period) return
       await chart.ensureCoverageFrom(Number.NEGATIVE_INFINITY)
     }
     const all = chart.getPresetWindow('ALL')

@@ -89,6 +89,59 @@ it('keeps checkboxes open and navigates into and out of submenus', async () => {
   expect(document.activeElement).toBe(trigger)
 })
 
+it('uses dialog semantics when rows carry inline controls', async () => {
+  const wrapper = mount(DropMenu, {
+    attachTo: document.body,
+    props: { label: 'Options', groups, semantics: 'dialog' },
+  })
+  const trigger = wrapper.get('button').element
+  expect(trigger.getAttribute('aria-haspopup')).toBe('dialog')
+
+  trigger.click()
+  await vi.waitFor(() =>
+    expect(document.querySelector('.drop-menu__panel')?.getAttribute('role')).toBe('dialog'),
+  )
+  expect(document.querySelector('[role="menu"]')).toBeNull()
+
+  const row = document.querySelector<HTMLButtonElement>('.drop-menu__item-main')
+  expect(row?.getAttribute('role')).toBeNull()
+  expect(row?.getAttribute('aria-pressed')).toBe('true')
+})
+
+it('scopes submenu expansion to the owning group', async () => {
+  const duplicateGroups: ReadonlyArray<DropMenuGroup> = [
+    {
+      id: 'first',
+      label: '',
+      items: [{ id: 'more', label: 'More', children: [{ id: 'child', label: 'Child' }] }],
+    },
+    {
+      id: 'second',
+      label: '',
+      items: [{ id: 'more', label: 'More', children: [{ id: 'other', label: 'Other' }] }],
+    },
+  ]
+  const wrapper = mount(DropMenu, {
+    attachTo: document.body,
+    props: { label: 'Groups', groups: duplicateGroups },
+  })
+  const trigger = wrapper.get('button').element
+  key(trigger, 'ArrowDown')
+  await vi.waitFor(() =>
+    expect(document.querySelectorAll('.drop-menu__item')).toHaveLength(2),
+  )
+
+  const rows = [...document.querySelectorAll<HTMLElement>('.drop-menu__item')]
+  const first = rows[0]?.querySelector<HTMLElement>('.drop-menu__item-main')
+  const second = rows[1]?.querySelector<HTMLElement>('.drop-menu__item-main')
+  if (!first || !second) throw new Error('Missing duplicate menu rows')
+
+  first.focus()
+  key(first, 'ArrowRight')
+  await vi.waitFor(() => expect(first.getAttribute('aria-expanded')).toBe('true'))
+  expect(second.getAttribute('aria-expanded')).toBe('false')
+})
+
 it('closes the previous root menu when another trigger opens', async () => {
   const first = mountMenu()
   const second = mountMenu()

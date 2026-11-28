@@ -6,7 +6,8 @@
 import { makePluginLayerId } from '@/foundation/plugin/impl/rendererLayerId'
 import type { Layer } from '@/rendering/scene/types'
 
-import type { IndicatorCategory, IndicatorMetadata } from '../../indicatorMetadata'
+import type { IndicatorCategory } from '../../indicatorMetadata'
+import type { RenderableIndicator } from '../../../renderers/Indicator/types.js'
 
 /** 构造满足 Layer 契约的最小渲染器，避免测试用强转。 */
 export function createTestRendererLayer(name: string): Layer<never> {
@@ -31,9 +32,10 @@ export interface TestIndicatorMetadataInput {
 /** 构造最小 IndicatorMetadata，只由用例声明自己关心的差异项。 */
 export function createTestIndicatorMetadata(
   input: TestIndicatorMetadataInput,
-  overrides: Partial<IndicatorMetadata> = {},
-): IndicatorMetadata {
+  overrides: Partial<Extract<RenderableIndicator, { kind: 'indicator' }>> = {},
+): RenderableIndicator {
   return {
+    kind: 'indicator',
     name: input.name,
     displayName: input.displayName,
     category: input.category,

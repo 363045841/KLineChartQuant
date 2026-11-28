@@ -49,11 +49,15 @@ const unregister = host.registerDataSource(source)
 示例中的 `api` 由应用实现。`stream` 返回一次性传输；历史数据源直接省略此方法。源级 `liveBars` 由传输实现派生，如果显式声明就必须与实现一致。单个品种可以声明 `liveBars: false`。
 
 ```vue
-<KlineWorkbench
-  :market-data-context="host"
-  :instrument="{ source: 'broker', id: 'stable-instrument-id' }"
-  period="daily"
-/>
+<script setup lang="ts">
+import { KlineWorkbench, provideBrowserAppRuntime } from '@363045841yyt/klinechart'
+
+provideBrowserAppRuntime(host, true, console.error)
+</script>
+
+<template>
+  <KlineWorkbench :instrument="{ source: 'broker', id: 'stable-instrument-id' }" period="daily" />
+</template>
 ```
 
 `instrument` 和 `period` 支持受控切换。宿主实例在挂载时确定，卸载单个工作台不销毁共享宿主。`unregister()` 注销来源，`host.dispose()` 释放整个宿主；应用不需要操作内部注册表或缓存。
@@ -75,8 +79,8 @@ const unregister = host.registerDataSource(source)
 
 ## 职责与验收
 
-公开类型集中在 `data/provider/types.ts`。`registeredDataSource.ts` 只做 Provider 接口翻译、取消和回调资格管理，不缓存行情、不操作 Buffer。`MarketDataContext` 注册和释放，`MarketDataCache` 管历史分页及重查，`MarketRuntime` 管订阅使用权、增量写入和重查期间的事件顺序。Buffer 只保存事实和发布变更。
+公开类型集中在 `data/provider/types.ts`。`registeredDataSource.ts` 只做 Provider 接口翻译、取消和回调资格管理，不缓存行情、不操作 Buffer。`MarketDataContext` 注册和释放；`MarketDataService` 统一持有历史分页、重查、订阅与增量写入，`MarketDataCache` 只作为其中的分页缓存实现。Buffer 只保存事实和发布变更。
 
 隔离消费验收也注册数据源，实际验证历史查询、末根更新、新根追加、脚本运行和卸载释放，不使用旁路数组注入。
 
-内置 mock 同样实现此接口，自建宿主用 `host.registerDataSource(createMockDataSource())` 注册。默认宿主 `defaultMarketDataContext` 在加载时已内置一个 mock 来源，不要对它重复注册：同名来源重复注册会抛 `INVALID_STATE`。每个实例只提供一个 `MOCK` 品种，历史按 UTC 日索引即时生成：请求哪一页就返回哪一页，`olderData` 恒为 `available`，因此翻到最早一根也不会出现空白。段内价格由锚点与布朗桥给出，相邻 K 线首尾相接，同一日索引在任何宿主、任何取页顺序下都得到同一根 K 线。实时流只推送 `bar` 帧；注销来源或释放宿主会停止计时器。历史截止当前 UTC 日，不生成未来 K 线。
+内置 mock 同样实现此接口，自建宿主用 `host.registerDataSource(createMockDataSource())` 显式注册。`createMarketDataHost()` 创建的宿主默认没有内置来源；同名来源重复注册会抛 `INVALID_STATE`。每个 mock 实例只提供一个 `MOCK` 品种，历史按 UTC 日索引即时生成：请求哪一页就返回哪一页，`olderData` 恒为 `available`，因此翻到最早一根也不会出现空白。段内价格由锚点与布朗桥给出，相邻 K 线首尾相接，同一日索引在任何宿主、任何取页顺序下都得到同一根 K 线。实时流只推送 `bar` 帧；注销来源或释放宿主会停止计时器。历史截止当前 UTC 日，不生成未来 K 线。

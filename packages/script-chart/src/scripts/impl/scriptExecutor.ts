@@ -3,30 +3,35 @@
  *
  * 只依赖文档读模型和 Worker，不接触持久化、目录与注册表；注册由调用方完成。
  */
-import { createPlotIndicatorDefinition, generateUUID } from '@363045841yyt/klinechart-core'
+import { createPlotIndicatorDefinition, generateUUID } from '@363045841yyt/klinechart-core/node'
 import {
   type Bar,
-  type ComputeRange,
-  type IndicatorDefinition,
+  type ComputeChange,
   type IndicatorMarketContext,
   type IndicatorSourceDocument,
   type ScriptRunOptions,
 } from '@363045841yyt/klinechart-plot-contracts'
 import {
-  type PreparedScriptDefinition,
+  type QuickJSScriptDefinition,
   type QuickJSLibrary,
   resolveScriptLibraries,
 } from '@363045841yyt/klinechart-script'
-import { createScriptWorkerPool } from '@363045841yyt/klinechart-script/worker'
+import type { ScriptRunResult, ScriptWorkerPoolFactory } from '@363045841yyt/klinechart-script/worker'
 import type { ScriptDocument } from '../types.js'
 import type { createScriptLog } from './createScriptLog.js'
-import { prepareScriptMarketData } from './prepareScriptMarketData.js'
+import {
+  prepareScriptMarketData,
+  type RequestSnapshotState,
+  type RequestSnapshots,
+} from './prepareScriptMarketData.js'
 import type { ScriptDocumentStore } from './scriptDocumentStore.js'
+
+type DefinitionCompute = Parameters<typeof createPlotIndicatorDefinition>[0]['compute']
 
 /** 一次编译的产物；提交成功前不进入运行表。 */
 export interface CompiledScript {
   readonly handle: string
-  readonly definition: PreparedScriptDefinition
+  readonly definition: QuickJSScriptDefinition
 }
 
 /** 生成指标定义所需的提交信息；与持久化文档一一对应。 */
@@ -59,6 +64,7 @@ interface CompiledEntry {
 export function createScriptExecutor(
   documents: ScriptDocumentStore,
   log: ReturnType<typeof createScriptLog>,
+  createWorkerPool: ScriptWorkerPoolFactory,
 ) {
   /** 编译句柄 → 源码与日志频道；一张表同时承担源码快照与输出路由。 */
   const compiled = new Map<string, CompiledEntry>()
@@ -66,9 +72,11 @@ export function createScriptExecutor(
   const definitions = new Map<string, string>()
   /** 计算句柄 → 日志频道；每次运行只登记一次。 */
   const executionOwners = new Map<string, string>()
+  /** 计算句柄 → 已加载的目标序列；Request 变化由此适配器描述一次。 */
+  const requestSnapshots = new Map<string, RequestSnapshots>()
   const executions = new Set<() => void>()
   let disposed = false
-  const worker = createScriptWorkerPool({
+  const worker = createWorkerPool({
     onOutput: (handle, events) => {
       // 计算会话与编译句柄共用一条路由，未登记频道的句柄不产生输出。
       const channel = executionOwners.get(handle) ?? compiled.get(handle)?.logId
@@ -82,11 +90,24 @@ export function createScriptExecutor(
     bars: readonly Bar[],
     params: Readonly<Record<string, number | string | boolean>>,
     market?: IndicatorMarketContext,
-    range?: ComputeRange,
-  ) {
-    if (market === undefined) return worker.run(handle, bars, params, undefined, range)
-    const context = await prepareScriptMarketData(worker, handle, params, market)
-    return worker.run(handle, bars, params, context, range, market.signal)
+    change: ComputeChange = { kind: 'reset', start: 0, revision: 0 },
+    live?: boolean,
+  ): Promise<ScriptRunResult> {
+    if (market === undefined) return worker.run(handle, { bars, change, params, live })
+    let snapshots = requestSnapshots.get(handle)
+    if (!snapshots) {
+      snapshots = new Map<string, RequestSnapshotState>()
+      requestSnapshots.set(handle, snapshots)
+    }
+    const context = await prepareScriptMarketData(worker, handle, params, market, snapshots)
+    return worker.run(handle, {
+      bars,
+      change,
+      params,
+      context,
+      live,
+      signal: market.signal,
+    })
   }
 
   /**
@@ -132,37 +153,42 @@ export function createScriptExecutor(
   ): Promise<ReturnType<typeof createPlotIndicatorDefinition>> {
     const entry = compiled.get(script.handle)
     if (!entry) throw new Error('脚本编译句柄已释放')
-    const createCompute = (): IndicatorDefinition<
-      Readonly<Record<string, number | string | boolean>>
-    >['compute'] & { dispose(): void } => {
+    const createCompute = (): DefinitionCompute => {
       const handle = generateUUID()
-      let preparation: Promise<PreparedScriptDefinition> | undefined
+      let preparation: Promise<QuickJSScriptDefinition> | undefined
       let released = false
       const release = (): void => {
         if (released) return
         released = true
         executions.delete(release)
         executionOwners.delete(handle)
-        if (preparation && !disposed) void worker.release(handle)
+        requestSnapshots.delete(handle)
+        if (preparation && !disposed) void worker.release(handle).catch(() => {})
       }
       executions.add(release)
-      const run: IndicatorDefinition<
-        Readonly<Record<string, number | string | boolean>>
-      >['compute'] = async (bars, params, market, range) => {
+      const run: DefinitionCompute = async (options) => {
         if (disposed) throw new Error('脚本服务已销毁')
         if (released) throw new Error('脚本执行会话已释放')
         executionOwners.set(handle, identity.id)
-        preparation ??= worker.prepare(
-          handle,
-          entry.source,
-          entry.libraries,
-          entry.trusted,
-          'execution',
-        )
+        preparation ??= worker.prepare(handle, entry.source, entry.libraries, entry.trusted)
         await preparation
         if (disposed) throw new Error('脚本服务已销毁')
         if (released) throw new Error('脚本执行会话已释放')
-        return compute(handle, bars, params, market, range)
+        const params: Record<string, number | string | boolean> = {}
+        for (const [key, value] of Object.entries(options.params)) {
+          if (typeof value !== 'number' && typeof value !== 'string' && typeof value !== 'boolean') {
+            throw new TypeError(`Invalid script parameter: ${key}`)
+          }
+          params[key] = value
+        }
+        return compute(
+          handle,
+          options.bars,
+          params,
+          options.market,
+          options.change,
+          options.live,
+        )
       }
       return Object.assign(run, { dispose: release })
     }
@@ -180,12 +206,12 @@ export function createScriptExecutor(
       source: 'script',
       document,
       createCompute,
-      async compute(bars, params, market, range) {
+      async compute(options) {
         const execution = createCompute()
         try {
-          return await execution(bars, params, market, range)
+          return await execution(options)
         } finally {
-          execution.dispose()
+          execution.dispose?.()
         }
       },
     })
@@ -238,6 +264,7 @@ export function createScriptExecutor(
     definitions.clear()
     compiled.clear()
     executionOwners.clear()
+    requestSnapshots.clear()
   }
 
   return {

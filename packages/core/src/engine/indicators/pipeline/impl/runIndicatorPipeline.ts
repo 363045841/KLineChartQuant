@@ -3,13 +3,13 @@
  *
  * 阶段之间只传数据；任何单条失败都记录在结果里并继续，不中断整批。
  */
+import type { DefinitionRegistry } from '../../registry/index.js'
 import type {
   IndicatorFailure,
   IndicatorPipelineReport,
   IndicatorStage,
   RegistrableIndicator,
 } from '../types.js'
-import { registerIndicators, setIndicatorFailures } from './indicatorStore.js'
 
 /** 打印一条阶段失败，格式固定，便于按阶段与来源检索。 */
 export function logIndicatorFailure(failure: IndicatorFailure): void {
@@ -22,10 +22,12 @@ export function logIndicatorFailure(failure: IndicatorFailure): void {
 /**
  * 运行指标管线。
  *
+ * @param registry 目标定义注册表
  * @param stages 需要注册的全部来源；每个来源自带收集器与编译器
  * @returns 已提交目录项与全部阶段失败
  */
 export async function runIndicatorPipeline(
+  registry: DefinitionRegistry,
   stages: readonly IndicatorStage[],
 ): Promise<IndicatorPipelineReport> {
   const registrable: RegistrableIndicator[] = []
@@ -47,9 +49,9 @@ export async function runIndicatorPipeline(
     }
   }
 
-  const report = registerIndicators(registrable)
+  const report = registry.register(registrable)
   const all = [...failures, ...report.failures]
   for (const failure of all) logIndicatorFailure(failure)
-  setIndicatorFailures(all)
+  registry.setFailures(all)
   return { committed: report.committed, failures: all }
 }

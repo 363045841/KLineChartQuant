@@ -1,3 +1,4 @@
+import { systemClock } from '@363045841yyt/klinechart-core'
 // @vitest-environment jsdom
 /**
  * Contract test for @363045841yyt/klinechart-angular.
@@ -10,6 +11,8 @@
  */
 
 import type { ChartControllerFactory, ChartViewport } from '@363045841yyt/klinechart-core'
+import { createDefinitionRegistry, createMarketRuntime } from '@363045841yyt/klinechart-core'
+import { createMarketDataHost } from '@363045841yyt/klinechart-core/market-data'
 import { createSignal } from '@363045841yyt/klinechart-core/reactivity'
 import {
   DestroyRef,
@@ -18,7 +21,7 @@ import {
   PLATFORM_ID,
   runInInjectionContext,
 } from '@angular/core'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as AngularAdapter from '../index'
 import {
@@ -102,10 +105,21 @@ function makeContainerRef(): ElementRef<HTMLElement> {
 // ---------------------------------------------------------------------------
 
 describe('createChart()', () => {
+  let runtime: ReturnType<typeof createMarketRuntime>
+
+  beforeEach(() => {
+    runtime = createMarketRuntime({ clock: systemClock,
+      market: createMarketDataHost(),
+      definitions: createDefinitionRegistry(),
+    })
+  })
+  afterEach(() => runtime.dispose())
+
   it('throws when container is null', async () => {
     await expect(
       createChart({
         container: null,
+        runtime,
       }),
     ).rejects.toThrow(/container is required/)
   })
@@ -114,6 +128,7 @@ describe('createChart()', () => {
     await expect(
       createChart({
         container: document.createElement('div'),
+        runtime,
       }),
     ).rejects.toThrow(/no ChartControllerFactory/)
   })
@@ -123,6 +138,7 @@ describe('createChart()', () => {
     const factory = vi.fn<ChartControllerFactory>(() => Promise.resolve(controller))
     const result = await createChart({
       container: document.createElement('div'),
+      runtime,
       factory,
     })
     expect(factory).toHaveBeenCalledOnce()

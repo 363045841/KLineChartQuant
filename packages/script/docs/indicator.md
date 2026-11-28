@@ -97,6 +97,35 @@ defineIndicator({
 
 每次重算都从第一根按序重建状态，不依赖上一次运行。能用 `ta` 与 `derive` 表达的计算优先交给它们。
 
+## 警报
+
+警报脚本用 `defineAlert` 声明，与指标共用同一套执行链路，但没有渲染位置，也不会出现在指标面板中。
+`alert(message)` 产生一条实时警报事件；历史加载、前插与回放中的调用会被运行时丢弃，
+只有最后一根实时 bar 能产生事件。警报脚本源码必须包含直接的 `alert()` 调用，否则注册期报错；
+指标脚本调用 `alert()` 同样会报错。
+
+`frequency` 是警报的必填声明，决定同一根 bar 内允许触发几次：
+`once` / `per-bar` / `per-bar-close` / `all`。规则不覆盖该值，只负责冷却、过期与投递。
+
+```js
+defineAlert({
+  version: 2,
+  name: 'PriceCross',
+  title: '价格上穿',
+  info: '同一根 K 线内，实时价格上穿设定阈值时触发',
+  frequency: 'per-bar',
+  onBar() {
+    const price = input.float(100, { title: '价格', min: 0, step: 0.01 })
+    const previous = barstate.prevPrice
+    if (previous !== undefined && previous < price && close[0] >= price) {
+      alert('价格上穿 ' + price)
+    }
+  },
+})
+```
+
+完整示例见 [`scripts/alert-demo.ts`](../scripts/alert-demo.ts)。
+
 ## 绘图
 
 `plot.*` 每次调用输出当前 K 线的一个点。第二个参数 `id` 是数据通道身份：

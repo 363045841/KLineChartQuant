@@ -83,7 +83,7 @@
         >
           <div class="script-quick-actions" role="group" aria-label="脚本快捷操作">
             <BaseTooltip :content="executing === 'run' ? '运行中…' : '运行代码'" placement="bottom">
-              <button type="button" class="script-workspace__icon-button" aria-label="运行代码" :disabled="!activeTabId || kind !== 'indicator' || saving || !!executing" :aria-busy="executing === 'run'" @click="emit('run')"><LoadingSpinner v-if="executing === 'run'" :size="16" /><IconTablerPlayerPlay v-else aria-hidden="true" /></button>
+              <button type="button" class="script-workspace__icon-button" aria-label="运行代码" :disabled="!activeTabId || kind === 'library' || saving || !!executing" :aria-busy="executing === 'run'" @click="emit('run')"><LoadingSpinner v-if="executing === 'run'" :size="16" /><IconTablerPlayerPlay v-else aria-hidden="true" /></button>
             </BaseTooltip>
             <BaseTooltip content="添加到图表" placement="bottom">
               <button type="button" class="script-workspace__icon-button" aria-label="添加到图表" :disabled="!activeTabId || kind !== 'indicator' || saving || !!executing" :aria-busy="executing === 'add-to-chart'" @click="emit('add-to-chart')"><LoadingSpinner v-if="executing === 'add-to-chart'" :size="16" /><IconTablerPlus v-else aria-hidden="true" /></button>
@@ -132,7 +132,7 @@
       source: string
       tabs: readonly ScriptEditorTab[]
       activeTabId: string | null
-      kind?: 'indicator' | 'library'
+      kind?: 'indicator' | 'alert' | 'library'
       documents?: readonly ScriptEditorDocument[]
       folders?: readonly ScriptEditorFolder[]
       libraries?: readonly { name: string; source: string }[]

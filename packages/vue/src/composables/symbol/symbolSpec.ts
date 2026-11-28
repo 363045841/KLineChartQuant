@@ -3,7 +3,8 @@
  *
  * 品种切换、对比品种和嵌入工作台的初始化都从这里构造，避免各处重复拼装字段。
  */
-import type { SymbolInfo, SymbolSpec } from '@363045841yyt/klinechart-core/controllers'
+import type { SymbolInfo } from '@363045841yyt/klinechart-core/controllers'
+import type { SymbolSpec } from '@363045841yyt/klinechart-core'
 import type {
   InstrumentDescriptor,
   KLineAdjustment,

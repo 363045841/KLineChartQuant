@@ -28,6 +28,12 @@ type TechnicalAnalysisLibrary = import('../../Library/types.js').TechnicalAnalys
 /** 完整脚本的声明与逐 bar 执行回调。 */
 type ScriptIndicatorDeclaration = import('../../editor/types.js').ScriptIndicatorDeclaration
 
+/** 警报声明：与指标同构，没有渲染位置。 */
+type ScriptAlertDeclaration = import('../../editor/types.js').ScriptAlertDeclaration
+
+/** 警报触发频率；由脚本声明，规则不覆盖。 */
+type ScriptAlertFrequency = import('@363045841yyt/klinechart-plot-contracts').ScriptAlertFrequency
+
 /** 完整脚本声明的只读快照。 */
 type QuickJSScriptDefinition = import('../../quickjs/types.js').QuickJSScriptDefinition
 
@@ -45,6 +51,10 @@ declare function __timeframeSeconds(period: string): number
 // __count 由 runtime-internals.d.ts 声明，运行时与内置库展示共用同一签名。
 /** 宿主注入的本次数据总根数，仅供末根判断。 */
 declare function __barCount(): number
+declare function __prevPrice(): number | undefined
+
+/** 登记跨 bar 状态；运行时按 bar 快照与回滚，脚本只读写返回的对象。 */
+declare function state<T extends Record<string, unknown>>(initial: T): T
 type DrawingBoxApi = import('@363045841yyt/klinechart-plot-contracts').DrawingBoxApi
 type DrawingLabelApi = import('@363045841yyt/klinechart-plot-contracts').DrawingLabelApi
 declare const createDrawingBoxApi: typeof import('@363045841yyt/klinechart-plot-contracts').createDrawingBoxApi

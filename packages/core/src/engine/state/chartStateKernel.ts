@@ -1,6 +1,8 @@
 /** Chart 业务状态的 composition root：组合全部子状态并暴露派生信号。 */
 
-import type { SymbolInfo, SymbolSpec } from '../../controllers/types.js'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
+import { isSymbolSpec } from '@/data/symbolSpecGuard.js'
+import type { SymbolInfo } from '../../controllers/types.js'
 import {
   type ChartSettings,
   normalizeSettings,
@@ -29,15 +31,11 @@ import {
   resolveChartWorkspaceId,
 } from '../chartModel/index.js'
 import { symbolSpecIdentityKey } from '../data/symbolIdentity.js'
-import { isSymbolSpec } from '../data/symbolSpecGuard.js'
 import type { DrawingToolId } from '../drawing/index.js'
 import { belongsToDrawingSymbol, bindDrawingSymbol } from '../drawing/model/impl/drawingScope.js'
-import { resolveIndicatorLayerId } from '../indicators/indicatorLayerNaming.js'
+import { createIndicatorLayerId } from '../indicators/indicatorLayerNaming.js'
 import type { IndicatorMetadata } from '../indicators/indicatorMetadata.js'
-import {
-  getRegisteredIndicatorDefinition,
-  resolveCanonicalIndicatorId,
-} from '../indicators/pipeline/index.js'
+import type { DefinitionRegistry } from '../indicators/registry/index.js'
 import type { TemplateWorkspace, TemplateWorkspaces } from '../indicatorTemplate/index.js'
 import { selectLayoutSettings } from '../layout/impl/layoutSettings.js'
 import {
@@ -55,6 +53,10 @@ import {
 import { SCALE_X_STRATEGIES } from '../scale/index.js'
 import { type AxisStateModule, createAxisState } from './axisState.js'
 import { createDataManagerState, type DataManagerStateModule } from './dataManagerState.js'
+import {
+  createSeriesViewportMemory,
+  type SeriesViewportMemory,
+} from '../viewport/viewMemory/index.js'
 import { createDataState, type DataStateModule } from './dataState.js'
 import { createDrawingState, type DrawingStateModule } from './drawingState.js'
 import { createFootprintState } from './footprintState.js'
@@ -79,10 +81,8 @@ import { createSystemObjectState, type SystemObjectStateModule } from './systemO
 import { createSystemThemeState, type SystemThemeStateModule } from './themeState.js'
 import {
   createViewportState,
-  type ViewportDomDeps,
   type ViewportStateModule,
 } from './viewportState.js'
-import { createZoomState, type ZoomDeps, type ZoomStateModule } from './zoomState.js'
 
 /** Chart 投影到 Scene 的受管 renderer layer 描述。 */
 export interface ActiveRendererDescriptor {
@@ -125,8 +125,9 @@ function appendInstanceRenderers(
   dataView: ChartDataView,
   target: ActiveRendererDescriptor[],
   add: RendererAdder,
+  definitions: DefinitionRegistry,
 ): void {
-  const definition = getRegisteredIndicatorDefinition(instance.indicatorId)
+  const definition = definitions.getDefinition(instance.indicatorId)
   const resolved = tryResolveIndicatorMetadata(
     definition,
     dataView,
@@ -139,10 +140,10 @@ function appendInstanceRenderers(
     indicatorId: instance.indicatorId,
     instanceId: instance.instanceId,
   }
-  const layerId = resolveIndicatorLayerId(
+  const layerId = createIndicatorLayerId(
+    resolved.getRendererName,
     instance.indicatorId,
     instance.paneId,
-    'renderer',
     instance.instanceId,
   )
   add(target, resolved.getRendererName(options), layerId)
@@ -152,6 +153,7 @@ function appendInstanceRenderers(
 function resolveIndicatorRenderers(
   dataView: ChartDataView,
   instances: ReadonlyArray<IndicatorInstanceSpec>,
+  definitions: DefinitionRegistry,
 ): ReadonlyArray<ActiveRendererDescriptor> {
   const renderers: ActiveRendererDescriptor[] = []
   const seen = new Set<string>()
@@ -167,7 +169,7 @@ function resolveIndicatorRenderers(
   for (const instance of instances) {
     // 隐藏实例仍保留渲染对象（对象树据此重新打开），但不进入活跃层集合，可见性以实例状态为准。
     if (instance.hidden === true) continue
-    appendInstanceRenderers(instance, dataView, renderers, add)
+    appendInstanceRenderers(instance, dataView, renderers, add, definitions)
   }
   return renderers
 }
@@ -193,13 +195,20 @@ export interface ChartStateKernelDeps {
   initialRendererRuntime?: RendererBackendRuntime
   /** 各市场分时交易时段注册表（分时几何 / 槽位共用）；未注入时分时槽位退化为 0 */
   marketSessions?: MarketSessionRegistry
+  /** 指标与警报定义注册表；实例投影与面板命令共用。 */
+  definitions: DefinitionRegistry
   scheduleDraw: (level?: unknown) => void
 }
 
 export class ChartStateKernel extends StateKernel {
   readonly footprint: import('./footprintState.js').FootprintStateModule
   readonly options: OptionsStateModule
-  readonly zoom: ZoomStateModule
+  /** 缩放范围策略；导航持有实际缩放级别。 */
+  readonly zoomConfig$: ReadonlySignal<{
+    minKWidth: number
+    maxKWidth: number
+    zoomLevelCount: number
+  }>
   readonly data: DataStateModule
   readonly viewport: ViewportStateModule
   readonly pane: PaneStateModule
@@ -215,6 +224,8 @@ export class ChartStateKernel extends StateKernel {
   readonly systemObjects: SystemObjectStateModule
   readonly interaction: InteractionStateModule
   readonly dataManager: DataManagerStateModule
+  /** 按序列记住的视口快照；由布局文档导入导出，图表是唯一写入者。 */
+  readonly viewMemory: SeriesViewportMemory = createSeriesViewportMemory()
   readonly comparison: ComparisonStateModule
   readonly indicator: IndicatorStateModule
   readonly renderer: RendererStateModule
@@ -225,10 +236,10 @@ export class ChartStateKernel extends StateKernel {
   readonly effectiveTheme$: ReadonlySignal<'light' | 'dark'>
   /** 当前图表状态要求启用的受管 renderer layer。 */
   readonly activeRenderers$: ReadonlySignal<ReadonlyArray<ActiveRendererDescriptor>>
+  /** 视口几何输入：轴高与密度系数；K 线宽度由导航的缩放级派生。 */
   readonly viewportGeometry$: ReadonlySignal<{
     bottomAxisHeight: number
-    kWidth: number
-    kGapRatio: number
+    gapRatio: number
   }>
   /** 分时交易时段槽位数（由当前品种 market 派生，供可见区间与布局共用） */
   readonly sessionSlots$: ReadonlySignal<number>
@@ -236,8 +247,11 @@ export class ChartStateKernel extends StateKernel {
   readonly signals: Record<string, ReadonlySignal<unknown>>
   readonly actions: Record<string, (...args: any[]) => void>
 
+  private readonly definitions: DefinitionRegistry
+
   constructor(deps: ChartStateKernelDeps) {
     super()
+    this.definitions = deps.definitions
 
     // ── Options state (before zoom, since zoom reads from options) ──
     this.options = createOptionsState(deps.initialOptions)
@@ -247,19 +261,14 @@ export class ChartStateKernel extends StateKernel {
     this.mode = createChartModel(this.settings.readonly.settings)
 
     // ── Zoom state ──
-    this.zoom = createZoomState({
-      minKWidth$: computed(() => this.options.readonly.options().minKWidth),
-      maxKWidth$: computed(() => this.options.readonly.options().maxKWidth),
-      dataView$: this.mode.readonly.dataView,
-      zoomLevelCount: Math.max(2, Math.round(this.options.readonly.options.peek().zoomLevelCount)),
-    })
-    this.zoom.actions.setZoomLevel(deps.initialZoomLevel)
-
-    this.zoomLevel$ = computed(() => this.zoom.readonly.zoomLevel())
+    this.zoomConfig$ = computed(() => ({
+      minKWidth: this.options.readonly.options().minKWidth,
+      maxKWidth: this.options.readonly.options().maxKWidth,
+      zoomLevelCount: Math.max(2, Math.round(this.options.readonly.options().zoomLevelCount)),
+    }))
     this.viewportGeometry$ = computed(() => ({
       bottomAxisHeight: this.options.readonly.options().bottomAxisHeight,
-      kWidth: this.zoom.readonly.kWidth(),
-      kGapRatio: resolveKLineGapRatio(this.settings.readonly.settings().klineDensity),
+      gapRatio: resolveKLineGapRatio(this.settings.readonly.settings().klineDensity),
     }))
 
     // ── Data state ──
@@ -272,7 +281,7 @@ export class ChartStateKernel extends StateKernel {
     this.dataLength$ = this.data.readonly.dataLength
 
     // ── Data manager state (coordination layer) ──
-    this.dataManager = createDataManagerState()
+    this.dataManager = createDataManagerState(computed(() => this.data.readonly.symbols()[0] ?? null))
     // computed() 立即求值一次，故须在 dataManager 创建之后定义
     const marketSession$ = computed(() => {
       if (!SCALE_X_STRATEGIES[this.mode.readonly.dataView()].requiresMarketSession) return null
@@ -286,7 +295,7 @@ export class ChartStateKernel extends StateKernel {
     })
 
     // ── Indicator state ──
-    this.indicator = createIndicatorState()
+    this.indicator = createIndicatorState(this.definitions)
 
     // ── Viewport state (now owned by kernel) ──
     this.viewport = createViewportState({
@@ -296,9 +305,10 @@ export class ChartStateKernel extends StateKernel {
       data$: this.data.readonly.data,
       marketSession$,
       timeShareRange$: this.data.readonly.timeShareRange,
-      zoomLevel$: this.zoomLevel$,
-      timeShareSlotWidth$: this.zoom.readonly.timeShareSlotWidth,
+      zoom$: this.zoomConfig$,
+      initialZoomLevel: deps.initialZoomLevel,
     })
+    this.zoomLevel$ = computed(() => this.viewport.readonly.zoomLevel())
 
     // ── Pane state（从 initialOptions.panes 初始化，避免 layout 与 kernel 初始不一致）──
     this.pane = createPaneState()
@@ -311,7 +321,7 @@ export class ChartStateKernel extends StateKernel {
     this.paneManager = new PaneManager({
       pane: this.pane,
       indicator: this.indicator,
-      getDefinition: getRegisteredIndicatorDefinition,
+      getDefinition: (definitionId) => this.definitions.getDefinition(definitionId),
       // 空副图回收前检查指标以外的内容；系统对象与当前标的的绘图都算占用。
       hasPaneContent: (paneId) => this.hasPaneContent(paneId),
     })
@@ -347,7 +357,11 @@ export class ChartStateKernel extends StateKernel {
           name,
           layerId: makePluginLayerId(name),
         })),
-        ...resolveIndicatorRenderers(dataView, this.indicator.readonly.instances()),
+        ...resolveIndicatorRenderers(
+          dataView,
+          this.indicator.readonly.instances(),
+          this.definitions,
+        ),
       ]
       // 原生比较 Layer 由功能集合派生，不注册成图表模式或指标实例。
       if (dataView === ChartDataViewId.KLine && this.comparison.readonly.active()) {
@@ -376,8 +390,7 @@ export class ChartStateKernel extends StateKernel {
         start: number
         end: number
       } | null>,
-      scrollLeftLogical$: this.viewport.readonly
-        .scrollLeftLogical as unknown as ReadonlySignal<number>,
+      scroll$: this.viewport.readonly.scroll as unknown as ReadonlySignal<number>,
       dpr$: this.viewport.readonly.dpr as unknown as ReadonlySignal<number>,
       scheduleDraw: deps.scheduleDraw,
     })
@@ -385,8 +398,8 @@ export class ChartStateKernel extends StateKernel {
     // ── Flat signals bag for framework adapters ──
     this.signals = {
       // Zoom
-      zoomLevel: this.zoom.readonly.zoomLevel,
-      kWidth: this.zoom.readonly.kWidth,
+      zoomLevel: this.viewport.readonly.zoomLevel,
+      kWidth: computed(() => this.viewport.readonly.viewSnapshot().kWidth),
       kGap: this.viewport.readonly.kGap,
       // Data
       data: this.data.readonly.data,
@@ -399,7 +412,7 @@ export class ChartStateKernel extends StateKernel {
       viewport: this.viewport.readonly.viewport,
       viewportState: this.viewport.readonly.viewportState,
       visibleRange: this.viewport.readonly.visibleRange,
-      scrollLeftLogical: this.viewport.readonly.scrollLeftLogical,
+      scroll: this.viewport.readonly.scroll,
       // Pane
       paneRatios: this.pane.readonly.paneRatios,
       paneSpecs: this.pane.readonly.paneSpecs,
@@ -436,7 +449,7 @@ export class ChartStateKernel extends StateKernel {
 
     // ── Flat actions bag for framework adapters ──
     this.actions = {
-      setZoomLevel: (level: number) => this.zoom.actions.setZoomLevel(level),
+      setZoomLevel: (level: number) => this.viewport.actions.commitZoom(level),
       setSymbols: (symbols: ReadonlyArray<SymbolSpec>) => {
         const snapshot = symbols.map((symbol) => ({ ...symbol }))
         const previous = this.data.readonly.symbols.peek()[0]
@@ -530,14 +543,6 @@ export class ChartStateKernel extends StateKernel {
       )
   }
 
-  setViewportDomDeps(deps: ViewportDomDeps): void {
-    this.viewport.setDomDeps(deps)
-  }
-
-  initViewport(): void {
-    this.viewport.actions.init()
-  }
-
   /** 返回两个视图工作区的用户配置快照，排除由 mode 管理的系统实例。 */
   snapshotViewWorkspaces(): LayoutWorkspaces {
     const indicatorWorkspaces = this.indicator.readonly.configurations.peek()
@@ -590,7 +595,7 @@ export class ChartStateKernel extends StateKernel {
       drawings: this.drawing.readonly.drawings.peek(),
       systemObjects: this.systemObjects.readonly.state.peek(),
       favoriteIndicatorIds: this.indicator.readonly.favoriteIndicatorIds.peek(),
-      viewport: this.dataManager.readonly.viewportSnapshots.peek(),
+      viewport: this.viewMemory.exportMap(),
     })
   }
 
@@ -613,7 +618,7 @@ export class ChartStateKernel extends StateKernel {
   }
 
   /** 布局和用户指标在一次 batch 中恢复，再重建当前视图的系统实例。 */
-  applyLayout(document: LayoutDocument): void {
+  applyLayout(document: LayoutDocument, dataView = this.mode.readonly.dataView.peek()): void {
     const stored = document.currentSymbol
     const symbol =
       stored === undefined
@@ -637,8 +642,7 @@ export class ChartStateKernel extends StateKernel {
         [],
       )
       this.systemObjects.actions.restore(document.systemObjects)
-      this.dataManager.actions.restoreViewportSnapshots(document.viewport ?? {})
-      this.actions.setDataView(this.mode.readonly.dataView.peek())
+      this.actions.setDataView(dataView)
     })
   }
 
@@ -683,7 +687,6 @@ export class ChartStateKernel extends StateKernel {
   dispose(): void {
     this.footprint.dispose()
     this.options.dispose()
-    this.zoom.dispose()
     this.data.dispose()
     this.viewport.dispose()
     this.pane.dispose()
@@ -693,11 +696,8 @@ export class ChartStateKernel extends StateKernel {
     this.drawing.dispose()
     this.systemObjects.dispose()
     this.interaction.dispose()
-    this.dataManager.dispose()
     this.comparison.dispose()
     this.indicator.dispose()
     this.renderer.dispose()
   }
 }
-
-export type ChartStateKernelModule = ChartStateKernel

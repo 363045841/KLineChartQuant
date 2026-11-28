@@ -321,7 +321,7 @@ export function createDrawingMethods(chart: Chart, isDisposed: () => boolean) {
   function getKWidthKGap(): { kWidth: number; kGap: number } {
     if (isDisposed()) return { kWidth: 0, kGap: 0 }
     return {
-      kWidth: chart.kernel.zoom.readonly.kWidth.peek(),
+      kWidth: chart.kernel.viewport.readonly.viewSnapshot.peek().kWidth,
       kGap: chart.kernel.viewport.readonly.kGap.peek(),
     }
   }

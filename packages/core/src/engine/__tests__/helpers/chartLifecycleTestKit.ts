@@ -1,12 +1,42 @@
 /**
  * Chart 集成测试夹具：默认选项、图表挂载、三窗格布局、指针事件与共用钩子。
- * 仅供 engine/__tests__ 下的 *.test.ts 消费。
+ * 每次挂载都会创建独立的定义注册表与 runtime，用例通过返回值持有它们。
  */
-import { afterEach, beforeAll, beforeEach, vi } from 'vitest'
+import { afterEach, beforeEach, vi } from 'vitest'
 import { Chart, type ChartOptions } from '@/core/chart/index'
-import { loadBuiltinIndicators } from '@/core/indicators/registerBuiltins'
+import { MarketDataContext } from '@/data/management/context'
+import { createTestDefinitions } from '@/core/indicators/__tests__/helpers/definitionsTestKit'
+import { testProviderRegistry } from '@/engine/data/__tests__/helpers/chartDataManagerTestKit'
 import { MAIN_PANE_ID } from '@/core/pane/types'
+import { createMarketRuntime } from '@/engine/runtime/index'
+import type { DefinitionRegistry } from '@/engine/indicators/registry/index'
+import { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry'
+import { systemClock } from '@/foundation/utils/clock'
 import { createChartDom, installChartDomStubs } from './chartDomTestKit'
+
+/** Chart 构造函数的 runtime 参数。 */
+type ChartRuntime = ConstructorParameters<typeof Chart>[2]
+
+/**
+ * 创建测试 Chart runtime。
+ *
+ * @param overrides 用例显式覆盖的依赖；未覆盖时每次创建独立注册表与行情宿主。
+ * @returns 完整 runtime
+ */
+export function createTestChartRuntime(overrides: Partial<ChartRuntime> = {}): ChartRuntime {
+  const definitions = overrides.definitions ?? createTestDefinitions()
+  const marketSessionRegistry = overrides.marketSessionRegistry ?? new MarketSessionRegistry()
+  const marketDataContext = overrides.marketDataContext ?? new MarketDataContext(testProviderRegistry)
+  const runtime = createMarketRuntime({ market: marketDataContext, definitions, clock: systemClock })
+  return {
+    calculationHub: runtime.calculation,
+    marketSessionRegistry,
+    marketDataContext,
+    data: runtime.data,
+    definitions,
+    ...overrides,
+  }
+}
 
 /** 不含行情选择时的图表选项；用例只验证独立于行情的职责。 */
 export const defaultOptions: ChartOptions = {
@@ -20,13 +50,31 @@ export const defaultOptions: ChartOptions = {
   priceLabelWidth: 60,
 }
 
-/** 创建不选择行情的图表；这些用例只验证独立于行情的职责。 */
-export function mountChart(
-  width = 1000,
-  height = 600,
-  runtime?: ConstructorParameters<typeof Chart>[2],
-): Chart {
-  return new Chart(createChartDom(width, height), defaultOptions, runtime)
+/** 挂载参数：尺寸与 runtime 覆盖项平铺。 */
+export interface MountChartOptions extends Partial<ChartRuntime> {
+  readonly width?: number
+  readonly height?: number
+}
+
+/** 挂载结果：用例通过 definitions 注册本次需要的指标。 */
+export interface MountedChart {
+  readonly chart: Chart
+  readonly definitions: DefinitionRegistry
+}
+
+/**
+ * 创建不选择行情的图表；这些用例只验证独立于行情的职责。
+ *
+ * @param options 尺寸与 runtime 覆盖项
+ * @returns 图表与本次挂载使用的定义注册表
+ */
+export function mountChart(options: MountChartOptions = {}): MountedChart {
+  const { width = 1000, height = 600, ...runtimeOverrides } = options
+  const runtime = createTestChartRuntime(runtimeOverrides)
+  return {
+    chart: new Chart(createChartDom(width, height), defaultOptions, runtime),
+    definitions: runtime.definitions,
+  }
 }
 
 /** 三窗格布局供比例、命中、拖拽和批量顺序回归共用。 */
@@ -56,10 +104,9 @@ export function pointerEvent(
   return event
 }
 
-/** 注册 Chart 集成用例共用的钩子：内置指标、DOM 替身与 mock 清理。 */
+/** 注册 Chart 集成用例共用的钩子：DOM 替身与 mock 清理。 */
 export function installChartTestHooks(): void {
   let restore: (() => void) | null = null
-  beforeAll(loadBuiltinIndicators)
   beforeEach(() => {
     restore = installChartDomStubs()
   })

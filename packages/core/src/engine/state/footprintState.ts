@@ -1,10 +1,10 @@
 /** 足迹主序列状态：从行情、视图和设置派生输入，集中保存异步聚合结果。 */
-import { seriesSelectionKey } from '@/data/buffer/impl/seriesRepository.js'
+import { seriesSelectionKey } from '@/data/buffer/seriesSelection.js'
 import { TRADE_STATUS } from '@/data/trades/types.js'
 import type { ChartSettings } from '@/foundation/config/chartSettings.js'
 import { computed, createSubState, type ReadonlySignal } from '@/foundation/reactivity/signal.js'
 import { ChartDataViewId, type ChartDataView } from '@/engine/chartModel/index.js'
-import { supportsRawTradeStream } from '@/engine/data/marketRuntime/types.js'
+import { supportsRawTradeStream } from '@/engine/data/series/types.js'
 import {
   FOOTPRINT_DEFAULT_PARAMS,
   FOOTPRINT_SHAPE,

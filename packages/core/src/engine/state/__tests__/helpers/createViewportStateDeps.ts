@@ -1,8 +1,7 @@
 /**
  * viewportState 测试的依赖夹具。
  *
- * 用真实 signal 构造依赖，替代各用例手写的 `() => value as any`，
- * 让依赖形状在编译期受 `ViewportSignalDeps` 约束。
+ * 依赖方向是单向的：几何只声明轴高与密度，缩放级别由导航持有。
  */
 
 import type { TimeShareRange } from '@/data/provider/types'
@@ -13,35 +12,33 @@ import type { ChartSeriesDatum } from '@/foundation/types/price'
 import type { MarketSessionConfig } from '@/foundation/utils/sessionTimeLabels'
 import { ASHARE_MARKET_SESSION } from '@/foundation/utils/timeShareAxisLabels'
 
-/** 测试用视口几何输入：缩放宽度与密度系数由调用方声明，间隙由策略派生。 */
+/** 视口几何输入：只有轴高与密度系数。 */
 export interface TestViewportGeometry {
   bottomAxisHeight: number
-  kWidth: number
-  kGapRatio: number
+  gapRatio: number
 }
 
 /** `createViewportStateDeps` 的覆盖项。 */
 export interface ViewportStateDepsOverrides {
-  /** 视口几何输入覆盖，与默认值浅合并。 */
   geometry?: Partial<TestViewportGeometry>
-  /** 数据长度，默认 100。 */
   dataLength?: number
-  /** 周期，默认 daily。 */
   period?: string
-  /** 缩放级别，默认 5。 */
-  zoomLevel?: number
+  initialZoomLevel?: number
+  zoomLevelCount?: number
+  minKWidth?: number
+  maxKWidth?: number
 }
 
 /**
  * 构造 viewportState 的 signal 依赖，返回可写 signal 供用例改写。
- * @param overrides 覆盖默认依赖值。
- * @returns 满足 ViewportSignalDeps 的可写 signal 集合。
+ *
+ * @param overrides 覆盖默认依赖值
+ * @returns 满足 ViewportSignalDeps 的可写 signal 集合
  */
 export function createViewportStateDeps(overrides: ViewportStateDepsOverrides = {}) {
   const geometry$ = createSignal<TestViewportGeometry>({
     bottomAxisHeight: 30,
-    kWidth: 8,
-    kGapRatio: KLINE_GAP_RATIOS.standard,
+    gapRatio: KLINE_GAP_RATIOS.standard,
     ...overrides.geometry,
   })
   const dataLength$ = createSignal(overrides.dataLength ?? 100)
@@ -63,14 +60,19 @@ export function createViewportStateDeps(overrides: ViewportStateDepsOverrides = 
   )
   const marketSession$ = createSignal<MarketSessionConfig | null>(ASHARE_MARKET_SESSION)
   const timeShareRange$ = createSignal<TimeShareRange | null>(null)
-  const zoomLevel$ = createSignal(overrides.zoomLevel ?? 5)
+  const zoom$ = createSignal({
+    minKWidth: overrides.minKWidth ?? 1,
+    maxKWidth: overrides.maxKWidth ?? 100,
+    zoomLevelCount: overrides.zoomLevelCount ?? 20,
+  })
   return {
     geometry$,
     dataLength$,
-    zoomLevel$,
     dataView$,
     data$,
     marketSession$,
     timeShareRange$,
+    zoom$,
+    initialZoomLevel: overrides.initialZoomLevel ?? 5,
   }
 }

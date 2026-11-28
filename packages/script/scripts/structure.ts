@@ -1,9 +1,11 @@
 /** 市场结构：确认摆动点后标记 HH/HL/LH/LL，首次收盘突破区分 BOS 与 CHoCH。 */
-let previousHigh = Number.NaN
-let previousLow = Number.NaN
-let swingHigh: SwingPoint | null = null
-let swingLow: SwingPoint | null = null
-let trend = 0
+const acc = state({
+  previousHigh: Number.NaN,
+  previousLow: Number.NaN,
+  swingHigh: null as SwingPoint | null,
+  swingLow: null as SwingPoint | null,
+  trend: 0,
+})
 
 /** 已确认的摆动点；index 为图表下标，price 为极值。 */
 type SwingPoint = { readonly index: number; readonly price: number }
@@ -41,35 +43,37 @@ function trackSwings(config: StructureConfig): void {
   const pivotLow = ta.pivotlow(low, config.leftBars, config.rightBars)[0]
   const index = barIndex - config.rightBars
   if (Number.isFinite(pivotHigh)) {
-    swingHigh = { index, price: pivotHigh }
+    acc.swingHigh = { index, price: pivotHigh }
     if (config.showSwings)
       mark(
         index,
         pivotHigh,
-        swingLabel(pivotHigh, previousHigh, true),
+        swingLabel(pivotHigh, acc.previousHigh, true),
         config.bearColor,
         LABEL_OFFSET,
       )
-    previousHigh = pivotHigh
+    acc.previousHigh = pivotHigh
   }
   if (Number.isFinite(pivotLow)) {
-    swingLow = { index, price: pivotLow }
+    acc.swingLow = { index, price: pivotLow }
     if (config.showSwings)
       mark(
         index,
         pivotLow,
-        swingLabel(pivotLow, previousLow, false),
+        swingLabel(pivotLow, acc.previousLow, false),
         config.bullColor,
         -LABEL_OFFSET,
       )
-    previousLow = pivotLow
+    acc.previousLow = pivotLow
   }
 }
 
 /** 收盘价越过最近摆动点时给出突破点与方向；未突破返回 undefined。 */
 function readBreakout(): { point: SwingPoint; direction: 1 | -1 } | undefined {
-  if (swingHigh !== null && close[0] > swingHigh.price) return { point: swingHigh, direction: 1 }
-  if (swingLow !== null && close[0] < swingLow.price) return { point: swingLow, direction: -1 }
+  if (acc.swingHigh !== null && close[0] > acc.swingHigh.price)
+    return { point: acc.swingHigh, direction: 1 }
+  if (acc.swingLow !== null && close[0] < acc.swingLow.price)
+    return { point: acc.swingLow, direction: -1 }
   return undefined
 }
 
@@ -126,11 +130,11 @@ defineIndicator({
     trackSwings(config)
     const breakout = readBreakout()
     if (!breakout) return
-    const reversal = trend !== 0 && trend !== breakout.direction
+    const reversal = acc.trend !== 0 && acc.trend !== breakout.direction
     if (reversal ? config.showChoch : config.showBos)
       drawBreak(config, breakout.point, breakout.direction, reversal)
-    trend = breakout.direction
-    if (breakout.direction === 1) swingHigh = null
-    else swingLow = null
+    acc.trend = breakout.direction
+    if (breakout.direction === 1) acc.swingHigh = null
+    else acc.swingLow = null
   },
 })

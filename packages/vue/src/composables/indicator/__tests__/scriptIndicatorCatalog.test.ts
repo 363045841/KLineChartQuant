@@ -3,12 +3,25 @@ import 'fake-indexeddb/auto'
 
 import {
   type ChartController,
+  createIndicatorCatalog,
   createIndicatorSelectorController,
   findIndicatorDefinition,
-  indicatorCatalog,
 } from '@363045841yyt/klinechart-core/controllers'
-import { createScriptService, type ScriptService } from '@363045841yyt/klinechart-script-chart'
-import { useIndicatorParams } from '@vue-src/components/indicator/params/impl/useIndicatorParams.js'
+import type { QuickJSLibrary } from '@363045841yyt/klinechart-script'
+import {
+  COMPILER_WORKER_URL,
+  createScriptWorkerPool,
+  fromEventTarget,
+  SCRIPT_WORKER_URL,
+} from '@363045841yyt/klinechart-script/worker'
+import { createIndexedDbScriptPersistence } from '@363045841yyt/klinechart-script-chart/browser'
+import {
+  createScriptService as createService,
+  type ScriptService,
+  type ScriptServiceOptions,
+} from '@363045841yyt/klinechart-script-chart'
+import { createDefinitionRegistry } from '@363045841yyt/klinechart-core'
+import { useParams } from '@vue-src/components/params/impl/useParams.js'
 import { coreSignalToVueRef } from '@vue-src/utils/signalBridge.js'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { effectScope, ref } from 'vue'
@@ -18,23 +31,47 @@ import { useScriptRemoval } from '../useScriptRemoval.js'
 
 vi.stubGlobal('Worker', NodeScriptWorker)
 
+/** 用例只声明差异：线程与存储由浏览器默认实现补齐。 */
+function createScriptService(
+  libraries: readonly QuickJSLibrary[],
+  options: Omit<
+    ScriptServiceOptions,
+    'builtinSources' | 'createWorkerPool' | 'persistence'
+  > &
+    Partial<Pick<ScriptServiceOptions, 'builtinSources' | 'createWorkerPool' | 'persistence'>>,
+): Promise<ScriptService> {
+  return createService(libraries, {
+    builtinSources: [],
+    persistence: createIndexedDbScriptPersistence(),
+    createWorkerPool: (runtime) =>
+      createScriptWorkerPool({
+        ...runtime,
+        size: 2,
+        createThread: () => fromEventTarget(new Worker(SCRIPT_WORKER_URL)),
+        createCompilerThread: () => fromEventTarget(new Worker(COMPILER_WORKER_URL)),
+      }),
+    ...options,
+  })
+}
+
 describe('Script selector catalog', () => {
   let scripts: ScriptService
+  const definitions = createDefinitionRegistry()
   beforeAll(async () => {
-    scripts = await createScriptService()
+    scripts = await createScriptService([], { definitions })
   })
   afterAll(() => scripts.dispose())
 
   /** 选择器目录直接读注册表投影，测试无需再手动刷新。 */
   function createSelector() {
-    return createIndicatorSelectorController({ catalog: indicatorCatalog })
+    return createIndicatorSelectorController({ catalog: createIndicatorCatalog(definitions) })
   }
 
   it('宿主注册现有平均脚本后，目录将它列为主图用户脚本', async () => {
     const created = await scripts.create(
       `defineIndicator({ version: 2, name: 'OC Average', position: 'main', inputs: {}, onBar() {} })`,
     )
-    expect(findIndicatorDefinition('OC Average')).toMatchObject({
+    expect(findIndicatorDefinition(definitions, 'OC Average')).toMatchObject({
       id: created.id,
       label: 'OC Average',
       source: 'script',
@@ -47,7 +84,7 @@ describe('Script selector catalog', () => {
     const created = await scripts.create(
       `defineIndicator({ version: 2, name: 'OC Display', title: 'OC 展示名', info: 'OC 说明', position: Position.sub, inputs: {}, onBar() {} })`,
     )
-    expect(findIndicatorDefinition('OC Display')).toMatchObject({
+    expect(findIndicatorDefinition(definitions, 'OC Display')).toMatchObject({
       id: created.id,
       label: 'OC Display',
       name: 'OC 展示名',
@@ -68,7 +105,7 @@ describe('Script selector catalog', () => {
       { key: 'text', label: 'text', type: 'string', default: 'close' },
       { key: 'enabled', label: 'enabled', type: 'boolean', default: false },
     ])
-    const available = scope.run(() => coreSignalToVueRef(indicatorCatalog))!
+    const available = scope.run(() => coreSignalToVueRef(createIndicatorCatalog(definitions)))!
     const groups = scope.run(() =>
       useIndicatorFavorites(ref<ChartController | null>(null), available),
     )!
@@ -84,9 +121,9 @@ describe('Script selector catalog', () => {
       text: 'close',
       enabled: false,
     })
-    const params = findIndicatorDefinition(definition.id)!.inputs
+    const params = findIndicatorDefinition(definitions, definition.id)!.inputs
     scope.run(() => {
-      const draft = useIndicatorParams({ visible: true, values: {}, params })
+      const draft = useParams({ visible: true, values: {}, params })
       draft.onReset()
       expect(draft.localValues.value).toEqual({ period: 5, text: 'close', enabled: false })
     })
@@ -120,14 +157,14 @@ describe('Script selector catalog', () => {
     },
   ])('输入声明映射为参数：$label', async ({ source, params }) => {
     const created = await scripts.create(source)
-    expect(findIndicatorDefinition(created.id)!.inputs).toEqual(params)
+    expect(findIndicatorDefinition(definitions, created.id)!.inputs).toEqual(params)
   })
 
   it('更新脚本输入后目录参数随之刷新，定义数量不变也能失效缓存', async () => {
     const created = await scripts.create(
       `defineIndicator({ version: 2, name: 'UpdatableScript', position: Position.sub, onBar() { const period = input.float(3) } })`,
     )
-    expect(findIndicatorDefinition('UpdatableScript')!.inputs).toEqual([
+    expect(findIndicatorDefinition(definitions, 'UpdatableScript')!.inputs).toEqual([
       { key: 'period', label: 'period', type: 'number', default: 3 },
     ])
 
@@ -137,12 +174,12 @@ describe('Script selector catalog', () => {
         onBar() { const period = input.float(7); const label = input.string('ma', { title: '名称' }) } })`,
       created.revision,
     )
-    expect(findIndicatorDefinition('UpdatableScript')).toBeUndefined()
-    expect(findIndicatorDefinition(created.id)).toMatchObject({
+    expect(findIndicatorDefinition(definitions, 'UpdatableScript')).toBeUndefined()
+    expect(findIndicatorDefinition(definitions, created.id)).toMatchObject({
       id: created.id,
       label: 'RenamedUpdatableScript',
     })
-    expect(findIndicatorDefinition(created.id)!.inputs).toEqual([
+    expect(findIndicatorDefinition(definitions, created.id)!.inputs).toEqual([
       { key: 'period', label: 'period', type: 'number', default: 7 },
       { key: 'label', label: '名称', type: 'string', default: 'ma' },
     ])

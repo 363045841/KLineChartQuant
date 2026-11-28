@@ -4,10 +4,7 @@ import type { TimeframeVisibility } from '@363045841yyt/klinechart-plot-contract
 import { deepFreezeSnapshot } from '@/foundation/utils/deepFreezeSnapshot.js'
 import { batch, computed, createSubState } from '../../foundation/reactivity/signal.js'
 import { ChartWorkspaceId } from '../../foundation/types/chartView.js'
-import {
-  getRegisteredIndicatorDefinition,
-  resolveIndicatorDefinitionId,
-} from '../indicators/pipeline/index.js'
+import type { DefinitionRegistry } from '../indicators/registry/index.js'
 import type { LayoutWorkspaces } from '../layout/index.js'
 
 /** 实例归属属于用户配置；无需等待指标定义即可恢复主副图位置。 */
@@ -77,6 +74,7 @@ function snapshotInstance(entry: IndicatorInstanceInput): IndicatorInstanceConfi
 
 /** 判断实例集合的 calculator 身份与参数是否一致，展示配置不参与 revision。 */
 function calculationInstancesEqual(
+  definitions: DefinitionRegistry,
   left: ReadonlyArray<IndicatorInstanceSpec>,
   right: ReadonlyArray<IndicatorInstanceSpec>,
 ): boolean {
@@ -91,7 +89,7 @@ function calculationInstancesEqual(
     ) {
       return false
     }
-    const runtime = getRegisteredIndicatorDefinition(previous.indicatorId)?.runtime
+    const runtime = definitions.getDefinition(previous.indicatorId)?.runtime
     if (!runtime) {
       const previousKeys = Object.keys(previous.params)
       const nextKeys = Object.keys(next.params)
@@ -114,7 +112,7 @@ function calculationInstancesEqual(
 }
 
 /** 创建指标实例状态，主图和副图共享 instances 这一唯一数据源。 */
-export function createIndicatorState() {
+export function createIndicatorState(definitions: DefinitionRegistry) {
   const { signals, readonly: stored } = createSubState({
     activeWorkspace: ChartWorkspaceId.KLine as ChartWorkspaceId,
     workspaces: Object.freeze({
@@ -138,7 +136,7 @@ export function createIndicatorState() {
     batch(() => {
       const workspaceId = readonly.activeWorkspace.peek()
       signals.workspaces.set(Object.freeze({ ...stored.workspaces.peek(), [workspaceId]: next }))
-      if (!calculationInstancesEqual(previous, next)) {
+      if (!calculationInstancesEqual(definitions, previous, next)) {
         signals.configRevision.set(signals.configRevision.peek() + 1)
       }
     })
@@ -171,8 +169,8 @@ export function createIndicatorState() {
     actions: {
       /** 按规范定义身份收藏或取消收藏，不修改指标实例与计算 revision。 */
       setFavorite(indicatorId: string, favorite: boolean): void {
-        const id = resolveIndicatorDefinitionId(indicatorId)
-        if (!id) return
+        const id = definitions.resolveDefinitionId(indicatorId)
+        if (!id || definitions.isAlert(id)) return
         const previous = readonly.favoriteIndicatorIds.peek()
         if (previous.includes(id) === favorite) return
         signals.favoriteIndicatorIds.set(
@@ -182,7 +180,7 @@ export function createIndicatorState() {
       /** 恢复布局收藏，规范化旧身份并去重；未知定义保留以支持稍后注册的插件。 */
       restoreFavorites(ids: ReadonlyArray<string>): void {
         signals.favoriteIndicatorIds.set(
-          Object.freeze([...new Set(ids.map((id) => resolveIndicatorDefinitionId(id) ?? id))]),
+          Object.freeze([...new Set(ids.map((id) => definitions.resolveDefinitionId(id) ?? id))]),
         )
       },
       /** 切换视图工作区；实例、参数和排序均不跨工作区同步。 */
@@ -196,7 +194,11 @@ export function createIndicatorState() {
       /** 用已校验的持久快照恢复两个工作区的用户指标。 */
       restoreWorkspaces(workspaces: LayoutWorkspaces) {
         const restore = (workspaceId: ChartWorkspaceId) =>
-          Object.freeze(workspaces[workspaceId].instances.map(snapshotInstance))
+          Object.freeze(
+            workspaces[workspaceId].instances
+              .filter((entry) => !definitions.isAlert(entry.indicatorId))
+              .map(snapshotInstance),
+          )
         const next = Object.freeze({
           kline: restore(ChartWorkspaceId.KLine),
           timeshare: restore(ChartWorkspaceId.TimeShare),

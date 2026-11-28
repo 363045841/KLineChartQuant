@@ -1,13 +1,16 @@
 /**
- * 指标模板管理：具名指标组合统一存入 IndexedDB，列表按写入顺序稳定输出。
+ * 指标模板管理：把具名指标组合统一存成一份归档，列表按写入顺序稳定输出。
  *
  * @remarks
- * 与布局管理器刻意分开存储：模板描述「用了哪些指标」，布局描述「整张图表长什么样」。
- * 合并会让切换布局带走模板，与用户预期不符。
- * 所有写操作串行执行，避免并发保存互相覆盖；读失败不阻断图表，写失败才上报。
+ * 与布局管理共用同一套归档语义：模板只描述「有哪些指标」及其参数，不记录图表上
+ * 是什么样；合并、排序与恢复都在模板层完成，避免用户预期被底层顺序打乱。
+ * 所有写入串行执行，并发不会互相覆盖；保存失败不阻塞图表的其他写入。
  */
 
-import { createDocumentStore, type DocumentStore } from '../../../foundation/persistence/index.js'
+import {
+  createIndexedDbDocumentStore,
+  type DocumentStore,
+} from '../../../foundation/persistence/index.js'
 import {
   asReadonlySignal,
   batch,
@@ -27,6 +30,7 @@ import {
   type NamedIndicatorTemplate,
   type TemplateWorkspaces,
 } from '../types.js'
+import { indicatorTemplateDatabase } from './indicatorTemplateDatabase.js'
 import { collectTemplateIndicatorIds, selectTemplateIndicators } from './templateExtract.js'
 import {
   countWorkspaceInstances,
@@ -35,7 +39,7 @@ import {
   summarizeTemplateIndicators,
 } from './templateSummary.js'
 
-/** 「最近用过」保留的条数上限。 */
+/** 最近使用列表的容量上限。 */
 const RECENT_LIMIT = 10
 
 /** 判断值是否为普通对象（排除 null 与数组）。 */
@@ -43,7 +47,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-/** 单个模板文档的最小结构校验；深入字段由恢复入口负责。 */
+/** 模板文档的最小结构校验；其余字段由恢复入口补齐。 */
 function isNamedTemplate(value: unknown): value is NamedIndicatorTemplate {
   return (
     isRecord(value) &&
@@ -54,7 +58,7 @@ function isNamedTemplate(value: unknown): value is NamedIndicatorTemplate {
   )
 }
 
-/** 归档存储校验：只保留结构完整的模板，并丢弃指向已删除模板的最近记录。 */
+/** 归档存储校验：只接受结构完整的模板，避免指标被删除时留下失效记录。 */
 function decodeArchive(value: unknown): IndicatorTemplateArchive | null {
   if (!isRecord(value) || !isRecord(value.documents)) return null
   const documents: Record<string, NamedIndicatorTemplate> = {}
@@ -67,7 +71,7 @@ function decodeArchive(value: unknown): IndicatorTemplateArchive | null {
   return { documents, recentIds }
 }
 
-/** 空名称在存储前拒绝，保持所有调用方的输入规则一致。 */
+/** 模板名在存储前拒绝空白；与界面的校验文案保持一致。 */
 function requireName(name: string): string {
   const result = name.trim()
   if (!result) throw new Error('模板名称不能为空')
@@ -76,10 +80,8 @@ function requireName(name: string): string {
 
 export class IndicatorTemplateManager implements IndicatorTemplateApi {
   private readonly archiveStore: DocumentStore<IndicatorTemplateArchive> =
-    createDocumentStore<IndicatorTemplateArchive>({
-      databaseName: '@363045841yyt/klinechart-indicator-templates',
-      version: INDICATOR_TEMPLATE_VERSION,
-      storeName: 'templates',
+    createIndexedDbDocumentStore<IndicatorTemplateArchive>({
+      database: indicatorTemplateDatabase,
       key: 'archive',
       codec: { decode: decodeArchive, encode: (value) => value },
     })
@@ -93,12 +95,12 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
   readonly currentIndicators: ReadonlySignal<ReadonlyArray<IndicatorTemplateIndicator>>
 
   /**
-   * 注入图表侧能力，管理器不持有第二份运行时状态。
+   * 注册图表读取与写入端口，构造第二层运行时状态。
    *
    * @param dependencies.extractIndicators 从当前图表提取模板需要的指标组合。
    * @param dependencies.applyIndicators 把指标组合恢复到当前图表。
-   * @param dependencies.userIndicatorConfigurations 当前两个数据视图的用户指标，供摘要派生。
-   * @param dependencies.loadIndicators 恢复前加载指标实现；不改变恢复语义。
+   * @param dependencies.userIndicatorConfigurations 当前各工作区的用户指标，用于摘要与排序。
+   * @param dependencies.loadIndicators 恢复前加载指标实现，不改变指标定义。
    */
   constructor(
     private readonly dependencies: {
@@ -108,17 +110,21 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
         Readonly<Record<ChartWorkspaceId, ReadonlyArray<IndicatorInstanceConfig>>>
       >
       loadIndicators?(indicatorIds: ReadonlyArray<string>): Promise<void>
+      definitions: import('../../indicators/registry/index.js').DefinitionRegistry
     },
   ) {
-    // 摘要与模板列表共用同一套名称汇总规则；这里只做派生，不复制指标状态。
+    // 摘要与模板列表共享同一份定义投影，只依赖注册表与当前指标状态。
     this.currentIndicators = computed(() =>
-      summarizeIndicators(Object.values(dependencies.userIndicatorConfigurations()).flat()),
+      summarizeIndicators(
+        dependencies.definitions,
+        Object.values(dependencies.userIndicatorConfigurations()).flat(),
+      ),
     )
   }
 
   // ── 归档读写 ──
 
-  /** 在单个事务内基于磁盘上的最新归档应用变更，再把结果发布到内存。 */
+  /** 在单个事务内基于内存快照更新归档，应用变更后再把结果发布回内存。 */
   private async updateArchive(
     change: (current: IndicatorTemplateArchive) => IndicatorTemplateArchive,
   ): Promise<IndicatorTemplateArchive> {
@@ -130,41 +136,44 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
     return next
   }
 
-  /** 只派生摘要，按文档写入顺序稳定输出；覆盖同名模板不改变列表位置。 */
+  /** 只发布摘要与文档写入顺序；重命名同名模板不改变列表位置。 */
   private publish(): void {
     const { documents, recentIds } = this.archive
-    const templates = Object.freeze(Object.entries(documents).map(([id, document]) =>
-      Object.freeze({
-        id,
-        name: document.name,
-        labels: Object.freeze(summarizeTemplateIndicators(document.workspaces)),
-        instanceCount: countWorkspaceInstances(document.workspaces),
-      }),
-    ))
+    const templates = Object.freeze(
+      Object.entries(documents).map(([id, document]) =>
+        Object.freeze({
+          id,
+          name: document.name,
+          labels: Object.freeze(
+            summarizeTemplateIndicators(this.dependencies.definitions, document.workspaces),
+          ),
+          instanceCount: countWorkspaceInstances(document.workspaces),
+        }),
+      ),
+    )
     batch(() => {
       this.listSignal.set(templates)
       this.recentSignal.set(Object.freeze([...recentIds]))
     })
   }
 
-  /** 找不到身份时明确失败，避免静默操作到别的模板。 */
+  /** 找不到模板时明确失败，避免静默创建空模板。 */
   private requireTemplate(id: string): NamedIndicatorTemplate {
     const document = this.archive.documents[id]
     if (!document) throw new Error('模板不存在')
     return document
   }
 
-  /** 串行处理归档操作，失败不会阻塞后续操作。 */
+  /** 串行化归档操作；单次失败不阻断后续操作。 */
   private run<T>(operation: () => Promise<T>): Promise<T> {
     const result = this.queue.then(operation)
     this.queue = result.catch(() => undefined)
     return result
   }
 
-  /** 首次读取归档；IndexedDB 不可用时抛错，由控制器转成界面文案。 */
+  /** 首次读取归档；不可用时明确失败，由界面转成可读的文案。 */
   private async load(): Promise<void> {
     if (this.loaded) return
-    if (typeof indexedDB === 'undefined') throw new Error('浏览器无法使用模板存储')
     const stored = await this.archiveStore.read()
     if (stored) this.archive = stored
     this.loaded = true
@@ -173,17 +182,17 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
 
   // ── 生命周期 ──
 
-  /** 挂载时读取归档；失败不阻断图表，列表为空。 */
+  /** 启动时读取归档；失败不把图表指标列表清空。 */
   initialize(): Promise<void> {
     return this.run(() => this.load())
   }
 
-  /** 释放存储资源；模板是显式保存的，销毁时不补写。 */
+  /** 释放存储资源；模板按显式保存语义，不做退出时的补写。 */
   async dispose(): Promise<void> {
     await this.archiveStore.dispose()
   }
 
-  // ── 领域操作 ──
+  // ── 模板操作 ──
 
   /** 查询模板列表，同时初始化归档。 */
   listTemplates(): Promise<ReadonlyArray<IndicatorTemplateSummary>> {
@@ -193,7 +202,7 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
     })
   }
 
-  /** 保存当前指标组合；同名模板按名称覆盖，不新增副本。 */
+  /** 保存当前指标组合；同名模板按名称覆盖，不产生重复项。 */
   saveTemplate(input: { name: string; indicatorIds?: ReadonlyArray<string> }): Promise<string> {
     return this.run(async () => {
       await this.load()
@@ -218,7 +227,7 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
     })
   }
 
-  /** 修改模板名称；与其它模板重名时拒绝，避免列表出现两条同名。 */
+  /** 修改模板名称；与其他模板重名时拒绝，保持列表名称唯一。 */
   renameTemplate(input: { id: string; name: string }): Promise<void> {
     return this.run(async () => {
       await this.load()
@@ -238,7 +247,7 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
     })
   }
 
-  /** 删除模板，同时把它从「最近用过」里移除。 */
+  /** 删除模板，同时从「最近使用」列表中移除。 */
   deleteTemplate(input: { id: string }): Promise<void> {
     return this.run(async () => {
       await this.load()
@@ -260,9 +269,9 @@ export class IndicatorTemplateManager implements IndicatorTemplateApi {
       await this.load()
       const template = this.requireTemplate(input.id)
       const indicatorIds = collectTemplateIndicatorIds(template.workspaces)
-      // 先加载实现再判定缺失：脚本指标注册完成后即可恢复，不必等下一次应用。
+      // 先加载实现再判断缺失；脚本指标注册完成即可恢复，失败则跳过并报告。
       await this.dependencies.loadIndicators?.(indicatorIds)
-      const skipped = findMissingIndicators(template.workspaces)
+      const skipped = findMissingIndicators(this.dependencies.definitions, template.workspaces)
       this.dependencies.applyIndicators(template.workspaces)
       await this.updateArchive((current) => {
         const recentIds = [template.id, ...current.recentIds.filter((id) => id !== template.id)]

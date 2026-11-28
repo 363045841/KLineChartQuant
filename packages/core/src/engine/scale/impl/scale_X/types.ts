@@ -1,6 +1,6 @@
 /** 横向标尺契约（scaleX）：策略、输入与所有消费者共享的不可变横向几何投影。 */
 
-import type { SymbolSpec } from '../../../../controllers/types.js'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
 import type { TimeShareRange } from '../../../../data/provider/types.js'
 import type { SlotGrid } from '../../../../foundation/geometry/slotGrid.js'
 import type { TimeShareGeometry } from '../../../../foundation/plugin/index.js'

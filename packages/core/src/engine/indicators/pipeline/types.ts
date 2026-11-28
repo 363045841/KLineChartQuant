@@ -5,9 +5,12 @@
  * 只有注册阶段写指标仓库并发出一次通知。内置脚本、用户脚本与
  * 第三方注册共用同一组契约，不允许出现旁路写入。
  */
-import type { IndicatorSourceDocument } from '@363045841yyt/klinechart-plot-contracts'
-import type { ReadonlySignal } from '@/foundation/reactivity/index.js'
-import type { ChartDataView } from '../../chartModel/index.js'
+import type {
+  IndicatorSourceDocument,
+  ScriptDefinitionKind,
+} from '@363045841yyt/klinechart-plot-contracts'
+import type { ReadonlySignal } from '@/foundation/reactivity/signal.js'
+import type { ChartDataView } from '../../../foundation/types/chartView.js'
 import type {
   IndicatorCategory,
   IndicatorInputDisplay,
@@ -31,10 +34,9 @@ export type IndicatorStageName = 'collect' | 'compile' | 'register'
  * 静态目录项：选择器、搜索与 Agent 工具结构需要的全部字段；读取时不加载实现（实现懒加载）。
  * 目录来自脚本编译或宿主显式提供的指标描述，不包含系统图层。
  */
-export interface IndicatorDescriptor {
+export type IndicatorDescriptor = ScriptDefinitionKind & {
   readonly source?: IndicatorMetadata['source']
   readonly name: string
-  readonly aliases?: readonly string[]
   readonly displayName: string
   /** 指标选择器/图例显示的长名称；缺省用 displayName。 */
   readonly title?: string
@@ -158,7 +160,7 @@ export type IndicatorCatalogRevision = ReadonlySignal<number>
  * 最近一次提交的变更摘要；没有提交时为空。
  *
  * 消费者按 `revision` 递增消费，不得假设历史提交可回放；
- * 读取完整状态请使用 `readIndicatorDescriptors` / `readRegisteredDefinitions`。
+ * 读取完整状态请使用 `readIndicatorDescriptors` / `readDefinitions`。
  */
 export type IndicatorCatalogCommitSignal = ReadonlySignal<IndicatorCatalogCommit | null>
 

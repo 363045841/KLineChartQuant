@@ -257,7 +257,10 @@
       "danger": { "$type": "color", "$value": "{dark.color.ui.danger}" },
       "neutral": { "$type": "color", "$value": "{dark.color.ui.neutral}" },
       "onAccent": { "$type": "color", "$value": "{dark.color.ui.onAccent}" },
-      "secondaryButtonText": { "$type": "color", "$value": "{dark.color.ui.secondaryButtonText}" }
+      "secondaryButtonText": { "$type": "color", "$value": "{dark.color.ui.secondaryButtonText}" },
+      "switchOn": { "$type": "color", "$value": "{dark.color.ui.switchOn}" },
+      "switchOff": { "$type": "color", "$value": "{dark.color.ui.switchOff}" },
+      "switchThumb": { "$type": "color", "$value": "{dark.color.ui.switchThumb}" }
     },
     "agent": {
       "composerControlBackground": {

@@ -4,8 +4,8 @@ import { MarketDataCache } from '../../../buffer/impl/marketDataCache.js'
 import {
   SERIES_SELECTION_KIND,
   type TradesSelection,
-} from '../../../buffer/impl/seriesRepository.js'
-import { MarketDataProviderRegistry } from '../../../provider/impl/registry.js'
+} from '../../../buffer/seriesSelection.js'
+import { MarketDataProviderRegistry } from '../../../provider/registry.js'
 import type { InstrumentDescriptor } from '../../../provider/types.js'
 import type { MarketTrade, TradeDataSource } from '../../types.js'
 
@@ -56,7 +56,7 @@ export function createTradeCache(
     catalog: { search: async () => [tradeInstrument] },
     trades: { fetch: fetchRange, connect: () => ({ subscribe: () => () => {}, close: () => {} }) },
   })
-  const cache = new MarketDataCache(registry)
+  const cache = new MarketDataCache(registry, () => [])
   const buffer = cache.getTradeBuffer(tradeSelection, tradeInstrument)
   return {
     cache,

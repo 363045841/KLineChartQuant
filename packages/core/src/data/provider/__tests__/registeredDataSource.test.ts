@@ -7,7 +7,7 @@ import {
   makeKLine,
 } from '../../../engine/data/__tests__/helpers/chartDataManagerTestKit.js'
 import type { StreamFrame, StreamTransportHandlers } from '../../stream/types.js'
-import { MarketDataContext } from '../../management/impl/context.js'
+import { MarketDataContext } from '../../management/context.js'
 import { createDataSourceFixture } from './helpers/providerTestKit.js'
 
 /** 当前打开的流；用例直接驱动传输的打开、帧与关闭。 */
@@ -43,7 +43,7 @@ function setup(realtime = true, options: MockDataDependenciesOptions = {}) {
   }
   let seq = 0
   /** 构造一根帧；序号与时间由用例侧递增，保持协议合法。 */
-  function frame(bar: import('@/controllers/types.js').KLineData): StreamFrame {
+  function frame(bar: import('@/foundation/types/bar.js').KLineData): StreamFrame {
     return {
       seq: seq++,
       ts: bar.timestamp,
@@ -109,11 +109,10 @@ describe('registered data source', () => {
     try {
       await harness.select('A')
       const stream = harness.stream()
-      const fetches = fixture.requests.length
-      const updated = { ...bars[2]!, close: bars[2]!.close + 1, high: bars[2]!.high + 1 }
-      stream.onFrame(harness.frame(updated))
-      expect(manager.getData()).toHaveLength(3)
-      expect(manager.getData()[2]?.close).toBe(updated.close)
+        const updated = { ...bars[2]!, close: bars[2]!.close + 1, high: bars[2]!.high + 1 }
+        stream.onFrame(harness.frame(updated))
+        await vi.waitFor(() => expect(manager.getData()[2]?.close).toBe(updated.close))
+        const fetches = fixture.requests.length
 
       stream.onFrame(harness.frame({ ...updated, timestamp: 400 }))
       expect(manager.getData()).toHaveLength(4)

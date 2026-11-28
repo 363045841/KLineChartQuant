@@ -5,7 +5,7 @@
  * 指标、窗格、绘图与视口只由 Core Layout 保存，不在标签存储中重复持有。
  */
 import { generateUUID } from '@363045841yyt/klinechart-core'
-import type { SymbolSpec } from '@363045841yyt/klinechart-core/controllers'
+import type { SymbolSpec } from '@363045841yyt/klinechart-core'
 
 import { isSymbolSpec, type WorkspaceTab } from '../types.js'
 

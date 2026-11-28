@@ -1,10 +1,8 @@
 /** 缩放手势协调：所有入口通过同一槽位变换原子提交视口。 */
-import { batch } from '../../foundation/reactivity/signal.js'
 import type { ChartDataView } from '../../foundation/types/chartView.js'
 import { SCALE_X_STRATEGIES, type ScaleXSnapshot } from '../scale/index.js'
 import type { OptionsStateModule } from '../state/optionsState.js'
 import type { ViewportStateModule } from '../state/viewportState.js'
-import type { ZoomStateModule } from '../state/zoomState.js'
 import { clampZoomLevel, zoomLevelToKWidth } from './zoom.js'
 
 /** 临界阻尼响应速度（每毫秒）及连续轨迹到达精确终点的时间。 */
@@ -49,6 +47,7 @@ export interface ZoomDependencies {
   viewport: ViewportStateModule
   options: OptionsStateModule
   onChange?: () => void
+  onFinish?: () => void
   onStart?: () => void
 }
 
@@ -172,6 +171,7 @@ export class ChartZoomController {
     if (motion.finalFrame) {
       this.stopAnimation()
       this.deps.onChange?.()
+      this.deps.onFinish?.()
       return
     }
     const elapsed = Math.max(0, Math.min(ZOOM_DURATION_MS, time - motion.started))
@@ -217,15 +217,12 @@ export class ChartZoomController {
     }
     return motion.targetLevel
   }
-  /** 注入唯一的缩放状态与视口状态。 */
-  constructor(
-    private readonly deps: ZoomDependencies,
-    private readonly zoomState: ZoomStateModule,
-  ) {}
+  /** 注入视口与选项；导航是唯一状态来源。 */
+  constructor(private readonly deps: ZoomDependencies) {}
 
   /** 当前缩放级别。 */
   get currentZoomLevel(): number {
-    return this.zoomState.readonly.zoomLevel.peek()
+    return this.deps.viewport.readonly.zoomLevel.peek()
   }
 
   /** 当前 K 线宽度。 */
@@ -243,6 +240,7 @@ export class ChartZoomController {
     this.stopAnimation()
     this.deps.onStart?.()
     this.applyZoom(level, anchorX)
+    this.deps.onFinish?.()
   }
 
   /** 围绕指针槽位放大一级。 */
@@ -268,6 +266,7 @@ export class ChartZoomController {
     this.stopAnimation()
     this.deps.onStart?.()
     this.applyZoom(level, viewportX, true)
+    this.deps.onFinish?.()
   }
 
   /** 维护滚轮手势类型：空闲超时或非像素模式结束跟手，细粒度输入开启跟手。 */
@@ -349,11 +348,12 @@ export class ChartZoomController {
     const nextInput = strategy.zoomInput(input, target - this.currentZoomLevel, kWidth)
     const after = strategy.project(nextInput)
     const nextScroll = after.grid.origin + anchorSlot * after.grid.step - anchorX
-    batch(() => {
-      this.zoomState.actions.setSessionSlotWidth(nextInput.sessionSlotWidth)
-      this.zoomState.actions.setZoomProgress(target)
-      // 导航保留连续锚点变换；显示中心只在共享快照中量化一次。
-      this.deps.viewport.actions.setNavigation(strategy.navigate(after, nextScroll))
+    // 缩放、槽宽与滚动是一次导航提交，渲染只看到提交后的几何。
+    viewport.actions.commit({
+      kind: 'slots',
+      scroll: nextScroll,
+      zoomLevel: target,
+      sessionSlotWidth: nextInput.sessionSlotWidth,
     })
     this.deps.onChange?.()
   }

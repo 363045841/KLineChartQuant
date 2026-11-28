@@ -38,7 +38,7 @@ data/
 - `impl/marketDataPolicy.ts`：页大小、初始窗口和重试退避策略。
 - `impl/kLineDataStore.ts` / `impl/uniqueTimestampIndex.ts`：K 线快照合并与时间轴索引。
 
-UI、Agent 与 `ChartDataManager` 都通过同一 `MarketDataCache` 取数；缓冲对象不接收 fetcher。
+UI、Agent 与图表都通过同一 `MarketDataService` 取数；缓存与在途请求由服务持有，缓冲对象不接收 fetcher。
 
 ### depth/ — 深度数据
 
@@ -96,7 +96,7 @@ UI、Agent 与 `ChartDataManager` 都通过同一 `MarketDataCache` 取数；缓
 
 ## 取数路径
 
-图表运行时只走 Provider 路径：`ChartDataManager` 通过 `SourceRouter` 选择已注册的 `MarketDataProvider`。聚合源管理 UI 只展示 Provider 注册表。内置源应实现为 Provider 并加入 `provider/impl/sources/builtinProviders.ts` 的清单（默认宿主与独立宿主共用）；外部源走 `MarketDataContext.registerDataSource`。
+图表与计算取数时只走 Provider 路径：`MarketDataService` 通过 `MarketDataCache` 里的 `SourceRouter` 选择已注册的 `MarketDataProvider`。聚合源管理 UI 只展示 Provider 注册表。内置源应实现为 Provider 并加入 `provider/impl/sources/builtinProviders.ts` 的清单（默认宿主与独立宿主共用）；外部源走 `MarketDataContext.registerDataSource`。
 
 ## 公共导出
 

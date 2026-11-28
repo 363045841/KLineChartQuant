@@ -1,17 +1,16 @@
-/** 使用真实 Chart 验证主品种整体替换的市场会话与写入前校验。 */
+/** 使用真实 Chart 验证主品种整体替换的数据视图切换与写入前校验。 */
 // @vitest-environment jsdom
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   FIVE_DAY_TIME_SHARE_PERIOD,
-  type SymbolSpec,
   TIME_SHARE_PERIOD,
 } from '../../controllers/types'
-import { HK_MARKET_SESSION } from '../../foundation/utils/sessionTimeLabels'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
 import { Chart, type ChartOptions } from '../chart/index'
 import { ChartDataViewId } from '../chartModel/index'
-import { loadBuiltinIndicators } from '../indicators/registerBuiltins'
 import { MAIN_PANE_ID } from '../pane/types'
 import { createChartDom, installChartDomStubs } from './helpers/chartDomTestKit'
+import { createTestChartRuntime } from './helpers/chartLifecycleTestKit'
 
 const options: ChartOptions = {
   yPaddingPx: 0,
@@ -50,11 +49,10 @@ describe('Chart market validation boundaries', () => {
   let chart: Chart
   let restoreDom: () => void
 
-  beforeAll(loadBuiltinIndicators)
-  beforeEach(() => {
+  beforeEach(async () => {
     restoreDom = installChartDomStubs()
-    chart = new Chart(createChartDom(1000, 600), options)
-    chart.setPrimaryMarket(currentSpec())
+    chart = new Chart(createChartDom(1000, 600), options, createTestChartRuntime())
+    await chart.setPrimaryMarket(currentSpec())
   })
   afterEach(async () => {
     await chart.destroy()
@@ -80,20 +78,9 @@ describe('Chart market validation boundaries', () => {
         target.setPrimaryMarket(withSelection({ period: TIME_SHARE_PERIOD }), { date: 20260728 }),
       view: ChartDataViewId.TimeShare,
     },
-  ])('configures HK session through $name', ({ run, view }) => {
+  ])('switches to $view through $name', ({ run, view }) => {
     run(chart)
-    expect(chart['_timeShareMode'].marketSession).toEqual(HK_MARKET_SESSION)
     expect(chart.kernel.mode.readonly.dataView.peek()).toBe(view)
-  })
-
-  it('does not resolve a session for a non-timeshare selection', () => {
-    const session = vi.spyOn(chart['_timeShareMode'], 'setMarketSession')
-    chart.setPrimaryMarket(
-      withSelection({
-        instrument: { ...currentSpec().instrument, exchange: 'FUTURES', sessionId: 'FUTURES' },
-      }),
-    )
-    expect(session).not.toHaveBeenCalled()
   })
 
   it('rejects unknown timeshare market before changing the selection', () => {
@@ -148,7 +135,7 @@ describe('Chart market validation boundaries', () => {
     expect(changed).not.toHaveBeenCalled()
   })
 
-  it('switches the symbol, active buffer and public selection together', () => {
+  it('switches the symbol, active buffer and public selection together', async () => {
     const oldBuffer = chart.kernel.data.readonly.activeSelection.peek()
     const snapshots: unknown[] = []
     chart.symbols.subscribe(() =>
@@ -159,7 +146,7 @@ describe('Chart market validation boundaries', () => {
       ]),
     )
     // 换品种必须整体替换身份：旧 instrument 不能带进新品种。
-    chart.setPrimaryMarket({
+    await chart.setPrimaryMarket({
       instrument: {
         id: 'session-fixture:HK:00700',
         source: 'session-fixture',

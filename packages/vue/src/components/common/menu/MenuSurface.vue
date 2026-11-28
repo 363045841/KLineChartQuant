@@ -9,7 +9,7 @@
       class="drop-menu__panel popover-surface popover-surface--scroll klc-overlay"
       :class="{ 'drop-menu__panel--compact': density === 'compact' }"
       v-bind="popover.panelBindings.value"
-      role="menu"
+      :role="semantics ?? 'menu'"
       :aria-label="label"
       @keydown="onMenuKeydown"
       @focusout="onMenuFocusOut"
@@ -37,7 +37,7 @@
                 class="drop-menu__item"
                 :data-group-id="group.id"
                 :data-item-id="item.id"
-                @pointerenter="onItemPointerEnter(item, $event)"
+                @pointerenter="onItemPointerEnter(group.id, item, $event)"
                 @pointerleave="onItemPointerLeave"
               >
                 <slot
@@ -48,9 +48,10 @@
                 >
                   <DropMenuItemButton
                     :item="item"
+                    :semantics="semantics"
                     :show-icon="hasMainIcons"
                     :show-check="false"
-                    :expanded="item.children?.length ? isSubmenuOpen(item) : undefined"
+                    :expanded="item.children?.length ? isSubmenuOpen(group.id, item) : undefined"
                     @activate="activateItem(group.id, item)"
                   />
                 </slot>
@@ -96,7 +97,7 @@
             <DropMenuItemButton
               :item="child"
               :show-icon="hasSubmenuIcons"
-              @activate="selectSubmenuItem(openSubmenuGroupId, openSubmenuItem, child)"
+              @activate="selectSubmenuItem(child)"
             />
           </div>
         </div>
@@ -125,7 +126,12 @@
   } from 'vue'
   import DropMenuCheck from './DropMenuCheck.vue'
   import DropMenuItemButton from './DropMenuItemButton.vue'
-  import type { DropMenuGroup, DropMenuItem, MenuAnchor } from './dropMenuTypes.js'
+  import type {
+    DropMenuGroup,
+    DropMenuItem,
+    MenuAnchor,
+    MenuPopupSemantics,
+  } from './dropMenuTypes.js'
 
   const props = defineProps<{
     /** 是否展开；面板不持有开关状态。 */
@@ -150,6 +156,8 @@
     restoreFocusTo?: HTMLElement | null
     /** 打开后把焦点移入首个可用项；指针打开的面板保持 false。 */
     focusOnOpen?: boolean
+    /** 面板语义：纯菜单项用 menu；含行内按钮或输入时用 dialog。 */
+    semantics?: MenuPopupSemantics
   }>()
 
   const emit = defineEmits<{
@@ -181,10 +189,7 @@
     menuRef,
     () => {
       emit('open')
-      // 指针打开的面板只预置 tabindex，避免菜单项常驻 hover 高亮；键盘打开才移入焦点。
-      // 优先落到已勾选项：单选项里它就是当前值，键盘继续用方向键即可切换。
-      if (props.focusOnOpen) roving.focusFirst(CHECKED_ITEM_SELECTOR)
-      else roving.prime(CHECKED_ITEM_SELECTOR)
+      applyInitialFocus()
     },
     () => {
       emit('close')
@@ -195,7 +200,7 @@
   watch(
     () => props.focusOnOpen,
     (focus) => {
-      if (focus && popover.open.value) focusFirst()
+      if (focus && popover.open.value) applyInitialFocus()
     },
     { flush: 'post' },
   )
@@ -212,45 +217,58 @@
   const SUBMENU_CLOSE_DELAY = 160
   let submenuTimer: ReturnType<typeof setTimeout> | undefined
 
-  // 同一时间只展开一个二级菜单；只保存 id，子项内容始终从最新的 groups 派生。
-  const openSubmenuItemId = shallowRef<string | null>(null)
-  const openSubmenuGroupId = shallowRef<string | null>(null)
-  const submenuAnchor = shallowRef<HTMLElement | null>(null)
-  const submenuStyle = shallowRef<CSSProperties>({ display: 'none' })
+  /** 当前展开的子菜单；只存身份与焦点目标，子项内容仍从最新 groups 派生。 */
+  interface OpenSubmenu {
+    readonly groupId: string
+    readonly itemId: string
+    readonly focusTarget: HTMLElement
+  }
+
+  const HIDDEN_SUBMENU_STYLE: CSSProperties = { display: 'none' }
+  const openSubmenu = shallowRef<OpenSubmenu | null>(null)
+  const submenuStyle = shallowRef<CSSProperties>(HIDDEN_SUBMENU_STYLE)
   let submenuPosition: AbortController | undefined
   const openSubmenuItem = computed(() => {
-    const group = groups.value.find((group) => group.id === openSubmenuGroupId.value)
-    return group?.items.find((item) => item.id === openSubmenuItemId.value) ?? null
+    const state = openSubmenu.value
+    if (!state) return null
+    return (
+      groups.value
+        .find((group) => group.id === state.groupId)
+        ?.items.find((item) => item.id === state.itemId) ?? null
+    )
   })
-  // 图标槽位只在确实有图标或状态点时保留；全部项都没有时整列不占宽度。
+
+  /** 图标槽位只在确实有图标或状态点时保留；全部项都没有时整列不占宽度。 */
+  function itemsHaveIcons(items: readonly DropMenuItem[]): boolean {
+    return items.some((item) => item.icon !== undefined || item.dot !== undefined)
+  }
+
   const hasMainIcons = computed(() =>
-    groups.value.some((group) =>
-      group.items.some((item) => item.icon !== undefined || item.dot !== undefined),
-    ),
+    groups.value.some((group) => itemsHaveIcons(group.items)),
   )
-  const hasSubmenuIcons = computed(() =>
-    (openSubmenuItem.value?.children ?? []).some(
-      (item) => item.icon !== undefined || item.dot !== undefined,
-    ),
-  )
+  const hasSubmenuIcons = computed(() => itemsHaveIcons(openSubmenuItem.value?.children ?? []))
 
   /** 延迟展开二级菜单，避免指针快速划过时连环弹出。 */
-  function onItemPointerEnter(item: DropMenuItem, event: PointerEvent): void {
+  function onItemPointerEnter(
+    groupId: string,
+    item: DropMenuItem,
+    event: PointerEvent,
+  ): void {
     const anchor = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
     if (!anchor) return
     if (!item.children?.length) {
-      if (openSubmenuItemId.value !== null) scheduleSubmenuClose()
+      if (openSubmenu.value) scheduleSubmenuClose()
       return
     }
     cancelSubmenuClose()
-    if (openSubmenuItemId.value === item.id) return
+    if (isSubmenuOpen(groupId, item)) return
     submenuTimer = setTimeout(() => {
-      void showSubmenu(item, anchor, false)
+      void showSubmenu(groupId, item, anchor, false)
     }, SUBMENU_HOVER_DELAY)
   }
 
   function onItemPointerLeave(): void {
-    if (openSubmenuItemId.value !== null) scheduleSubmenuClose()
+    if (openSubmenu.value) scheduleSubmenuClose()
   }
 
   /** 指针在主菜单项与子菜单之间移动时留出容错时间，不立即收起。 */
@@ -268,18 +286,20 @@
   function closeSubmenu(): void {
     cancelSubmenuClose()
     submenuPosition?.abort()
-    openSubmenuItemId.value = null
-    openSubmenuGroupId.value = null
-    submenuAnchor.value = null
-    submenuStyle.value = { display: 'none' }
+    submenuPosition = undefined
+    openSubmenu.value = null
+    submenuStyle.value = HIDDEN_SUBMENU_STYLE
   }
 
-  function isSubmenuOpen(item: DropMenuItem): boolean {
-    return openSubmenuItemId.value === item.id
+  /** 子菜单展开态必须同时匹配 group 与 item，避免不同 group 复用 id 时误判。 */
+  function isSubmenuOpen(groupId: string, item: DropMenuItem): boolean {
+    const state = openSubmenu.value
+    return state?.groupId === groupId && state.itemId === item.id
   }
 
   /** 展开二级菜单；先贴到父项右侧，再测量并按空间翻转。 */
   async function showSubmenu(
+    groupId: string,
     item: DropMenuItem,
     anchor: HTMLElement,
     focusFirst: boolean,
@@ -288,10 +308,9 @@
     submenuPosition?.abort()
     const position = new AbortController()
     submenuPosition = position
-    openSubmenuItemId.value = item.id
-    openSubmenuGroupId.value =
-      anchor.dataset.groupId ?? groups.value.find((group) => group.items.includes(item))?.id ?? null
-    submenuAnchor.value = anchor
+    // 焦点回到父项时不再回头查 DOM，打开时把可聚焦元素一起存进状态。
+    const focusTarget = anchor.querySelector<HTMLElement>('.drop-menu__item-main') ?? anchor
+    openSubmenu.value = { groupId, itemId: item.id, focusTarget }
     const anchorRect = anchor.getBoundingClientRect()
     submenuStyle.value = {
       display: 'block',
@@ -335,7 +354,7 @@
     if (item.disabled) return
     if (item.children?.length) {
       const anchor = findItemElement(groupId, item.id)
-      if (anchor) void showSubmenu(item, anchor, true)
+      if (anchor) void showSubmenu(groupId, item, anchor, true)
       return
     }
     activateLeaf(groupId, item)
@@ -355,20 +374,16 @@
     else emit('select', groupId, item.id, parentId)
   }
 
-  function selectSubmenuItem(
-    groupId: string | null,
-    parent: DropMenuItem | null,
-    child: DropMenuItem,
-  ): void {
-    if (child.disabled || groupId === null || parent === null) return
-    activateLeaf(groupId, child, parent.id)
+  function selectSubmenuItem(child: DropMenuItem): void {
+    const state = openSubmenu.value
+    if (child.disabled || !state) return
+    activateLeaf(state.groupId, child, state.itemId)
   }
 
   function closeSubmenuAndFocusParent(): void {
-    const anchor = submenuAnchor.value
-    const focusTarget = anchor?.querySelector<HTMLElement>('.drop-menu__item-main') ?? anchor
+    const target = openSubmenu.value?.focusTarget
     closeSubmenu()
-    focusTarget?.focus()
+    target?.focus()
   }
 
   // 面板级委托：指针与焦点在菜单项之间滑动；二级菜单和空白处收起高亮。
@@ -406,42 +421,70 @@
     },
   )
 
+  /** 键盘入口只做分派；dialog、菜单、子菜单和输入框各自处理。 */
   function onMenuKeydown(event: KeyboardEvent): void {
-    const target = event.target as HTMLElement | null
-    // 子菜单自己处理方向键与返回；事件冒泡到面板时不再走主列表的 roving。
-    if (target && submenuRef.value?.contains(target)) return
-    // 行内输入框（如命名表单）保留方向键与字符输入。
-    if (target?.matches('input, textarea, select, [contenteditable]')) return
-    if (event.key === 'Escape') {
-      event.preventDefault()
-      event.stopPropagation()
-      if (openSubmenuItem.value) closeSubmenuAndFocusParent()
-      else hide(true)
+    if (props.semantics === 'dialog') {
+      handleDialogKeydown(event)
       return
     }
-    if (event.key === 'ArrowRight') {
-      const row = target?.closest<HTMLElement>('.drop-menu__item')
-      const groupId = row?.dataset.groupId
-      const itemId = row?.dataset.itemId
-      const item =
-        groupId === undefined || itemId === undefined
-          ? undefined
-          : groups.value
-              .find((group) => group.id === groupId)
-              ?.items.find((entry) => entry.id === itemId)
-      if (row && item?.children?.length) {
-        event.preventDefault()
-        void showSubmenu(item, row, true)
-        return
-      }
-    }
-    if (roving.onKeydown(event) && openSubmenuItemId.value !== null) closeSubmenu()
+    const target = event.target as HTMLElement | null
+    // 子菜单自己处理方向键与返回；事件冒泡到面板时不再走主列表的 roving。
+    if (isInsideSubmenu(target) || isEditableTarget(target)) return
+    if (handleEscape(event)) return
+    if (tryOpenSubmenuFromKeyboard(event, target)) return
+    if (roving.onKeydown(event) && openSubmenu.value) closeSubmenu()
+  }
+
+  /** dialog 模式只保留 Esc：Tab、Enter、Space 交还原生控件，面板不做 roving。 */
+  function handleDialogKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Escape') return
+    event.preventDefault()
+    event.stopPropagation()
+    hide(true)
+  }
+
+  /** 行内输入框（如命名表单）保留方向键与字符输入。 */
+  function isEditableTarget(target: HTMLElement | null): boolean {
+    return target?.matches('input, textarea, select, [contenteditable]') ?? false
+  }
+
+  function isInsideSubmenu(target: HTMLElement | null): boolean {
+    return target !== null && submenuRef.value?.contains(target) === true
+  }
+
+  /** Esc：子菜单打开时回到父项，否则关闭整个面板。 */
+  function handleEscape(event: KeyboardEvent): boolean {
+    if (event.key !== 'Escape') return false
+    event.preventDefault()
+    event.stopPropagation()
+    if (openSubmenu.value) closeSubmenuAndFocusParent()
+    else hide(true)
+    return true
+  }
+
+  /** ArrowRight 展开当前行的子菜单；键盘委托只有 DOM target，允许从 dataset 恢复身份。 */
+  function tryOpenSubmenuFromKeyboard(
+    event: KeyboardEvent,
+    target: HTMLElement | null,
+  ): boolean {
+    if (event.key !== 'ArrowRight') return false
+    const row = target?.closest<HTMLElement>('.drop-menu__item')
+    const groupId = row?.dataset.groupId
+    const itemId = row?.dataset.itemId
+    if (!row || groupId === undefined || itemId === undefined) return false
+    const item = groups.value
+      .find((group) => group.id === groupId)
+      ?.items.find((entry) => entry.id === itemId)
+    if (!item?.children?.length) return false
+    event.preventDefault()
+    void showSubmenu(groupId, item, row, true)
+    return true
   }
 
   /** 子菜单键盘：← / Esc 回到父项，↑↓ 在子项之间移动。 */
   function onSubmenuKeydown(event: KeyboardEvent): void {
     const target = event.target as HTMLElement | null
-    if (target?.matches('input, textarea, select, [contenteditable]')) return
+    if (isEditableTarget(target)) return
     if (event.key === 'ArrowLeft' || event.key === 'Escape') {
       event.preventDefault()
       event.stopPropagation()
@@ -454,6 +497,7 @@
   /** 焦点离开面板（Tab 出去或点击别处）时请求关闭。 */
   function onMenuFocusOut(event: FocusEvent): void {
     const next = event.relatedTarget as Node | null
+    // relatedTarget 为空通常来自面板内不可聚焦区域的点击；真正的点击外部由 light dismiss / fallback 处理。
     if (!next) return
     if (menuRef.value?.contains(next) || popover.trigger.value?.contains(next)) return
     hide()
@@ -468,8 +512,35 @@
     closeSubmenu()
   })
 
-  /** 把焦点交给首选可用项：优先已勾选项，没有勾选就落到首项。 */
+  /** 打开时唯一的焦点入口：dialog 走原生 Tab，menu 走 roving。 */
+  function applyInitialFocus(): void {
+    if (props.semantics === 'dialog') {
+      if (props.focusOnOpen) focusDialogEntry()
+      return
+    }
+    // 指针打开的面板只预置 tabindex，避免菜单项常驻 hover 高亮；键盘打开才移入焦点。
+    if (props.focusOnOpen) roving.focusFirst(CHECKED_ITEM_SELECTOR)
+    else roving.prime(CHECKED_ITEM_SELECTOR)
+  }
+
+  /** dialog 模式的首选落点：已选项优先，否则首个可用控件；Tab 顺序保持原生。 */
+  function focusDialogEntry(): void {
+    const root = itemsRef.value
+    if (!root) return
+    // dialog 里没有 menuitem 角色，选中态用按钮的 aria-pressed 表达。
+    const preferred = root.querySelector<HTMLElement>(
+      '.drop-menu__item-main[aria-pressed="true"]',
+    )
+    const target = preferred ?? root.querySelector<HTMLElement>('.drop-menu__item-main')
+    target?.focus()
+  }
+
+  /** 把焦点交给首选可用项：dialog 落到首个控件，menu 优先已勾选项。 */
   function focusFirst(): void {
+    if (props.semantics === 'dialog') {
+      focusDialogEntry()
+      return
+    }
     roving.focusFirst(CHECKED_ITEM_SELECTOR)
   }
 
@@ -551,6 +622,8 @@
   }
 
   .drop-menu__item {
+    /* 行尾状态的统一内缩；check、action 与开关都消费同一份值。 */
+    --drop-menu-trailing-inset: var(--klc-space-12, 12px);
     display: flex;
     align-items: center;
     padding: 0;
@@ -569,8 +642,7 @@
     display: flex;
     align-items: center;
     flex: 0 0 auto;
-    /* 与选项文字左侧内边距一致，状态标记的右侧留白不会大于文字的左侧留白。 */
-    padding-right: var(--klc-space-8, 8px);
+    padding-right: var(--drop-menu-trailing-inset);
   }
 
   /* 二级菜单与主面板共用表面，但用 fixed 坐标逃出主面板的滚动裁剪。 */

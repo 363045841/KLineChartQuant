@@ -11,7 +11,7 @@ import type {
   ChartControllerFactory,
   ChartMountOptions,
   ChartViewport,
-  Signal as CoreSignal,
+  ReadonlySignal as CoreSignal,
   DrawingControllerCallbacks,
   IndicatorInstance,
   InteractionSnapshot,
@@ -95,7 +95,7 @@ export function provideKLineChart(opts: ProvideKLineChartOptions = {}): Provider
 }
 
 // ---------------------------------------------------------------------------
-// Signal bridge: core Signal<T> -> Angular Signal<T>
+// Signal bridge: core ReadonlySignal<T> -> Angular Signal<T>
 // ---------------------------------------------------------------------------
 
 /**
@@ -154,8 +154,7 @@ export async function createChart(
 })
 export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() symbols: ReadonlyArray<SymbolSpec> | undefined = undefined
-  @Input() marketDataContext: ChartMountOptions['marketDataContext'] = undefined
-  @Input() marketSessions: ChartMountOptions['marketSessions'] = undefined
+  @Input() runtime!: ChartMountOptions['runtime']
   @Input() theme: 'light' | 'dark' | undefined = undefined
   @Input() settings: Partial<ChartSettings> | undefined = undefined
   @Input() initialZoomLevel: number | undefined = undefined
@@ -198,8 +197,7 @@ export class KLineChartComponent implements AfterViewInit, OnChanges, OnDestroy 
     const controller = await createChart({
       container: containerEl,
       symbols: this.symbols,
-      marketDataContext: this.marketDataContext,
-      marketSessions: this.marketSessions,
+      runtime: this.runtime,
       settings: this.settings,
       initialZoomLevel: this.initialZoomLevel,
       zoomLevels: this.zoomLevels,

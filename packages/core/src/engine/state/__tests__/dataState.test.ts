@@ -6,7 +6,7 @@ import {
   SERIES_SELECTION_KIND,
   type SeriesSelection,
   type TimeShareSelection,
-} from '@/data/buffer/impl/seriesRepository'
+} from '@/data/buffer/seriesSelection'
 import { ACTIVE_BUFFER_KIND, createDataState } from '../dataState'
 
 const barsSelection: BarsSelection = {

@@ -258,7 +258,12 @@ import '@363045841yyt/klinechart/style.css'
 
 ```vue
 <script setup lang="ts">
-import { KlineWorkbench } from '@363045841yyt/klinechart'
+import { createPersistedMarketDataHost, KlineWorkbench, provideBrowserAppRuntime } from '@363045841yyt/klinechart'
+import { onScopeDispose } from 'vue'
+
+const host = createPersistedMarketDataHost()
+provideBrowserAppRuntime(host.context, true, console.error)
+onScopeDispose(host.dispose)
 </script>
 
 <template>
@@ -270,7 +275,7 @@ import { KlineWorkbench } from '@363045841yyt/klinechart'
 
 工作台会铺满容器（`width/height: 100%`），宿主元素必须给出明确高度。
 
-- `agent` 与 `scripts` 默认开启，且在挂载时确定：设为 `false` 并重新挂载才会禁用对应子系统。关闭脚本后不会创建脚本执行 Worker，也不显示编辑器入口与语言服务。
+- 应用根调用一次 `provideBrowserAppRuntime`，第二个参数决定是否启动脚本服务。工作台的 `scripts` 和 `agent` 参数分别控制编辑器入口与 Agent 面板。
 - `chart` 转发图表配置（坐标轴、工具栏、`settings.theme`、`settings.rendererBackend` 等）。
 - `initialAgentPanelOpen` 控制 Agent 抽屉是否初始展开。
 - 内置脚本指标会在图表挂载前准备；编辑器页与语言服务只在打开编辑器时加载。
@@ -370,19 +375,19 @@ const host = createMarketDataHost()
 const unregister = host.registerDataSource(source)
 ```
 
-把宿主与选中的品种传给工作台：
+在应用根提供注册好的行情宿主，再把选中的品种传给工作台。
 
 ```vue
 <script setup lang="ts">
-import { KlineWorkbench } from '@363045841yyt/klinechart'
+import { KlineWorkbench, provideBrowserAppRuntime } from '@363045841yyt/klinechart'
 
+provideBrowserAppRuntime(host, true, console.error)
 const instrument = { source: 'binance', id: 'BTCUSDT' }
 </script>
 
 <template>
   <div style="height: 700px">
     <KlineWorkbench
-      :market-data-context="host"
       :instrument="instrument"
       period="daily"
     />

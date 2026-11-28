@@ -1,16 +1,21 @@
-// Alert 功能模块的公共出口：契约来自 types.ts，实现来自 impl/。
-export { createAlertController } from './impl/createAlertController.js'
-export { evaluatePredicate } from './impl/predicates.js'
-export { AlertRuleSchemaError, deserializeRule, serializeRule } from './impl/ruleSchema.js'
+/**
+ * 警报模块公共出口：契约、状态推导、文档编解码、行情源与服务工厂。
+ */
+export { decodeAlertDocument } from './impl/alertCodec.js'
+export type { AlertDocument } from './impl/alertCodec.js'
+export { createAlertRuntime } from './impl/createAlertRuntime.js'
+export type { AlertRuntimeOptions } from './impl/createAlertRuntime.js'
+export { openBrowserAlertStore } from './impl/alertPersistence.js'
+export { createAlertService } from './impl/createAlertService.js'
+export { DEFAULT_ALERT_LIMITS } from './types.js'
 export type {
-  AlertController,
-  AlertControllerOptions,
-  AlertEvent,
-  AlertFailure,
-  AlertPredicate,
-  AlertPredicateKind,
-  AlertRule,
-  CrossDirection,
-  IndicatorCrossPairDirection,
-  MarketSnapshot,
+  Alert,
+  AlertChannel,
+  AlertDraft,
+  AlertFire,
+  AlertFrequency,
+  AlertId,
+  AlertLimits,
+  AlertService,
+  AlertStatus,
 } from './types.js'

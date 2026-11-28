@@ -1,24 +1,43 @@
 /**
- * 内置行情实例 + localStorage 配置持久化。
+ * 浏览器行情宿主的组合根：内置 Provider + 预览源 + localStorage 配置持久化。
  *
- * Web 与 Desktop 共用同一份存储 key、校验规则与旧版迁移逻辑：这里的任何改动都等于
- * 改变已发布宿主的持久化契约，会让用户已保存的数据源配置读不出来。
+ * 本文件是浏览器差异的唯一落点：EventSource、localStorage、页面恢复监听都在这里
+ * 注入，Core 只消费契约。Web 与 Desktop 共用同一份存储 key，迁移逻辑不重复。
  */
-import { createLocalStoragePersistence, isKLineChartError, type PersistenceCodec } from '@363045841yyt/klinechart-core'
+import {
+  createLocalStoragePersistence,
+  isKLineChartError,
+  type PersistenceCodec,
+} from '@363045841yyt/klinechart-core'
 import type {
+  EventStreamFactory,
   MarketDataConfiguration,
   MarketDataContext,
 } from '@363045841yyt/klinechart-core/market-data'
-import { createBuiltinMarketDataContext } from '@363045841yyt/klinechart-core/market-data/sources'
+import {
+  createBuiltinMarketDataContext,
+  createMockDataSource,
+} from '@363045841yyt/klinechart-core/market-data/sources'
 import type { PersistedMarketDataHost } from '../types.js'
 
-/** 当前配置文档的存储 key；改名会让所有宿主的已有配置失效。 */
+/** 当前配置文档的存储 key；改名会让已有配置失效。 */
 const CONFIGURATION_KEY = 'klinechart.market-data'
 
-/** v0.9 之前按 Provider 保存地址的 key，只用于一次性迁移。 */
+/** v0.9 之前的 Provider 连接地址旧 key，只做一次迁移。 */
 const LEGACY_CONNECTIONS_KEY = 'klinechart.aggregation-sources'
 
-/** 校验持久化文档，损坏或缺字段的记录不进入运行时。 */
+/** 浏览器事件流：Core 只声明契约，EventSource 属于宿主。 */
+const openEventStream: EventStreamFactory = (url, handlers) => {
+  const source = new EventSource(url)
+  source.onopen = () => handlers.onOpen()
+  source.onmessage = (event) => {
+    if (typeof event.data === 'string') handlers.onData(event.data)
+  }
+  source.onerror = () => handlers.onError()
+  return { close: () => source.close() }
+}
+
+/** 校验持久化文档；损坏或缺字段的记录按不存在处理。 */
 function isConfiguration(value: unknown): value is MarketDataConfiguration {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
   const connections: unknown = Object.getOwnPropertyDescriptor(value, 'connections')?.value
@@ -65,7 +84,7 @@ const codec: PersistenceCodec<MarketDataConfiguration> = {
   },
 }
 
-/** 读取旧版文档；不存在、不可访问或损坏时返回空。 */
+/** 读取旧版文档内容；不可访问或格式不符时返回空。 */
 function readLegacyDocument(): Record<string, unknown> | null {
   try {
     const parsed: unknown = JSON.parse(
@@ -79,7 +98,7 @@ function readLegacyDocument(): Record<string, unknown> | null {
   }
 }
 
-/** 把旧版按 Provider 保存的开关与地址迁移到当前目录；已移除的源和无效地址被忽略。 */
+/** 把旧版按 Provider 保存的目录地址迁移到当前目录，并移除来源的无效地址残留。 */
 function migrateLegacyConnections(context: MarketDataContext): void {
   const legacy = readLegacyDocument()
   if (!legacy) return
@@ -106,23 +125,49 @@ function migrateLegacyConnections(context: MarketDataContext): void {
       context.applyConnection(connection.id, baseUrl)
       migratedConnections.add(connection.id)
     } catch {
-      // 无效旧地址保留默认配置。
+      // 无效的旧地址保留默认配置。
     }
   }
 }
 
-/** 创建带持久化的行情宿主；配置变更立即写回，旧版地址只在首次启动时迁移。 */
+/** 页面恢复监听：只在浏览器宿主注册，Core 不感知窗口事件。 */
+function attachPageRestore(context: MarketDataContext): () => void {
+  const resume = (): void => context.stream.resume()
+  const onVisibility = (): void => {
+    if (document.visibilityState === 'visible') resume()
+  }
+  document.addEventListener('visibilitychange', onVisibility)
+  window.addEventListener('pageshow', resume)
+  window.addEventListener('online', resume)
+  return () => {
+    document.removeEventListener('visibilitychange', onVisibility)
+    window.removeEventListener('pageshow', resume)
+    window.removeEventListener('online', resume)
+  }
+}
+
+/** 装配浏览器行情宿主与配置持久化；配置变更后串行写回。 */
 export function createPersistedMarketDataHost(): PersistedMarketDataHost {
   const storage = createLocalStoragePersistence({ key: CONFIGURATION_KEY, codec })
   let saved: ReturnType<typeof storage.load> | undefined
   try {
     saved = storage.load()
   } catch (error) {
-    console.error('[Market data preferences] Restore failed', error instanceof Error ? error.message : error)
+    console.error(
+      '[Market data preferences] Restore failed',
+      error instanceof Error ? error.message : error,
+    )
     if (isKLineChartError(error, 'PERSISTENCE_CORRUPT')) saved = null
   }
-  const context = createBuiltinMarketDataContext(saved ?? undefined)
-  // 没有可恢复的配置时才迁移旧版地址，并把默认配置落盘，避免下次启动重复迁移。
+  const context = createBuiltinMarketDataContext({
+    fetchImpl: (input, init) => globalThis.fetch(input, init),
+    openEventStream,
+  })
+  // 预览源是浏览器组合根的决定，不进通用装配。
+  context.registerDataSource(createMockDataSource())
+  if (saved) context.restore(saved)
+  const detachPageRestore = attachPageRestore(context)
+  // 没有可恢复配置时先迁移旧地址，再落默认配置，避免下次启动重复迁移。
   if (saved === null) {
     migrateLegacyConnections(context)
     save()
@@ -131,7 +176,10 @@ export function createPersistedMarketDataHost(): PersistedMarketDataHost {
     try {
       storage.save(context.configuration.peek())
     } catch (error) {
-      console.error('[Market data preferences] Save failed', error instanceof Error ? error.message : error)
+      console.error(
+        '[Market data preferences] Save failed',
+        error instanceof Error ? error.message : error,
+      )
     }
   }
   const unsubscribe = context.configuration.subscribe(save)
@@ -139,6 +187,7 @@ export function createPersistedMarketDataHost(): PersistedMarketDataHost {
     context,
     dispose() {
       unsubscribe()
+      detachPageRestore()
       context.dispose()
       storage.dispose()
     },

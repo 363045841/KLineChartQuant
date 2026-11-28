@@ -2,8 +2,8 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { ERROR_CODES } from '@/errors'
-import { lookupInstrumentsBySymbol, searchInstruments } from '../impl/instrumentSearch'
-import { MarketDataProviderRegistry } from '../impl/registry'
+import { lookupInstrumentsBySymbol, searchInstruments } from '../instrumentSearch'
+import { MarketDataProviderRegistry } from '../registry'
 import type { InstrumentDescriptor } from '../types'
 import { createMockMarketDataProvider } from './helpers/providerTestKit'
 

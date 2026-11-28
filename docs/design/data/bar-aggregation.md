@@ -32,7 +32,7 @@ MT5 的服务器时间戳是伪 UTC，任何出网关的 K 线都必须先转换
 
 1. Provider 请求与协议载荷；
 2. `MarketDataCache` key；
-3. `SeriesRepository` 的 BarsSelection 与叶子键；
+3. `BarsSelection` 与共享行情序列的键；
 4. MT5 SSE 的订阅 key、轮询任务和 Last-Event-ID 环形缓冲。
 
 切换对比状态时，DataManager 销毁当前模式的主 Buffer，并创建、加载新模式的 Buffer。旧请求即使晚到，也因 Repository 身份不再匹配而不能写回当前视图。

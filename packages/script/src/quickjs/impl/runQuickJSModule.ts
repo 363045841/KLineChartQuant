@@ -4,13 +4,13 @@
  * 宿主只提供行情与输出桥，Series/ta 全部在 VM prelude 内；同一脚本的 VM 不再按 tick 重建。
  */
 import {
-  type ComputeRange,
   type DrawingObject,
   type IndicatorSeries,
   isPlotKind,
   type PersistedDrawingAnchor,
   PlotCollector,
   PlotKind,
+  type ScriptAlertEvent,
   timeframeSeconds,
   timeValue,
 } from '@363045841yyt/klinechart-plot-contracts'
@@ -24,6 +24,7 @@ import type { Bar } from '../../contracts/input.js'
 import type { LogEvent } from '../../contracts/log.js'
 import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
 import { createScriptConsole } from '../../execution/impl/createScriptConsole.js'
+import { createPreparedScript } from '../../execution/impl/createPreparedScript.js'
 import { FIELD_READERS, toOhlcPlotPoint, toPlotPoint } from '../../execution/impl/scriptRuntime.js'
 import { createScriptExecutionSession } from '../../execution/session/impl/createScriptExecutionSession.js'
 import type {
@@ -38,7 +39,6 @@ import { CURRENT_SYMBOL } from '../../request/impl/symbols.js'
 import type {
   RequestExecution,
   RequestValue,
-  ScriptRequestContext,
   SecurityRequest,
 } from '../../request/types.js'
 import {
@@ -50,9 +50,10 @@ import {
   REQUEST_PRELUDE,
   ROLLING_PRELUDE,
   SCRIPT_PRELUDE,
+  STATE_PRELUDE,
   TIME_PRELUDE,
 } from '../generated/runtime.js'
-import type { PreparedQuickJSScript, QuickJSScriptDefinition, ScriptParamValue } from '../types.js'
+import type { PreparedScript, QuickJSScriptDefinition, ScriptParamValue } from '../types.js'
 import { readDefinition, readFillCall, readHLineCall, readPlotCall } from './readDefinition.js'
 import { SCRIPT_ENUM_GLOBALS } from './scriptEnumGlobals.js'
 
@@ -96,6 +97,13 @@ interface QuickJSState {
   checkpointIndex: number
   /** 库在本次运行中提交的新检查点。 */
   committedCheckpoint?: QuickJSCheckpoint
+  /** 从该下标起视为实时 bar；省略表示整段历史。 */
+  liveBarIndex?: number
+  prevPrice?: number | undefined
+  /** 本次运行收集到的实时警报事件。 */
+  alerts: ScriptAlertEvent[]
+  /** 声明种类；metadata 读取后写入，alert() 据此校验。 */
+  kind?: 'indicator' | 'alert'
 }
 
 /** QuickJS 运行时选项；表达式运行时不输出绘图或日志。 */
@@ -243,6 +251,35 @@ function mountHostFunctions(vm: QuickJSContext, state: QuickJSState, timeout: Sc
   const barCount = vm.newFunction('__barCount', () => vm.newNumber(state.bars.length))
   vm.setProp(vm.global, '__barCount', barCount)
   barCount.dispose()
+
+  const prevPrice = vm.newFunction('__prevPrice', () => {
+    const price = state.index === state.liveBarIndex ? state.prevPrice : undefined
+    return price === undefined ? vm.undefined : vm.newNumber(price)
+  })
+  vm.setProp(vm.global, '__prevPrice', prevPrice)
+  prevPrice.dispose()
+
+  // 脚本写 `alert(message)` 就能产生一个实时事件；指标脚本调用直接报错。
+  const alert = vm.newFunction('alert', (messageHandle) => {
+    if (state.kind !== 'alert') {
+      throw new Error('alert 只能在 defineAlert 声明的脚本中调用')
+    }
+    if (state.index !== state.liveBarIndex) {
+      return vm.undefined
+    }
+    const bar = state.bars[state.index]
+    if (!bar) return vm.undefined
+    state.alerts.push(
+      Object.freeze({
+        message: String(vm.dump(messageHandle)),
+        barTime: bar.time,
+        price: bar.close,
+      }),
+    )
+    return vm.undefined
+  })
+  vm.setProp(vm.global, 'alert', alert)
+  alert.dispose()
 
   const time = vm.newFunction('__timeValue', (mode, period, timestamp, session, timezone) =>
     vm.newNumber(
@@ -426,6 +463,7 @@ function createQuickJSScriptRuntime(
     values: [],
     phase: 'compile',
     checkpointIndex: 0,
+    alerts: [],
   }
   const handles: QuickJSHandle[] = []
   let checkpointHandle: QuickJSHandle | undefined
@@ -443,6 +481,7 @@ function createQuickJSScriptRuntime(
     ).dispose()
     evalOrThrow(vm, LIBRARY_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, SCRIPT_PRELUDE, 'compile', timeout).dispose()
+    evalOrThrow(vm, STATE_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, REQUEST_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, TIME_PRELUDE, 'compile', timeout).dispose()
     evalOrThrow(vm, ROLLING_PRELUDE, 'compile', timeout).dispose()
@@ -462,7 +501,8 @@ function createQuickJSScriptRuntime(
     const metadata = evalOrThrow(vm, `${compiled.source}\n;__metadata()`, 'compile', timeout)
     let definition: QuickJSScriptDefinition
     try {
-      definition = readDefinition(vm.dump(metadata))
+      definition = readDefinition(vm.dump(metadata), compiled.hasAlertCall)
+      state.kind = definition.kind
     } finally {
       metadata.dispose()
     }
@@ -490,12 +530,12 @@ function createQuickJSScriptRuntime(
     handles.push(rollbackFn)
     const patchFn = evalOrThrow(vm, '__drawingDelta', 'compile', timeout)
     handles.push(patchFn)
-    const invalidateFn = evalOrThrow(vm, '__rollbackSeries', 'compile', timeout)
-    handles.push(invalidateFn)
     const drawingCheckpointFn = evalOrThrow(vm, '__drawingCheckpoint', 'compile', timeout)
     handles.push(drawingCheckpointFn)
     const checkpointLibrariesFn = evalOrThrow(vm, '__checkpointLibraries', 'compile', timeout)
     handles.push(checkpointLibrariesFn)
+    const checkpointStatesFn = evalOrThrow(vm, '__checkpointStates', 'compile', timeout)
+    handles.push(checkpointStatesFn)
 
     /** 库在完成期渲染后提交检查点；活动期绘图不进入该检查点。 */
     const commitFn = vm.newFunction('__commitCheckpoint', () => {
@@ -512,14 +552,24 @@ function createQuickJSScriptRuntime(
         drawings.value.dispose()
         throw new ScriptExecutionError('run', message)
       }
+      const states = vm.callFunction(checkpointStatesFn, vm.undefined)
+      if (states.error) {
+        const message = describeFailure(vm, states.error, timeout)
+        states.error.dispose()
+        drawings.value.dispose()
+        libraries.value.dispose()
+        throw new ScriptExecutionError('run', message)
+      }
       const checkpoint = vm.newObject()
       const index = vm.newNumber(state.checkpointIndex)
       vm.setProp(checkpoint, 'index', index)
       index.dispose()
       vm.setProp(checkpoint, 'drawings', drawings.value)
       vm.setProp(checkpoint, 'libraries', libraries.value)
+      vm.setProp(checkpoint, 'states', states.value)
       drawings.value.dispose()
       libraries.value.dispose()
+      states.value.dispose()
       checkpointHandle?.dispose()
       checkpointHandle = checkpoint
       state.committedCheckpoint = { handle: checkpoint }
@@ -543,6 +593,9 @@ function createQuickJSScriptRuntime(
       }
       state.emit = input.emit
       state.phase = 'run'
+      state.liveBarIndex = input.liveBarIndex
+      state.prevPrice = input.prevPrice
+      state.alerts = []
       state.failure = undefined
       deadline = Date.now() + timeout.limitMs
       timeout.expired = false
@@ -571,6 +624,7 @@ function createQuickJSScriptRuntime(
       return {
         series: state.collector.collect(),
         values: state.values,
+        alerts: Object.freeze(state.alerts),
         ...(state.committedCheckpoint === undefined
           ? {}
           : { checkpoint: state.committedCheckpoint }),
@@ -604,17 +658,6 @@ function createQuickJSScriptRuntime(
         checkpoint.handle.dispose()
         if (checkpointHandle === checkpoint.handle) checkpointHandle = undefined
       },
-      invalidate(startIndex) {
-        const start = vm.newNumber(startIndex)
-        const result = vm.callFunction(invalidateFn, vm.undefined, start)
-        start.dispose()
-        if (result.error) {
-          const message = describeFailure(vm, result.error, timeout)
-          result.error.dispose()
-          throw new ScriptExecutionError('run', message)
-        }
-        result.value.dispose()
-      },
       drawingDelta(reset) {
         const result = vm.callFunction(patchFn, vm.undefined, reset ? vm.true : vm.false)
         if (result.error) {
@@ -646,37 +689,11 @@ export function prepareQuickJSModule(
   compiled: CompiledScriptSources,
   onLog?: (event: LogEvent) => void,
   timeoutMs?: number,
-): PreparedQuickJSScript {
+): PreparedScript {
   const session = createScriptExecutionSession({
     createRuntime: ({ expressionId, params, symbol }) =>
       createQuickJSScriptRuntime(compiled, { expressionId, onLog, params, symbol, timeoutMs }),
-    dependency: compiled.dependency,
-    replayOnUpdate: compiled.replayOnUpdate,
     onLog,
   })
-  return Object.freeze({
-    definition: Object.freeze({ ...session.definition, dependency: compiled.dependency }),
-    requests(params: Readonly<Record<string, ScriptParamValue>> = {}, symbol = CURRENT_SYMBOL) {
-      return session.requests(params, symbol)
-    },
-    run(
-      bars: readonly Bar[],
-      params: Readonly<Record<string, ScriptParamValue>> = {},
-      context?: ScriptRequestContext,
-      range?: ComputeRange,
-    ) {
-      return session.run({ bars, params, context, range }).series
-    },
-    runDetailed(
-      bars: readonly Bar[],
-      params: Readonly<Record<string, ScriptParamValue>> = {},
-      context?: ScriptRequestContext,
-      range?: ComputeRange,
-    ) {
-      return session.run({ bars, params, context, range })
-    },
-    dispose() {
-      session.dispose()
-    },
-  })
+  return createPreparedScript(session)
 }

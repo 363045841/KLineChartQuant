@@ -2,8 +2,9 @@
  * Agent 上下文投影测试：上下文只读取图表状态，不携带工具定义。
  */
 import { describe, expect, it, vi } from 'vitest'
-import type { IndicatorInstance, SymbolSpec } from '@/controllers/types'
-import { SERIES_SELECTION_KIND } from '@/data/buffer/impl/seriesRepository'
+import type { IndicatorInstance } from '@/controllers/types'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
+import { SERIES_SELECTION_KIND } from '@/data/buffer/seriesSelection'
 import { makeSymbolSpec } from '@/engine/data/__tests__/helpers/symbolSpecFixture'
 import type { DrawingObject } from '@/engine/drawing/index'
 import { ACTIVE_BUFFER_KIND, createDataState } from '@/engine/state/dataState'
@@ -84,7 +85,7 @@ function createFixture() {
   const drawings = createSignal<ReadonlyArray<DrawingObject>>([])
   const selectedDrawingIds = createSignal<ReadonlyArray<string>>([])
   const controller = createChartAgentController({
-    dataState,
+    activeBuffer: dataState.readonly.activeBuffer,
     currentSpec: createSignal<SymbolSpec | null>(
       makeSymbolSpec({
         symbol: 'BTCUSDT',
@@ -201,7 +202,7 @@ describe('chart agent tool wiring', () => {
   it('控制器暴露组合根注入的工具依赖，不自行构造', () => {
     const tools = stubTools()
     const controller = createChartAgentController({
-      dataState: createDataState(),
+      activeBuffer: createDataState().readonly.activeBuffer,
       currentSpec: createSignal<SymbolSpec | null>(null),
       selectedRange: createSignal<{ from: number; to: number } | null>(null),
       drawings: createSignal<ReadonlyArray<DrawingObject>>([]),

@@ -9,7 +9,7 @@ describe('LeftToolbar 磁吸工具', () => {
     const wrapper = mount(LeftToolbar, {
       attachTo: document.body,
       props: { drawingToolId: 'trend-line', magnetMode: 'off' },
-      global: { stubs: { ChartSettingsDialog: true, AlertDialog: true } },
+      global: { stubs: { ChartSettingsDialog: true } },
     })
 
     async function selectMode(label: string) {
@@ -59,7 +59,7 @@ describe('LeftToolbar 连续绘图', () => {
   it('通过受控开关发出状态变更且不切换绘图工具', async () => {
     const wrapper = mount(LeftToolbar, {
       props: { drawingToolId: 'trend-line' },
-      global: { stubs: { ChartSettingsDialog: true, AlertDialog: true } },
+      global: { stubs: { ChartSettingsDialog: true } },
     })
     try {
       const button = wrapper.get('[aria-label="连续绘图"]')
@@ -81,7 +81,7 @@ describe('LeftToolbar 图元可见性', () => {
   it('按图元列表状态隐藏和显示全部图元', async () => {
     const wrapper = mount(LeftToolbar, {
       props: { hasDrawings: true, allDrawingsHidden: false },
-      global: { stubs: { ChartSettingsDialog: true, AlertDialog: true } },
+      global: { stubs: { ChartSettingsDialog: true } },
     })
     try {
       await wrapper.get('[aria-label="隐藏所有图元"]').trigger('click')

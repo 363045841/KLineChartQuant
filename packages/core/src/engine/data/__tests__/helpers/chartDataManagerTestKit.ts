@@ -9,9 +9,13 @@
 import { JSDOM } from 'jsdom'
 import { vi } from 'vitest'
 
-import type { KLineData, SymbolSpec } from '@/controllers/types'
+import type { KLineData } from '@/foundation/types/bar.js'
+import type { SymbolSpec } from '@/data/symbolSpec.js'
 import type { StreamHub } from '@/data/stream/types.js'
-import { marketDataProviderRegistry } from '@/data/provider/impl/registry'
+import { MarketDataProviderRegistry } from '@/data/provider/registry'
+import { createMarketDataService } from '@/data/service/index'
+import { MarketSessionRegistry } from '@/foundation/config/marketSession/marketSessionRegistry'
+import { systemClock } from '@/foundation/utils/clock'
 import type {
   BarAggregation,
   BarSeries,
@@ -28,7 +32,7 @@ import {
 } from '@/engine/state/dataManagerState'
 import { createDataState, type DataStateModule } from '@/engine/state/dataState'
 import type { ViewportStateModule } from '@/engine/state/viewportState'
-import { createSignal } from '@/foundation/reactivity/signal'
+import { computed, createSignal } from '@/foundation/reactivity/signal'
 import type { TimeShareData } from '@/foundation/types/price'
 
 import { makeSymbolSpec, type SymbolSpecInput } from './symbolSpecFixture'
@@ -75,8 +79,8 @@ export function createMockViewport(options: MockViewportOptions = {}): MockViewp
   const viewport = {
     readonly: {
       dpr: { peek: () => dpr },
-      scrollLeft: { peek: () => scrollLeft },
-      scrollLeftLogical: { peek: () => scrollLeft },
+      domScroll: { peek: () => scrollLeft },
+      scroll: { peek: () => scrollLeft },
       leftLoadBufferWidth: { peek: () => leftLoadBufferWidth },
       contentWidth: { peek: () => contentWidth },
       viewWidth: { peek: () => viewWidth },
@@ -95,8 +99,11 @@ export function createMockViewport(options: MockViewportOptions = {}): MockViewp
       },
     },
     actions: {
-      scrollTo: (value: number) => {
-        scrollLeft = value
+      commitScroll: (value: number) => {
+        const next = Number.isFinite(value) ? value : scrollLeft
+        const changed = next !== scrollLeft
+        scrollLeft = next
+        return changed
       },
     },
   } as unknown as ViewportStateModule
@@ -104,16 +111,20 @@ export function createMockViewport(options: MockViewportOptions = {}): MockViewp
   return { viewport, getScrollLeft: () => scrollLeft }
 }
 
+/** 测试数据管理器共用的 Provider 注册表。 */
+export const testProviderRegistry = new MarketDataProviderRegistry()
+
 /** DataDependencies 工厂入参。 */
 export interface MockDataDependenciesOptions {
   /** 实时连接注册表；缺省用拒绝订阅的替身。 */
   streamHub?: StreamHub
-  marketDataProviderRegistry?: DataDependencies['marketDataProviderRegistry']
+  marketDataProviderRegistry?: MarketDataProviderRegistry
+  /** 直接注入的行情服务；缺省按注册表与替身连接创建。 */
+  data?: DataDependencies['data']
   /** 透传给 createMockViewport 的差异项。 */
   viewport?: MockViewportOptions
   /** 加载完成后的重绘回调。 */
   scheduleDraw?: () => void
-  onBarsReady?: () => void
   /** 数据变更后的交互重置回调；用例用它断言重置时机。 */
   resetInteraction?: () => void
   needsTrades?: DataDependencies['needsTrades']
@@ -122,30 +133,34 @@ export interface MockDataDependenciesOptions {
 
 /** 构造最小可用的 DataDependencies，只声明用例关心的差异。 */
 function createMockDataDependencies(
-  dom: ChartDom,
+  mockViewport: ViewportStateModule,
   publishSymbols: (symbols: ReadonlyArray<SymbolSpec>) => void,
   options: MockDataDependenciesOptions = {},
 ): DataDependencies {
   const {
-    viewport,
     scheduleDraw = () => {},
-    onBarsReady = () => {},
     resetInteraction = () => {},
   } = options
   return {
-    marketDataProviderRegistry: options.marketDataProviderRegistry,
-    streamHub: options.streamHub === undefined ? inactiveStreamHub : options.streamHub,
-    getOption: () => ({ kWidth: 8, kGap: 2 }),
-    getDom: () => dom,
-    viewport: createMockViewport(viewport).viewport,
+    data:
+      options.data ??
+      createMarketDataService({
+        health: { state: createSignal({}) },
+        registry: options.marketDataProviderRegistry ?? testProviderRegistry,
+        stream: options.streamHub ?? inactiveStreamHub,
+        marketSessions: new MarketSessionRegistry(),
+        clock: systemClock,
+      }),
+    marketSessions: new MarketSessionRegistry(),
+    viewport: mockViewport,
+    preserveViewOnPrepend: (previous, count) => mockViewport.actions.commitScroll(previous + count * 10),
+    showHistoryPrepend: () => {},
     comparison: createComparisonState(),
     scheduleDraw,
-    onBarsReady,
     resetInteraction,
     needsTrades: options.needsTrades ?? (() => false),
     updateTradeInput: options.updateTradeInput ?? (() => {}),
-    updateIndicatorData: () => {},
-    isPointerDown: () => false,
+    projectIndicatorFeed: () => {},
     publishSymbols,
   }
 }
@@ -198,8 +213,22 @@ function createChartDom(document: Document): ChartDom {
 }
 
 /** ChartDataManager 测试装置：被销毁的实例与用例要断言的 Kernel 状态。 */
+export class TestChartDataManager extends ChartDataManager {
+  async setPrimaryMarket(spec: SymbolSpec | null, date?: number): Promise<void> {
+    const prepared = this.preparePrimarySelection(spec, date)
+    try {
+      if (prepared.bars) await prepared.bars.initialHistory
+      this.commitPrimarySelection(prepared)
+    } catch (error) {
+      prepared.bars?.dispose()
+      throw error
+    }
+    prepared.bars?.startLive()
+  }
+}
+
 export interface TestChartDataManagerHarness {
-  manager: ChartDataManager
+  manager: TestChartDataManager
   dataState: DataStateModule
   dataManagerState: DataManagerStateModule
   scrollTo: (value: number) => void
@@ -215,19 +244,20 @@ export function createTestChartDataManager(
   options: MockDataDependenciesOptions = {},
 ): TestChartDataManagerHarness {
   const dataState = createDataState()
-  const dataManagerState = createDataManagerState()
+  const dataManagerState = createDataManagerState(computed(() => dataState.readonly.symbols()[0] ?? null))
+  const mockViewport = createMockViewport(options.viewport).viewport
   const deps = createMockDataDependencies(
-    createChartDom(document),
+    mockViewport,
     (symbols) => dataState.actions.setSymbols(symbols),
     options,
   )
-  const manager = new ChartDataManager(deps, dataState, dataManagerState)
+  const manager = new TestChartDataManager(deps, dataState, dataManagerState)
   return {
     manager,
     dataState,
     dataManagerState,
-    scrollTo: (value) => deps.viewport.actions.scrollTo(value),
-    getScrollLeft: () => deps.viewport.readonly.scrollLeft.peek(),
+    scrollTo: (value) => mockViewport.actions.commitScroll(value),
+    getScrollLeft: () => deps.viewport.readonly.scroll.peek(),
   }
 }
 
@@ -296,13 +326,13 @@ export function instrumentFor(symbol: string) {
 
 /** 注销测试 Provider；用例收尾统一调用。 */
 export function unregisterTestProvider(): void {
-  if (marketDataProviderRegistry.get('test')) marketDataProviderRegistry.unregister('test')
+  if (testProviderRegistry.get('test')) testProviderRegistry.unregister('test')
 }
 
 /** 注册（或替换）测试 Provider。 */
 export function registerTestProvider(provider: MarketDataProvider): void {
   unregisterTestProvider()
-  marketDataProviderRegistry.register(provider)
+  testProviderRegistry.register(provider)
 }
 
 export type TestBarSeries = Omit<BarSeries, 'barAggregation'> & { barAggregation?: BarAggregation }
@@ -319,19 +349,20 @@ export function createTestProvider(options: {
   fetchTimeShare?: NonNullable<MarketDataProvider['timeShare']>['fetch']
   fetchTimeShareRange?: NonNullable<MarketDataProvider['timeShareRange']>['fetch']
 }): MarketDataProvider {
+  const capabilities = {
+    instrumentTypes: ['stock'],
+    bars: { periods: ['daily'], adjustments: ['none'] },
+    timeShare: true,
+    ...(options.fetchTimeShareRange ? { timeShareRange: { maxTradingDays: 5 } } : {}),
+  } as const
   return {
     source: {
       id: 'test',
       displayName: 'Test',
-      capabilities: {
-        instrumentTypes: ['stock'],
-        bars: { periods: ['daily'], adjustments: ['none'] },
-        timeShare: true,
-        ...(options.fetchTimeShareRange ? { timeShareRange: { maxTradingDays: 5 } } : {}),
-      },
+      capabilities,
     },
     async probe() {
-      return { status: 'online', checkedAt: 1 }
+      return { status: 'online', checkedAt: 1, capabilities }
     },
     catalog: {
       async search(query) {

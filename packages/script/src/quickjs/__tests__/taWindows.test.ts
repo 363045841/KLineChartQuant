@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { barsFromCloses, scriptSource, values, wavyCloses } from '../../__tests__/marketData.js'
 import { ScriptExecutionError } from '../../errors.js'
-import { runQuickJSScript } from '../impl/runQuickJSScript.js'
+import { runQuickJSScript } from '../../__tests__/helpers/quickJSScript.js'
 
 /** 与 ta 各算法同约定的整窗参考值；权重由调用方按算法给定的窗口计算。 */
 function referenceWindow(

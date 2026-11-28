@@ -9,7 +9,7 @@ import {
 } from '../../__tests__/marketData.js'
 import { ScriptExecutionError } from '../../errors.js'
 import { builtinScriptSources } from '../generated/builtinScripts.js'
-import { readQuickJSScriptDefinitionSync, runQuickJSScript } from '../impl/runQuickJSScript.js'
+import { readQuickJSScriptDefinitionSync, runQuickJSScript } from '../../__tests__/helpers/quickJSScript.js'
 
 describe('脚本声明契约', () => {
   it('生成的内置目录覆盖 scripts 下全部 TS 文件，不维护第二份名单', () => {

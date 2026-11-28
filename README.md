@@ -97,7 +97,7 @@ flowchart TB
         Ctl["ChartController<br/>signals + commands"]
         Chart["Chart facade"]
         Kernel["StateKernel<br/>Reactive SSOT"]
-        Data["Data Layer<br/>SeriesRepository · Buffers"]
+        Data["Data Layer<br/>MarketDataService · Buffers"]
         Pipe["Rendering Pipeline<br/>FrameTransaction · Scene/Layer"]
         GPU["WebGPU / WebGL2 / Canvas2D"]
         Plugin["Plugin Subsystem<br/>PluginHost · RendererPlugin"]
@@ -136,7 +136,7 @@ flowchart TB
   `computed()` for derivation, `effect()` for DOM side effects.
 - **Rendering** — submit primitives once, render via WebGPU / WebGL2 / Canvas2D with
   automatic fallback (WebGPU → WebGL → Canvas2D).
-- **Data layer** — unified `SeriesRepository` + incremental buffers + fetch scheduler;
+- **Data layer** — shared `MarketDataService` + incremental buffers + fetch scheduler;
   multi-source aggregation (gotdx / BaoStock / TradingView / MT5 / mock) and Binance Spot K-lines and trades.
 - **Plugin subsystem** — PluginHost / HookSystem / EventBus / RendererPluginManager;
   indicators and drawing tools plug in as Scene Layers.
@@ -328,7 +328,12 @@ import '@363045841yyt/klinechart/style.css'
 
 ```vue
 <script setup lang="ts">
-import { KlineWorkbench } from '@363045841yyt/klinechart'
+import { createPersistedMarketDataHost, KlineWorkbench, provideBrowserAppRuntime } from '@363045841yyt/klinechart'
+import { onScopeDispose } from 'vue'
+
+const host = createPersistedMarketDataHost()
+provideBrowserAppRuntime(host.context, true, console.error)
+onScopeDispose(host.dispose)
 </script>
 
 <template>
@@ -340,7 +345,7 @@ import { KlineWorkbench } from '@363045841yyt/klinechart'
 
 The workbench fills its container (`width/height: 100%`), so the host element must have an explicit size.
 
-- `agent` and `scripts` default to `true`. Both are decided at mount time: set either to `false` (and remount) to disable that subsystem. Disabling scripts means no script execution Worker, no editor entry, and no language service.
+- The application root calls `provideBrowserAppRuntime` once. Its second argument controls whether to start the script service. A workbench can hide its script editor and Agent panel with the `scripts` and `agent` props.
 - `chart` forwards chart configuration (axes, toolbar, `settings.theme`, `settings.rendererBackend`, …).
 - `initialAgentPanelOpen` controls whether the Agent drawer starts open.
 - Builtin script indicators are prepared before the chart mounts; the editor page and its language service load only when the editor is opened.
@@ -440,19 +445,19 @@ const host = createMarketDataHost()
 const unregister = host.registerDataSource(source)
 ```
 
-Pass the host and the selected instrument to the workbench:
+Provide the registered host at the application root and pass the selected instrument to the workbench:
 
 ```vue
 <script setup lang="ts">
-import { KlineWorkbench } from '@363045841yyt/klinechart'
+import { KlineWorkbench, provideBrowserAppRuntime } from '@363045841yyt/klinechart'
 
+provideBrowserAppRuntime(host, true, console.error)
 const instrument = { source: 'binance', id: 'BTCUSDT' }
 </script>
 
 <template>
   <div style="height: 700px">
     <KlineWorkbench
-      :market-data-context="host"
       :instrument="instrument"
       period="daily"
     />

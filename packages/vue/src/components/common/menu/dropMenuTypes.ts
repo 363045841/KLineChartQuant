@@ -5,6 +5,9 @@ import type { SurfaceAnchor } from '@vue-src/composables/overlay/useAnchoredSurf
 /** 选中语义：单选一组互斥，开关各自独立且再次点击即取消。 */
 export type DropMenuSelection = 'radio' | 'checkbox'
 
+/** 弹出面板的无障碍语义：纯菜单项用 menu，含行内控件时用 dialog。 */
+export type MenuPopupSemantics = 'menu' | 'dialog'
+
 interface DropMenuItemBase {
   id: string
   label: string

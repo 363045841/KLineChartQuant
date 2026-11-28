@@ -1,5 +1,5 @@
 /** 标签仓库：每项操作读取事务内的最新记录，跨窗口移交一次提交两边，禁止延迟快照覆盖。 */
-import { createIndexedDbDriver } from '@363045841yyt/klinechart-core'
+import { createDatabaseDriver } from '@363045841yyt/klinechart-core'
 import {
   createBlankTab,
   readWorkspaceTabs,
@@ -8,10 +8,9 @@ import {
   type WorkspaceTab,
   type WorkspaceTabs,
 } from './workspace-tabs.js'
+import { workspaceTabsDatabase } from './workspaceTabsDatabase.js'
 
-const DATABASE_NAME = '@363045841yyt/klinechart-desktop'
-const DATABASE_VERSION = 1
-const STORE_NAME = 'workspaces'
+const STORE_NAME = workspaceTabsDatabase.storeName
 
 /** 跨窗口提交结果；失败或重复接管时没有可发布的目标快照。 */
 interface AdoptionResult {
@@ -27,13 +26,7 @@ function workspaceKey(id: string): string {
 
 /** 绑定工作区身份；不缓存可变快照，也不注册页面退出时的旧快照补写。 */
 export function openWorkspaceTabsStore(workspaceId: string) {
-  const driver = createIndexedDbDriver({
-    databaseName: DATABASE_NAME,
-    version: DATABASE_VERSION,
-    upgrade: (database) => {
-      if (!database.objectStoreNames.contains(STORE_NAME)) database.createObjectStore(STORE_NAME)
-    },
-  })
+  const driver = createDatabaseDriver(workspaceTabsDatabase)
 
   /** 在同一读写事务中完成读取、纯计算与写回；任一同步写入或异步请求失败都会整体回滚。 */
   async function transact<T>(

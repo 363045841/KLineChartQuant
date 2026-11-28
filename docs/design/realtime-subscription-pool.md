@@ -19,9 +19,9 @@
 
 ```
 Vue / 图表         订阅、展示
-MarketRuntime      需求与租约（谁要什么、何时释放）
+MarketDataService  序列身份、缓存、订阅与引用计数
 实时订阅池         连接与扇出（批量品种、引用计数、上限）
-传输                SseConnection（唯一实现）/ 宿主连接工厂
+传输               EventSource / fetch 两种实现，由宿主注入
 Connector          按 instruments 批量推送
 ```
 

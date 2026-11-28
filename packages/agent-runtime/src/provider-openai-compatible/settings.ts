@@ -27,14 +27,6 @@ export class InMemoryProviderCredentialStore implements ProviderCredentialStore 
     this.key = apiKey
   }
 
-  /**
-   * 清除内存中的 API Key。
-   * @param signal 用于在删除前取消操作的信号。
-   */
-  async delete(signal?: AbortSignal): Promise<void> {
-    signal?.throwIfAborted()
-    this.key = undefined
-  }
 }
 
 /** 用于测试或非持久化宿主的 Provider 设置内存存储。 */

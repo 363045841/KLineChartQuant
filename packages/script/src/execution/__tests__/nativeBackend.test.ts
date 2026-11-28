@@ -2,10 +2,9 @@
 
 import { Color, isOhlcPlot } from '@363045841yyt/klinechart-plot-contracts'
 import { describe, expect, it } from 'vitest'
-import { BACKENDS, prepareNative } from '../../__tests__/backends.js'
+import { BACKENDS, prepareNative, prepareQuickJS } from '../../__tests__/backends.js'
 import { BUILTIN_REQUEST_CONTEXT, barsFromCloses, wavyCloses } from '../../__tests__/marketData.js'
 import { builtinScriptSources } from '../../quickjs/generated/builtinScripts.js'
-import { prepareQuickJSScript } from '../../quickjs/impl/runQuickJSScript.js'
 
 describe('原生脚本后端', () => {
   it.each(BACKENDS)('执行器 $name 输出两种阶梯线并保留样式与 fill 句柄', ({ prepare }) => {
@@ -92,7 +91,7 @@ describe('原生脚本后端', () => {
       .map((source, index) => ({ source, index })),
   )('内置脚本 $index 的声明、数值、样式和填充与 QuickJS 一致', ({ source }) => {
     const native = prepareNative(source)
-    const sandbox = prepareQuickJSScript(source)
+    const sandbox = prepareQuickJS(source)
     expect(native.definition).toEqual(sandbox.definition)
     const bars = barsFromCloses(wavyCloses(60))
     const expected = sandbox.run(bars, {}, BUILTIN_REQUEST_CONTEXT)
@@ -147,7 +146,7 @@ defineIndicator({ version: 2, name: 'HLine', position: 'sub', onBar() { plot.Lin
       { name: 'custom', source: `defineLibrary('custom', { value: (n: number) => n * 2 })` },
     ]
     const native = prepareNative(source, libraries)
-    const sandbox = prepareQuickJSScript(source, libraries)
+    const sandbox = prepareQuickJS(source, libraries)
     const bars = barsFromCloses([2, 4, 6])
     for (const params of [{ divisor: 2 }, { divisor: 4 }, { divisor: 2 }])
       expect(native.run(bars, params)).toEqual(sandbox.run(bars, params))
@@ -176,3 +175,4 @@ defineIndicator({ version: 2, name: 'HLine', position: 'sub', onBar() { plot.Lin
     )
   })
 })
+

@@ -37,3 +37,18 @@ export function createBlankSource(name: string): string {
 export function createLibrarySource(name: string): string {
   return `// 用户自定义库\ndefineLibrary(${JSON.stringify(name)}, {\n  /** 平滑价格序列。 */\n  smooth(source: Series, length: number): Series {\n    return ta.sma(source, length)\n  },\n})\n`
 }
+
+export function createAlertSource(name: string): string {
+  return `defineAlert({
+  version: 2,
+  name: ${JSON.stringify(name)},
+  frequency: 'per-bar',
+  onBar() {
+    const price = input.float(100, { title: '触发价格' })
+    const previous = barstate.prevPrice
+    if (previous !== undefined && previous < price && close[0] >= price) {
+      alert(\`价格上穿 \${price}\`)
+    }
+  },
+})\n`
+}

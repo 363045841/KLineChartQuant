@@ -137,10 +137,6 @@ export class DrawingInteractionController {
     this.sessionOverlay.clearSession()
   }
 
-  setTool(toolId: DrawingToolId) {
-    this.adapter.setDrawingToolId(toolId)
-  }
-
   /**
    * 设置磁吸档位（off/weak/strong），仅影响绘图模式的锚点落点与预览路径。
    * cursor 命中、框选、标签路径不受磁吸影响。

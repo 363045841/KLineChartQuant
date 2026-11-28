@@ -1009,15 +1009,14 @@ function projectOhlcPlot(plot: OhlcPlot, context: PrimitiveRenderContext): OhlcP
 
 /** 所有普通指标共用同一 Layer 工厂，实例只提供 Plot 数据。 */
 export function createPlotLayer(
-  definitionId: string,
+  layerId: string,
   defaultPaneId: string,
-  options: { instanceId: string; axisId: string },
+  options: { instanceId: string; axisId: string; layerId: string },
 ): Layer<RenderContext> {
   const cache = createPlotProjectionCache()
   return createIndicatorRendererLayer({
-    definitionId,
+    layerId,
     paneId: defaultPaneId,
-    instanceId: options.instanceId,
     axisId: options.axisId,
     z: RENDERER_PRIORITY.INDICATOR,
     kind: 'draw-list',

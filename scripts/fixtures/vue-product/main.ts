@@ -1,6 +1,6 @@
 /** 同一页面分别消费源码和 tarball；行情复用现有 E2E 数据夹具。 */
 import { createApp, h, onBeforeUnmount, shallowRef } from 'vue'
-import { KlineWorkbench, createMarketDataHost, type ChartController } from '__PRODUCT_NAME__'
+import { KlineWorkbench, createMarketDataHost, provideBrowserAppRuntime, type ChartController } from '__PRODUCT_NAME__'
 import '__PRODUCT_NAME__/style.css'
 import { createE2eDataSource } from './data.js'
 
@@ -13,6 +13,7 @@ const fixture = createE2eDataSource((active) => { document.body.dataset.activeSt
 host.registerDataSource(fixture.source)
 createApp({
   setup() {
+    provideBrowserAppRuntime(host, query.get('scripts') !== '0', (error) => console.error(error))
     onBeforeUnmount(() => { stopData?.(); host.dispose() })
     return () => h('main', [
       h('div', { style: 'height:840px' }, mounted.value ? [h(KlineWorkbench, {
@@ -20,7 +21,6 @@ createApp({
         scripts: query.get('scripts') !== '0',
         // Agent 面板首次点开才挂载；验收从收起态开始，用侧边菜单验证开合。
         initialAgentPanelOpen: false,
-        marketDataContext: host,
         instrument: fixture.instrument,
         period: 'daily',
         chart: { leftAxisWidth: 60, settings: { theme: 'light', rendererBackend: 'canvas' } },

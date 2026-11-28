@@ -132,7 +132,16 @@
 
 <script setup lang="ts">
   import type { ChartSettings } from '@363045841yyt/klinechart-core/config'
-  import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
+  import {
+    computed,
+    nextTick,
+    onBeforeUnmount,
+    onMounted,
+    ref,
+    shallowRef,
+    useTemplateRef,
+    watch,
+  } from 'vue'
   import IconPlus from '~icons/tabler/plus'
   import IconX from '~icons/tabler/x'
   import WorkspaceMenu from './components/WorkspaceMenu.vue'
@@ -175,9 +184,16 @@
     closeWindow: []
   }>()
 
-  const draggingId = ref<string | null>(null)
+  interface TabDragSession {
+    /** 本窗口正在拖的标签；外部拖入时为 null。 */
+    readonly tabId: string | null
+    readonly target: TabDropTarget | null
+  }
+
+  // 拖拽会话同时承载本地来源与落点；外部拖入只有落点，没有 tabId。
+  const dragSession = shallowRef<TabDragSession | null>(null)
   // 插入位置只用于画指示线，真实顺序始终由标签数组决定。
-  const dropTarget = ref<TabDropTarget | null>(null)
+  const dropTarget = computed(() => dragSession.value?.target ?? null)
   const bar = useTemplateRef<HTMLElement>('bar')
   const list = useTemplateRef<HTMLElement>('list')
   const titleElement = useTemplateRef<HTMLElement>('titleElement')
@@ -193,12 +209,19 @@
   const OUTLINE_FLARE = 8
   const OUTLINE_RADIUS = 6
 
+  interface OutlineGeometry {
+    readonly width: number
+    readonly height: number
+    readonly tabLeft: number
+    readonly tabRight: number
+    readonly tabTop: number
+  }
+
   const innerEl = useTemplateRef<HTMLElement>('inner')
-  const outlineWidth = ref(0)
-  const outlineHeight = ref(0)
-  const outlineTabLeft = ref(0)
-  const outlineTabRight = ref(0)
-  const outlineTabTop = ref(0)
+  /** 轮廓几何一次写入、一次读取；空值表示没有可绘制的活动标签。 */
+  const outlineGeometry = shallowRef<OutlineGeometry | null>(null)
+  const outlineWidth = computed(() => outlineGeometry.value?.width ?? 0)
+  const outlineHeight = computed(() => outlineGeometry.value?.height ?? 0)
   let outlineTarget: HTMLElement | null = null
   let outlineObserver: ResizeObserver | null = null
   let outlineFrame: number | null = null
@@ -246,8 +269,7 @@
     const inner = innerEl.value
     const element = outlineTarget
     if (!inner || !element) {
-      outlineWidth.value = 0
-      outlineHeight.value = 0
+      outlineGeometry.value = null
       return
     }
     const innerRect = inner.getBoundingClientRect()
@@ -257,11 +279,13 @@
     const dpr = window.devicePixelRatio || 1
     const snap = (value: number, origin: number) =>
       Math.round((origin + value) * dpr) / dpr - origin
-    outlineWidth.value = snap(innerRect.width, innerRect.left)
-    outlineHeight.value = snap(innerRect.height, innerRect.top)
-    outlineTabLeft.value = snap(tabRect.left - innerRect.left, innerRect.left)
-    outlineTabRight.value = snap(tabRect.right - innerRect.left, innerRect.left)
-    outlineTabTop.value = snap(tabRect.top - innerRect.top, innerRect.top)
+    outlineGeometry.value = {
+      width: snap(innerRect.width, innerRect.left),
+      height: snap(innerRect.height, innerRect.top),
+      tabLeft: snap(tabRect.left - innerRect.left, innerRect.left),
+      tabRight: snap(tabRect.right - innerRect.left, innerRect.left),
+      tabTop: snap(tabRect.top - innerRect.top, innerRect.top),
+    }
   }
 
   /** 切换测量目标；自身尺寸由 ResizeObserver 监听，动画位移由逐帧测量同步。 */
@@ -280,14 +304,20 @@
     syncOutlineSize()
   }
 
+  /** 读取当前可绘制的轮廓几何；没有活动标签或尺寸退化时返回 null。 */
+  function readOutline() {
+    const outline = outlineGeometry.value
+    if (!outline) return null
+    const { width, height, tabLeft: left, tabRight: right, tabTop: top } = outline
+    if (width <= 0 || height <= 0 || right <= left) return null
+    return { width, height, left, right, top }
+  }
+
   /** 标签填充：闭合路径延伸至栏底，与下方内容连通。 */
   const outlineFillPath = computed(() => {
-    const width = outlineWidth.value
-    const height = outlineHeight.value
-    const left = outlineTabLeft.value
-    const right = outlineTabRight.value
-    const top = outlineTabTop.value
-    if (width <= 0 || height <= 0 || right <= left) return ''
+    const outline = readOutline()
+    if (!outline) return ''
+    const { height, left, right, top } = outline
     const flare = OUTLINE_FLARE
     const radius = OUTLINE_RADIUS
     return [
@@ -306,12 +336,9 @@
 
   /** 描边同时画整条底边线与标签轮廓，底边在标签两侧连续接入圆弧。 */
   const outlineStrokePath = computed(() => {
-    const width = outlineWidth.value
-    const height = outlineHeight.value
-    const left = outlineTabLeft.value
-    const right = outlineTabRight.value
-    const top = outlineTabTop.value
-    if (width <= 0 || height <= 0 || right <= left) return ''
+    const outline = readOutline()
+    if (!outline) return ''
+    const { width, height, left, right, top } = outline
     const flare = OUTLINE_FLARE
     const radius = OUTLINE_RADIUS
     // 1px 描边落在最后一行像素的中线上。
@@ -378,16 +405,17 @@
 
   /** 只清落点指示线：指针离开标签栏，或落点已被消费时使用。 */
   function clearDropTarget(): void {
-    dropTarget.value = null
+    const session = dragSession.value
+    if (!session) return
+    dragSession.value = session.tabId === null ? null : { ...session, target: null }
   }
 
   /** 结束一次拖拽：解绑整窗监听并复位本窗口的全部拖拽状态。 */
   function endDrag(): void {
     window.removeEventListener('dragover', onWindowDragOver)
     window.removeEventListener('drop', onWindowDrop)
-    draggingId.value = null
+    dragSession.value = null
     dropped = false
-    clearDropTarget()
   }
 
   /** 中键关闭标签；左键由 click 处理，其它键忽略。 */
@@ -401,7 +429,7 @@
   function onDragStart(event: DragEvent, tabId: string): void {
     if (!event.dataTransfer) return
     dropped = false
-    draggingId.value = tabId
+    dragSession.value = { tabId, target: null }
     event.dataTransfer.effectAllowed = 'move'
     const payload: TabDragPayload = { fromWorkspaceId: props.workspaceId, tabId }
     event.dataTransfer.setData('text/plain', JSON.stringify(payload))
@@ -414,14 +442,14 @@
 
   /** 拖拽期间接管整窗 dragover，声明为可放置，避免出现禁止光标。 */
   function onWindowDragOver(event: DragEvent): void {
-    if (!draggingId.value) return
+    if (!dragSession.value?.tabId) return
     event.preventDefault()
     if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
   }
 
   /** 落在标签栏之外的 drop 直接开新窗口；栏内的已由标签栏自己处理。 */
   function onWindowDrop(event: DragEvent): void {
-    const tabId = draggingId.value
+    const tabId = dragSession.value?.tabId
     if (!tabId || dropped) return
     event.preventDefault()
     dropped = true
@@ -459,17 +487,18 @@
   function onListDragOver(event: DragEvent): void {
     // 本窗口和其它窗口拖来的标签用同一套落点计算；dragover 阶段只能读 types。
     if (event.dataTransfer?.types.includes('text/plain') !== true) return
-    if (!props.desktop && !draggingId.value) return
+    const session = dragSession.value
+    if (!props.desktop && !session?.tabId) return
     event.preventDefault()
     const list = event.currentTarget as HTMLElement
     const next = resolveDropTarget(list, event.clientX)
-    if (next?.id === draggingId.value) {
+    if (next?.id === session?.tabId) {
       clearDropTarget()
       return
     }
-    const current = dropTarget.value
+    const current = session?.target
     if (current?.id === next?.id && current?.placement === next?.placement) return
-    dropTarget.value = next
+    dragSession.value = { tabId: session?.tabId ?? null, target: next }
   }
 
   function onListDragLeave(event: DragEvent): void {
@@ -503,7 +532,7 @@
     const payload = readTabDragPayload(raw)
     if (!payload) return
     // 落点先取出再清空：drop 之后本窗口收不到 dragend，指示线必须在这里复位。
-    const target = dropTarget.value
+    const target = dragSession.value?.target ?? null
     clearDropTarget()
     if (payload.fromWorkspaceId !== props.workspaceId) {
       // 明确接受这次 drop，源窗口据此得到 move，不会重复脱窗。
@@ -513,7 +542,7 @@
       }
       return
     }
-    if (!target || (!props.desktop && draggingId.value !== payload.tabId)) return
+    if (!target || (!props.desktop && dragSession.value?.tabId !== payload.tabId)) return
     event.preventDefault()
     dropped = true
     emit('reorder', payload.tabId, target.id, target.placement)

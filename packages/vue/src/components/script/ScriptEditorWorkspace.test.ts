@@ -163,7 +163,7 @@ describe('ScriptEditorWorkspace', () => {
     )
     try {
       await nextTick()
-      expect(wrapper.findAll('.script-files__dir')).toHaveLength(2)
+      expect(wrapper.findAll('.script-files__dir')).toHaveLength(3)
       await wrapper.get('input[aria-label="搜索指标和库"]').setValue('MYLIBRARY')
       expect(wrapper.findAll('.script-files__file')).toHaveLength(1)
       expect(wrapper.get('.script-files__file').text()).toContain('myLibrary.ts')

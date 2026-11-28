@@ -70,19 +70,19 @@
         :controller="layoutController ?? null"
         @toggle-indicator="emit('toggleIndicator')"
       />
-        <BaseTooltip
-          v-if="!showBackButton && kLineShape === FOOTPRINT_SHAPE"
-          content="足迹图设置"
-          placement="bottom"
+      <BaseTooltip
+        v-if="!showBackButton && kLineShape === FOOTPRINT_SHAPE"
+        content="足迹图设置"
+        placement="bottom"
+      >
+        <BaseIconButton
+          label="足迹图设置"
+          class="footprint-settings-button"
+          @click="emit('footprintSettings')"
         >
-          <BaseIconButton
-            label="足迹图设置"
-            class="footprint-settings-button"
-            @click="emit('footprintSettings')"
-          >
-            <IconTablerSettings class="footprint-settings-button__icon" aria-hidden="true" />
-          </BaseIconButton>
-        </BaseTooltip>
+          <IconTablerSettings class="footprint-settings-button__icon" aria-hidden="true" />
+        </BaseIconButton>
+      </BaseTooltip>
       <MarketDataManagementDialog
         :show="showSourceDialog"
         @close="showSourceDialog = false"

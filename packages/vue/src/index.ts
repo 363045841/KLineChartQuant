@@ -5,14 +5,10 @@
  * Bridges core signals to Vue's
  * reactivity via `shallowRef` subscriptions so each adapter owns its own
  * reactivity boundary — no proxy wrapping of immutable signal values.
- *
- * Backward-compatibility contract: `KMapPlugin.install(app)` MUST exist
- * because legacy users of `@363045841yyt/klinechart` consume it.
  */
 
 import type {
   ChartController,
-  ChartControllerFactory,
   ChartMountOptions,
   ChartViewport,
   IndicatorDefinition,
@@ -21,10 +17,9 @@ import type {
   KLineData,
   ReadonlySignal,
 } from '@363045841yyt/klinechart-core'
-import { createIndicatorSelectorController } from '@363045841yyt/klinechart-core'
+import { createChartController, createIndicatorSelectorController } from '@363045841yyt/klinechart-core'
 import { KlineChart } from '@vue-src/components/index.js'
 import {
-  type App,
   type ComputedRef,
   onBeforeUnmount,
   onScopeDispose,
@@ -88,7 +83,6 @@ export type {
 } from '@363045841yyt/klinechart-core/market-data'
 export {
   createMarketDataHost,
-  defaultMarketDataContext,
   InstrumentType,
   KLineAdjustment,
   KLinePeriod,
@@ -102,11 +96,11 @@ export type {
 } from '@vue-src/components/index.js'
 export {
   DrawingStyleToolbar,
-  IndicatorParams,
   IndicatorSelector,
   KLineTooltip,
   KlineChart,
   LeftToolbar,
+  ParamsDialog,
 } from '@vue-src/components/index.js'
 export {
   SCRIPT_SOURCE_STORE_KEY,
@@ -180,30 +174,11 @@ export type {
 } from './features/side-panel/types.js'
 export type { KlineWorkbenchHandle, KlineWorkbenchProps } from './workbench/types.js'
 export { KlineWorkbench }
+export { provideBrowserAppRuntime } from './composables/runtime/useAppRuntime.js'
+export { default as AlertNotificationStack } from './components/alert/AlertNotificationStack.vue'
 
 // ---------------------------------------------------------------------------
-// Controller factory injection
-//
-// The concrete `createChartController` from packages/core/src/controllers/
-// (Phase 1A deliverable) is not yet wired. Adapters and tests inject a
-// factory via `__setControllerFactory` so the public API surface stays stable.
-// ---------------------------------------------------------------------------
-
-export type { FrameCoordinates } from '@363045841yyt/klinechart-core'
-
-let controllerFactory: ChartControllerFactory | null = null
-
-/**
- * Inject the ChartController factory. Called by:
- *   - the core package's bootstrap once `createChartController` is implemented
- *   - tests that need a mock controller
- */
-export function __setControllerFactory(factory: ChartControllerFactory | null): void {
-  controllerFactory = factory
-}
-
-// ---------------------------------------------------------------------------
-// createChart �?imperative mount
+// createChart — imperative mount
 // ---------------------------------------------------------------------------
 
 /**
@@ -211,19 +186,13 @@ export function __setControllerFactory(factory: ChartControllerFactory | null): 
  *
  * Throws if container is null/undefined (SSR-safe guard).
  */
-export function createChart(opts: ChartMountOptions): ChartController | Promise<ChartController> {
+export function createChart(opts: ChartMountOptions): Promise<ChartController> {
   if (opts.container == null) {
     throw new Error(
       '[@363045841yyt/klinechart] createChart: `container` is required and must be a non-null HTMLElement',
     )
   }
-  if (controllerFactory === null) {
-    throw new Error(
-      '[@363045841yyt/klinechart] createChart: no ChartController factory registered. ' +
-        'Call __setControllerFactory(...) before mounting (the core package wires this in production).',
-    )
-  }
-  return controllerFactory(opts)
+  return createChartController(opts)
 }
 
 import { coreSignalToVueRef } from '@vue-src/utils/signalBridge.js'
@@ -249,20 +218,17 @@ export function useChart(
 
   const mountIfReady = (el: HTMLElement | null): void => {
     if (el == null || chart.value != null) return
-    const created = createChart({ ...opts, container: el })
-    const applyController = (ctrl: ChartController): void => {
-      if (disposed) {
-        ctrl.dispose()
-        return
-      }
-      chart.value = ctrl
-    }
-
-    if (typeof (created as Promise<ChartController>).then === 'function') {
-      ;(created as Promise<ChartController>).then(applyController)
-    } else {
-      applyController(created as ChartController)
-    }
+    void createChart({ ...opts, container: el })
+      .then((ctrl) => {
+        if (disposed) {
+          ctrl.dispose()
+          return
+        }
+        chart.value = ctrl
+      })
+      .catch((error: unknown) => {
+        console.error('[createChart] mount failed', error)
+      })
   }
 
   // Mount synchronously if the ref is already populated (e.g. SFC where the
@@ -415,34 +381,8 @@ export function useIndicatorSelector(controller: ChartController): {
 }
 
 // ---------------------------------------------------------------------------
-// KMapPlugin �?legacy Vue plugin
-//
-// PRESERVE THIS EXACT SHAPE �?legacy consumers do:
-//   import { KMapPlugin } from '@363045841yyt/klinechart'
-//   app.use(KMapPlugin)
+// KlineWorkbench is the product entry; KMapPlugin is intentionally removed.
 // ---------------------------------------------------------------------------
-
-export const KMapPlugin = {
-  install(app: App): void {
-    app.component('KLineChart', KlineChart)
-    app.component('KlineWorkbench', KlineWorkbench)
-  },
-}
-
-// ---------------------------------------------------------------------------
-// Auto-register the production ChartControllerFactory
-//
-// Consumers don't need to call __setControllerFactory manually unless they
-// want to inject a custom backing (e.g. for testing). Contract tests
-// override via __setControllerFactory in their setup and reset to null in
-// afterEach, so this default registration is transparent to them.
-//
-// Importing the factory is side-effect-free at module load �?the engine's
-// DOM access only happens when `createChart(opts)` is actually called.
-// ---------------------------------------------------------------------------
-import { createChartController } from '@363045841yyt/klinechart-core'
-
-__setControllerFactory(createChartController)
 
 export { CORE_VERSION, VERSION } from '@vue-src/version.js'
 export { useWorkspaceAppearance } from './workspace/impl/useWorkspaceAppearance.js'

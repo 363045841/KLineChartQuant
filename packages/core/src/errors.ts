@@ -70,6 +70,11 @@ export type KLineChartErrorCode =
   | 'CHART_TYPE_CONFIG_INVALID'
   // replay controller
   | 'REPLAY_CONFIG_INVALID'
+  // alerts
+  | 'ALERT_LIMIT_REACHED'
+  | 'ALERT_NOT_FOUND'
+  | 'ALERT_INVALID_CONDITION'
+  | 'ALERT_INVALID_POLICY'
   // scene / chart-controller / framework adapter wiring
   | 'CONTROLLER_CONFIG_INVALID'
   // data-fetcher (gotdx / baostock / tradingview)
@@ -334,4 +339,12 @@ export const CHART_TYPE_ERROR_CODES = {
 // replay controller（回放）；保留给宿主实现回放。
 export const REPLAY_ERROR_CODES = {
   CONFIG_INVALID: 'REPLAY_CONFIG_INVALID',
+} as const satisfies Readonly<Record<string, KLineChartErrorCode>>
+
+// alerts（警报）：规则数量、非法条件与非法策略。
+export const ALERT_ERROR_CODES = {
+  LIMIT_REACHED: 'ALERT_LIMIT_REACHED',
+  NOT_FOUND: 'ALERT_NOT_FOUND',
+  INVALID_CONDITION: 'ALERT_INVALID_CONDITION',
+  INVALID_POLICY: 'ALERT_INVALID_POLICY',
 } as const satisfies Readonly<Record<string, KLineChartErrorCode>>

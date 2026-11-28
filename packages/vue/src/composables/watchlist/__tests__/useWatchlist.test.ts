@@ -15,9 +15,9 @@ import {
   saveWatchlist,
   saveWatchlistGrouping,
   useWatchlist,
-  WATCHLIST_DATABASE_NAME,
   type WatchlistState,
 } from '../useWatchlist'
+import { watchlistDatabase } from '../watchlistDatabase'
 
 const symbol = TEST_SYMBOLS[0]!
 const secondSymbol = TEST_SYMBOLS[1]!
@@ -25,7 +25,7 @@ const secondSymbol = TEST_SYMBOLS[1]!
 /** 删除测试数据库，确保用例之间没有持久化状态。 */
 function deleteWatchlistDatabase(): Promise<void> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.deleteDatabase(WATCHLIST_DATABASE_NAME)
+    const request = indexedDB.deleteDatabase(watchlistDatabase.name)
     request.onsuccess = () => resolve()
     request.onerror = () => reject(request.error)
     request.onblocked = () => reject(new Error('Test database deletion was blocked'))

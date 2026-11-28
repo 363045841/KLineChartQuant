@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { barsFromCloses, requireValues, scriptSource } from '../../__tests__/marketData.js'
 import { ScriptExecutionError, ScriptPlotError } from '../../errors.js'
-import { runQuickJSScript } from '../impl/runQuickJSScript.js'
+import { runQuickJSScript } from '../../__tests__/helpers/quickJSScript.js'
 
 describe('脚本执行器', () => {
   // 历史偏移已由 Series 用例覆盖，这里只锁定宿主参数驱动缩放与 ta 窗口。

@@ -3,32 +3,35 @@
 import 'fake-indexeddb/auto'
 import { ShapeSize } from '@363045841yyt/klinechart-plot-contracts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { MarketDataContext } from '@/data/management/impl/context.js'
+import { MarketDataContext } from '@/data/management/context.js'
 import { createDataSourceFixture } from '@/data/provider/__tests__/helpers/providerTestKit.js'
 import { installChartDomStubs, stubAnimationFrame } from '@/engine/__tests__/helpers/chartDomTestKit.js'
+import { createTestDefinitions } from '@/engine/indicators/__tests__/helpers/definitionsTestKit.js'
 import { createTestData } from '@/engine/indicators/__tests__/helpers/instanceTestKit.js'
 import type { IndicatorMetadata } from '@/engine/indicators/indicatorMetadata.js'
 import { createPlotIndicatorDefinition } from '@/engine/indicators/pipeline/impl/createPlotDefinition.js'
-import {
-  clearIndicatorStoreForTest,
-  getRegisteredIndicatorDefinition,
-  registerIndicators,
-  unregisterIndicator,
-} from '@/engine/indicators/pipeline/index.js'
+import type { DefinitionRegistry } from '@/engine/indicators/registry/index.js'
 import type { IndicatorSeries } from '@/engine/plots/types.js'
+import { createMarketRuntime } from '@/engine/runtime/index.js'
+import { systemClock } from '@/foundation/utils/clock.js'
 import { batch } from '@/foundation/reactivity/signal.js'
-import { createChartController } from '../chart/index.js'
-import { indicatorCatalog } from '../indicatorCatalog/index.js'
+import { createTestChartController as createChartController } from './helpers/controllerTestKit.js'
+import { createChartController as mountController } from '../chart/index.js'
+import { createIndicatorCatalog } from '../indicatorCatalog/index.js'
 import type { ChartController, ChartMountOptions } from '../types.js'
 
 const bars = createTestData(20)
 const controllers = new Set<ChartController>()
+let definitions: DefinitionRegistry
 let market: MarketDataContext
-let mountOptions: Pick<ChartMountOptions, 'layoutStorageId' | 'marketDataContext' | 'symbols'>
+let mountOptions: Pick<ChartMountOptions, 'layoutStorageId' | 'symbols'> & {
+  market: MarketDataContext
+  definitions: DefinitionRegistry
+}
 let restoreDom: () => void
 
 beforeEach(async () => {
-  clearIndicatorStoreForTest()
+  definitions = createTestDefinitions()
   restoreDom = installChartDomStubs()
   stubAnimationFrame()
   market = new MarketDataContext()
@@ -36,7 +39,8 @@ beforeEach(async () => {
   const instrument = await market.resolveInstrument('test', 'A')
   mountOptions = {
     layoutStorageId: crypto.randomUUID(),
-    marketDataContext: market,
+    market,
+    definitions,
     symbols: [{ instrument, period: 'daily' }],
   }
 })
@@ -82,35 +86,36 @@ function plot(name: string, position: 'main' | 'sub', value: number) {
     ],
     fills: [],
   }))
-  const sourceDefinition = { name, position, inputs: {} }
+  const sourceDefinition = { kind: 'indicator' as const, name, position, inputs: {} }
   const definition = createPlotIndicatorDefinition({
-    ...sourceDefinition,
-    source: 'script',
-    document: {
-      identity: 'user',
-      revision: 1,
-      source: `// ${name}`,
-      folder: '',
-      definition: sourceDefinition,
-    },
-    compute,
-  })
+      ...sourceDefinition,
+      source: 'script',
+      document: {
+        identity: 'user',
+        revision: 1,
+        source: `// ${name}`,
+        folder: '',
+        definition: sourceDefinition,
+      },
+      compute: () => ({ series: compute() }),
+    })
   return { definition, compute }
 }
 
 /** 注册静态目录或已装配定义，校验注册成功后再验证执行。 */
 function register(definition: IndicatorMetadata, load?: () => Promise<IndicatorMetadata>): void {
-  const { name, displayName, category, defaultPaneId } = definition
+  const { name, displayName, category, defaultPaneId, kind } = definition
+  if (kind !== 'indicator') throw new TypeError('Expected an indicator fixture')
   const candidate = { key: name, origin: 'third-party', identity: 'native' } as const
   const item = load
     ? {
         kind: 'descriptor' as const,
         candidate,
-        descriptor: { name, displayName, category, defaultPaneId },
+        descriptor: { kind, name, displayName, category, defaultPaneId },
         load,
       }
     : { kind: 'definition' as const, candidate, definition }
-  expect(registerIndicators([item]).failures).toEqual([])
+  expect(definitions.register([item]).failures).toEqual([])
 }
 
 /** 经数值查询公开入口读取图表计算结果。 */
@@ -123,6 +128,27 @@ async function lastValue(controller: ChartController, indicator: string) {
 }
 
 describe('indicator runtime projection', () => {
+  it('shares one calculation across two charts and keeps the second chart live when the first closes', async () => {
+    const runtime = createMarketRuntime({ market, definitions, clock: systemClock })
+    const indicator = plot('SharedPlot', 'sub', 42)
+    register(indicator.definition)
+    const first = await mountController({ container: document.createElement('div'), runtime, symbols: mountOptions.symbols })
+    const second = await mountController({ container: document.createElement('div'), runtime, symbols: mountOptions.symbols })
+    try {
+      first.addIndicator(indicator.definition.name)
+      second.addIndicator(indicator.definition.name)
+      await vi.waitFor(() => expect(second.getData()).toHaveLength(bars.length))
+      expect(await lastValue(first, indicator.definition.name)).toBe(42)
+      await first.dispose()
+      expect(await lastValue(second, indicator.definition.name)).toBe(42)
+      expect(indicator.compute).toHaveBeenCalledOnce()
+    } finally {
+      await first.dispose()
+      await second.dispose()
+      runtime.dispose()
+    }
+  })
+
   it.each(['cold mount', 'apply with data'])(
     'automatically computes all restored indicators on %s',
     async (entry) => {
@@ -144,7 +170,7 @@ describe('indicator runtime projection', () => {
       } else {
         original.clearAllIndicators()
       }
-      clearIndicatorStoreForTest()
+      definitions.clear()
       main.compute.mockClear()
       sub.compute.mockClear()
 
@@ -154,11 +180,11 @@ describe('indicator runtime projection', () => {
       })
       register(main.definition, async () => main.definition)
       register(sub.definition, () => pendingSub)
-      expect(indicatorCatalog().map(({ id }) => id)).toEqual([
+      expect(createIndicatorCatalog(definitions)().map(({ id }) => id)).toEqual([
         main.definition.name,
         sub.definition.name,
       ])
-      expect(getRegisteredIndicatorDefinition(main.definition.name)).toBeUndefined()
+      expect(definitions.getDefinition(main.definition.name)).toBeUndefined()
       const restoring =
         entry === 'cold mount' ? mount('layout') : original.applyLayout(layout).then(() => original)
       try {
@@ -234,7 +260,7 @@ describe('indicator runtime projection', () => {
     expect(before.compute).toHaveBeenCalledOnce()
     expect(after.compute).toHaveBeenCalledOnce()
 
-    unregisterIndicator(after.definition.name)
+    definitions.unregister(after.definition.name)
 
     expect(chart.indicators.peek()).toEqual([])
     expect(chart.paneLayout.peek()).toHaveLength(1)

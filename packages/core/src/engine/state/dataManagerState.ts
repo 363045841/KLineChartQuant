@@ -1,96 +1,13 @@
-/** 数据协调层状态：当前 spec、可恢复视口位置与增量加载批次。 */
-
-import type { SymbolSpec } from '../../controllers/types.js'
 import { DEFAULT_KLINE_PERIOD } from '../../data/provider/types.js'
-import { batch, createSubState } from '../../foundation/reactivity/signal.js'
-import type { LayoutViewportSnapshot } from '../layout/index.js'
+import type { SymbolSpec } from '../../data/symbolSpec.js'
+import { computed, type ReadonlySignal } from '../../foundation/reactivity/signal.js'
 
-export interface IncrementalLoadBatch {
-  readonly count: number
-  readonly leftBufferWidth: number
-}
-
-function emptyIncrementalLoadBatch(): IncrementalLoadBatch {
-  return { count: 0, leftBufferWidth: 0 }
-}
-
-export function createDataManagerState() {
-  const { signals, readonly } = createSubState(
-    {
-      currentSpec: null as SymbolSpec | null,
-      viewportSnapshots: Object.freeze({}) as Readonly<Record<string, LayoutViewportSnapshot>>,
-      rangeInitialized: false,
-      pendingIncrementalLoad: emptyIncrementalLoadBatch(),
-    },
-    {
-      currentPeriod: (s) => s.currentSpec()?.period ?? DEFAULT_KLINE_PERIOD,
-    },
-  )
-
+/** 品种和周期是活动选择的只读投影。 */
+export function createDataManagerState(currentSpec: ReadonlySignal<SymbolSpec | null>) {
   return {
-    readonly,
-
-    actions: {
-      /** 原子恢复文档携带的视口索引，不改变当前行情品种。 */
-      restoreViewportSnapshots(snapshots: Readonly<Record<string, LayoutViewportSnapshot>>): void {
-        signals.viewportSnapshots.set(Object.freeze(structuredClone(snapshots)))
-      },
-      setCurrentSpec(spec: SymbolSpec | null) {
-        signals.currentSpec.set(spec)
-      },
-
-      saveViewportSnapshot(key: string, snapshot: LayoutViewportSnapshot) {
-        signals.viewportSnapshots.set(
-          Object.freeze({
-            ...signals.viewportSnapshots.peek(),
-            [key]: Object.freeze({ ...snapshot }),
-          }),
-        )
-      },
-
-      getViewportSnapshot(key: string): LayoutViewportSnapshot | null {
-        return signals.viewportSnapshots.peek()[key] ?? null
-      },
-
-      setRangeInitialized(v: boolean) {
-        signals.rangeInitialized.set(v)
-      },
-
-      recordIncrementalLoad(count: number, leftBufferWidth: number) {
-        const pending = signals.pendingIncrementalLoad.peek()
-        signals.pendingIncrementalLoad.set({
-          count: pending.count + count,
-          leftBufferWidth,
-        })
-      },
-
-      flushIncrementalLoad(): IncrementalLoadBatch {
-        const pending = signals.pendingIncrementalLoad.peek()
-        signals.pendingIncrementalLoad.set(emptyIncrementalLoadBatch())
-        return pending
-      },
-
-      resetIncrementalLoad() {
-        signals.pendingIncrementalLoad.set(emptyIncrementalLoadBatch())
-      },
-
-      reset() {
-        batch(() => {
-          signals.currentSpec.set(null)
-          signals.viewportSnapshots.set(Object.freeze({}))
-          signals.rangeInitialized.set(false)
-          signals.pendingIncrementalLoad.set(emptyIncrementalLoadBatch())
-        })
-      },
-    },
-
-    dispose() {
-      batch(() => {
-        signals.currentSpec.set(null)
-        signals.viewportSnapshots.set(Object.freeze({}))
-        signals.rangeInitialized.set(false)
-        signals.pendingIncrementalLoad.set(emptyIncrementalLoadBatch())
-      })
+    readonly: {
+      currentSpec,
+      currentPeriod: computed(() => currentSpec()?.period ?? DEFAULT_KLINE_PERIOD),
     },
   }
 }

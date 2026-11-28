@@ -11,7 +11,7 @@ import type {
   IndicatorStage,
   RegistrableIndicator,
   StageResult,
-} from '@363045841yyt/klinechart-core'
+} from '@363045841yyt/klinechart-core/node'
 import { inspectScript } from '@363045841yyt/klinechart-script'
 import type { SavedScript } from '../types.js'
 import { candidateIdentity, savedIdentity } from './scriptCommit.js'

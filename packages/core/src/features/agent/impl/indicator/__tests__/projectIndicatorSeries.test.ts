@@ -17,7 +17,6 @@ function result(series: IndicatorSeries, timestamps = TIMESTAMPS): IndicatorResu
   return {
     timestamps,
     dataRevision: 1,
-    marketRevision: 0,
     series,
   }
 }

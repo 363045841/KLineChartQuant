@@ -1,6 +1,5 @@
 /** 验证足迹独立链路的增量传输、过期隔离、模式启停和参数归属。 */
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
-import { readIndicatorDescriptors } from '@/engine/indicators/pipeline/index.js'
 import { createSignal } from '@/foundation/reactivity/signal.js'
 import { batch, input, runtimeInput, trade } from '../../__tests__/helpers/footprintTestKit.js'
 import { FOOTPRINT_TEXT_MODES } from '../../types.js'
@@ -71,9 +70,6 @@ describe('足迹主序列运行模块', () => {
     kernel.data.actions.setTrades(snapshot)
     const state = kernel.footprint.readonly
     await vi.waitFor(() => expect(state.renderState.peek()?.series.bars[0]?.total).toBe('2.4'))
-    expect(readIndicatorDescriptors().some((item) => item.name.toLowerCase() === 'footprint')).toBe(
-      false,
-    )
     expect(kernel.mode.readonly.effectivePrimaryRenderer.peek()).toBe('footprint')
     const currentInput = state.input.peek()
     const series = state.renderState.peek()?.series

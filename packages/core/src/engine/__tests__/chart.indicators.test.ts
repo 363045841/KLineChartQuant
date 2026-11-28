@@ -5,10 +5,10 @@ import { PRICE_AXIS_RANGE_MODE } from '@/foundation/config/priceAxisRangeMode.js
 import { objectAxisId } from '@/foundation/geometry/axisBinding.js'
 import { ScaleType } from '@/foundation/types/scaleType'
 import {
+  indicatorLayerId,
   registerEmptyPlot,
   registerPlotDefinition,
 } from '../indicators/__tests__/helpers/plotIndicatorTestKit'
-import { resolveIndicatorLayerId } from '../indicators/indicatorLayerNaming'
 import { AXIS_GROUP_DRAWING, axisGroupId } from '../pane/axisGroups.js'
 import { MAIN_PANE_ID } from '../pane/types'
 import { PRICE_SERIES_AXIS_ID } from '../renderers/rendererIds.js'
@@ -23,10 +23,10 @@ describe('Chart indicator commands', () => {
   installChartTestHooks()
 
   it('restores instance timeframe rules and keeps the legend editable outside the allowed period', async () => {
-    const chart = mountChart()
+    const { chart, definitions } = mountChart()
     try {
       const definitionId = 'instance-timeframe-visibility'
-      registerEmptyPlot(definitionId)
+      registerEmptyPlot(definitions, definitionId)
       const restricted = chart.indicators.add(definitionId, {}, 'main')!
       const unrestricted = chart.indicators.add(definitionId, {}, 'main')!
       const timeframeVisibility = { mode: 'above', period: 'daily' } as const
@@ -53,12 +53,12 @@ describe('Chart indicator commands', () => {
   })
 
   it('adds a main-chart indicator to MAIN_PANE_ID after the main pane is moved', async () => {
-    const chart = mountChart()
+    const { chart, definitions } = mountChart()
     try {
       importPaneFixture(chart)
       chart.panes.reorderPanes(['layout-b', MAIN_PANE_ID, 'layout-a'])
       const id = 'main-overlay-after-reorder'
-      registerPlotDefinition({
+      registerPlotDefinition(definitions, {
         id,
         name: id,
         source: 'native',
@@ -75,10 +75,10 @@ describe('Chart indicator commands', () => {
   })
 
   it('removes only matching definition instances from a merged pane in one publication', async () => {
-    const chart = mountChart()
+    const { chart, definitions } = mountChart()
     try {
-      registerEmptyPlot('merged-layout-a')
-      registerEmptyPlot('merged-layout-b')
+      registerEmptyPlot(definitions, 'merged-layout-a')
+      registerEmptyPlot(definitions, 'merged-layout-b')
       const first = chart.indicators.add('merged-layout-a')!
       const paneId = chart.indicators.instances.peek().find((instance) => instance.id === first)!
         .paneId!
@@ -101,9 +101,9 @@ describe('Chart indicator commands', () => {
   })
 
   it('clearAllIndicators removes main and sub instances and recycles sub panes', async () => {
-    const chart = mountChart(1000, 1000)
+    const { chart, definitions } = mountChart({ width: 1000, height: 1000 })
     try {
-      registerPlotDefinition({
+      registerPlotDefinition(definitions, {
         id: 'clear-all-main',
         name: 'clear-all-main',
         source: 'script',
@@ -111,7 +111,7 @@ describe('Chart indicator commands', () => {
         inputs: {},
         compute: () => ({ plots: [], fills: [] }),
       })
-      registerEmptyPlot('clear-all-sub')
+      registerEmptyPlot(definitions, 'clear-all-sub')
       expect(chart.indicators.add('clear-all-main')).not.toBeNull()
       expect(chart.indicators.add('clear-all-sub')).not.toBeNull()
       const instances = chart.kernel.indicator.readonly.instances.peek()
@@ -139,10 +139,10 @@ describe('Chart indicator commands', () => {
   })
 
   it('removeInstancesByDefinition removes only matching instances and their panes', async () => {
-    const chart = mountChart(1000, 1000)
+    const { chart, definitions } = mountChart({ width: 1000, height: 1000 })
     try {
-      registerEmptyPlot('definition-a')
-      registerEmptyPlot('definition-b')
+      registerEmptyPlot(definitions, 'definition-a')
+      registerEmptyPlot(definitions, 'definition-b')
       expect(chart.indicators.add('definition-a')).not.toBeNull()
       expect(chart.indicators.add('definition-b')).not.toBeNull()
       const instances = chart.kernel.indicator.readonly.instances.peek()
@@ -167,7 +167,7 @@ describe('Chart indicator commands', () => {
   })
 
   it('definition replacement keeps explicit instance placement in both workspaces', async () => {
-    const chart = mountChart(1000, 1000)
+    const { chart, definitions } = mountChart({ width: 1000, height: 1000 })
     const definition = {
       id: 'placement-script',
       name: 'Placement script',
@@ -176,14 +176,14 @@ describe('Chart indicator commands', () => {
       compute: () => ({ plots: [], fills: [] }),
     }
     try {
-      registerPlotDefinition(definition)
+      registerPlotDefinition(definitions, definition)
       const first = chart.indicators.add(definition.id)
       chart.kernel.actions.setDataView('timeshare')
       const second = chart.indicators.add(definition.id)
       const baseline = chart.kernel.snapshotViewWorkspaces()
-      registerPlotDefinition({ ...definition, position: 'main' })
+      registerPlotDefinition(definitions, { ...definition, position: 'main' })
       expect(chart.kernel.snapshotViewWorkspaces()).toEqual(baseline)
-      registerPlotDefinition({ ...definition, position: 'sub' })
+      registerPlotDefinition(definitions, { ...definition, position: 'sub' })
       expect(chart.kernel.snapshotViewWorkspaces()).toEqual(baseline)
       expect(first).not.toBeNull()
       expect(second).not.toBeNull()
@@ -195,9 +195,9 @@ describe('Chart indicator commands', () => {
   it.each<'main' | 'sub'>(['main', 'sub'])(
     'moves a %s instance through every pane target with one live layer',
     async (position) => {
-      const chart = mountChart(1000, 1000)
+      const { chart, definitions } = mountChart({ width: 1000, height: 1000 })
       const definitionId = `moving-${position}`
-      registerPlotDefinition({
+      registerPlotDefinition(definitions, {
         id: definitionId,
         name: definitionId,
         source: 'script',
@@ -205,7 +205,7 @@ describe('Chart indicator commands', () => {
         inputs: {},
         compute: () => ({ plots: [], fills: [] }),
       })
-      registerEmptyPlot(`target-${position}`)
+      registerEmptyPlot(definitions, `target-${position}`)
       try {
         const targetId = chart.indicators.add(`target-${position}`)!
         const targetPaneId = chart.kernel.indicator.readonly.instances
@@ -228,17 +228,17 @@ describe('Chart indicator commands', () => {
           const before = chart.kernel.indicator.readonly.instances
             .peek()
             .find((instance) => instance.instanceId === instanceId)!
-          const oldId = resolveIndicatorLayerId(definitionId, before.paneId, 'renderer', instanceId)
+          const oldId = indicatorLayerId(definitions, definitionId, before.paneId, instanceId)
           const oldLayer = chart.getRenderer(oldId)!
           const disposed = vi.spyOn(oldLayer, 'dispose')
           expect(chart.legend.moveTo(instanceId, target)).toBe(true)
           const current = chart.kernel.indicator.readonly.instances
             .peek()
             .find((instance) => instance.instanceId === instanceId)!
-          const layerId = resolveIndicatorLayerId(
+          const layerId = indicatorLayerId(
+            definitions,
             definitionId,
             current.paneId,
-            'renderer',
             instanceId,
           )
           const layer = chart.getRenderer(layerId)!
@@ -288,14 +288,14 @@ describe('Chart indicator commands', () => {
         // 隐藏只关闭可见性：对象常驻，才能从对象树重新打开。
         expect(
           chart.getRenderer(
-            resolveIndicatorLayerId(definitionId, MAIN_PANE_ID, 'renderer', instanceId),
+            indicatorLayerId(definitions, definitionId, MAIN_PANE_ID, instanceId),
           )?.visible,
         ).toBe(false)
         expect(chart.legend.moveTo(instanceId, { kind: 'pane', paneId: targetPaneId })).toBe(true)
         expect(chart.indicators.update(instanceId, { hidden: false, params: { custom: 9 } })).toBe(
           true,
         )
-        const finalId = resolveIndicatorLayerId(definitionId, targetPaneId, 'renderer', instanceId)
+        const finalId = indicatorLayerId(definitions, definitionId, targetPaneId, instanceId)
         expect(chart.getRenderer(finalId)?.pane).toBe(targetPaneId)
         expect(chart.indicators.remove(instanceId)).toBe(true)
         expect(chart.getRenderer(finalId), 'final layer removed').toBeUndefined()
@@ -307,9 +307,9 @@ describe('Chart indicator commands', () => {
   )
 
   it('projects indicators into the object tree and routes commands through pane APIs', async () => {
-    const chart = mountChart()
+    const { chart, definitions } = mountChart()
     const definitionId = 'object-tree-indicator'
-    registerPlotDefinition({
+    registerPlotDefinition(definitions, {
       id: definitionId,
       name: definitionId,
       source: 'script',
@@ -351,9 +351,9 @@ describe('Chart indicator commands', () => {
   })
 
   it('maps instance ordinal onto layer z so object order is render order', async () => {
-    const chart = mountChart()
+    const { chart, definitions } = mountChart()
     const definitionId = 'object-tree-order'
-    registerPlotDefinition({
+    registerPlotDefinition(definitions, {
       id: definitionId,
       name: definitionId,
       source: 'script',
@@ -364,11 +364,11 @@ describe('Chart indicator commands', () => {
     try {
       const firstId = chart.indicators.add(definitionId)!
       const secondId = chart.indicators.add(definitionId)!
-      const firstLayerId = resolveIndicatorLayerId(definitionId, MAIN_PANE_ID, 'renderer', firstId)
-      const secondLayerId = resolveIndicatorLayerId(
+      const firstLayerId = indicatorLayerId(definitions, definitionId, MAIN_PANE_ID, firstId)
+      const secondLayerId = indicatorLayerId(
+        definitions,
         definitionId,
         MAIN_PANE_ID,
-        'renderer',
         secondId,
       )
       expect(chart.getRenderer(secondLayerId)!.z).toBeGreaterThan(
@@ -398,8 +398,8 @@ describe('Chart indicator commands', () => {
   })
 
   it('同量纲合并轴：主图并入价格轴，副图按定义合并，迁移重绑目标轴', async () => {
-    const chart = mountChart()
-    registerPlotDefinition({
+    const { chart, definitions } = mountChart()
+    registerPlotDefinition(definitions, {
       id: 'axis-main-overlay',
       name: 'axis-main-overlay',
       source: 'script',
@@ -407,8 +407,8 @@ describe('Chart indicator commands', () => {
       inputs: {},
       compute: () => ({ plots: [], fills: [] }),
     })
-    registerEmptyPlot('axis-object-a')
-    registerEmptyPlot('axis-object-b')
+    registerEmptyPlot(definitions, 'axis-object-a')
+    registerEmptyPlot(definitions, 'axis-object-b')
     const paneOf = (instanceId: string) =>
       chart.kernel.indicator.readonly.instances
         .peek()
@@ -476,8 +476,8 @@ describe('Chart indicator commands', () => {
   })
 
   it('手绘横线借用指标所在窗格的主轴，移除指标后由窗格提供共享轴', async () => {
-    const chart = mountChart()
-    registerEmptyPlot('drawing-host')
+    const { chart, definitions } = mountChart()
+    registerEmptyPlot(definitions, 'drawing-host')
     try {
       const indicatorId = chart.indicators.add('drawing-host')!
       const { paneId, axisId } = chart.axes.bindingFor(indicatorId)

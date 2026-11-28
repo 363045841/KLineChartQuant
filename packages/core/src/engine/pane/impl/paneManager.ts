@@ -68,8 +68,9 @@ export class PaneManager {
     params: Readonly<Record<string, unknown>> | undefined,
     placement: IndicatorPlacement | undefined,
   ): string | null {
+    // 警报定义只被规则引用，不进入图表面板。
     const definition = this.dependencies.getDefinition(definitionId)
-    if (!definition) return null
+    if (!definition || definition.kind === 'alert') return null
     const specs = this.list()
     const wantsOwnPane =
       placement === 'sub' || (placement === undefined && definition.category !== 'main')

@@ -62,7 +62,7 @@
         <p v-if="removalError" class="selector-error modal-list-item" role="alert">{{ removalError }}</p>
         <ModalScrollArea>
           <div
-            class="indicator-list"
+            class="modal-list"
             role="list"
             aria-label="指标列表"
             @pointerover="onListPointerOver"
@@ -70,11 +70,11 @@
             @focusin="onListFocusIn"
             @focusout="hideListHighlight"
           >
-            <SlidingHighlight ref="listHighlight" class="indicator-list__highlight" />
+            <SlidingHighlight ref="listHighlight" class="modal-list__highlight" />
             <div
               v-for="indicator in filteredIndicators"
               :key="indicator.id"
-              class="indicator-item modal-list-row"
+              class="modal-list-entry modal-list-row"
               role="listitem"
             >
               <button
@@ -85,39 +85,40 @@
               >
                 <div class="item-header">
                   <span class="item-label">
-                    <!-- 文本单独一层：省略号只裁文本，说明图标不被裁掉。 -->
+                    <!-- 文本单独一层：省略号只裁文本。 -->
                     <span class="item-label__text">
                       {{ indicator.label }}
                       <span v-if="indicator.name && indicator.name !== indicator.label" class="item-name">
                         {{ indicator.name }}
                       </span>
                     </span>
-                    <BasePopover
-                      v-if="indicator.description"
-                      :label="`${indicator.name} 指标说明`"
-                      role="note"
-                      placement="auto"
-                      trigger="hover"
-                    >
-                      <template #trigger="{ props: triggerProps }">
-                        <BaseIconButton
-                          size="xs"
-                          class="item-info-btn"
-                          :label="`查看指标说明：${indicator.name}`"
-                          v-bind="triggerProps"
-                        >
-                          <IconTablerInfoCircle aria-hidden="true" />
-                        </BaseIconButton>
-                      </template>
-                      <p class="indicator-description__title">{{ indicator.name }}</p>
-                      <p class="indicator-description">{{ indicator.description }}</p>
-                    </BasePopover>
                   </span>
                   <span class="item-tags">
                     <BaseChip>{{ indicator.role === INDICATOR_ROLE.MAIN ? '主图' : '副图' }}</BaseChip>
                   </span>
                 </div>
               </button>
+              <!-- 说明入口是整行的兄弟节点，不能嵌在选择按钮里。 -->
+              <BasePopover
+                v-if="indicator.description"
+                :label="`${indicator.name} 指标说明`"
+                role="note"
+                placement="auto"
+                trigger="hover"
+              >
+                <template #trigger="{ props: triggerProps }">
+                  <BaseIconButton
+                    size="xs"
+                    class="item-info-btn"
+                    :label="`查看指标说明：${indicator.name}`"
+                    v-bind="triggerProps"
+                  >
+                    <IconTablerInfoCircle aria-hidden="true" />
+                  </BaseIconButton>
+                </template>
+                <p class="modal-list-description__title">{{ indicator.name }}</p>
+                <p class="modal-list-description">{{ indicator.description }}</p>
+              </BasePopover>
               <!-- 自定义脚本与图例的编辑脚本共用同一入口，打开代码编辑器。 -->
               <BaseTooltip v-if="scriptsEnabled !== false" content="编辑脚本" placement="top">
                 <BaseIconButton
@@ -166,54 +167,62 @@
             </div>
           </div>
 
-          <BaseEmptyState v-if="filteredIndicators.length === 0" class="modal-list-item" role="status">
-            <template v-if="isSearchEmpty" #icon><IconTablerSearch /></template>
-            {{ emptyTitle }}
-            <template v-if="isSearchEmpty" #hint>请尝试其他关键词</template>
-          </BaseEmptyState>
+          <ModalListEmptyState
+            v-if="filteredIndicators.length === 0"
+            :title="emptyTitle"
+            :search-empty="isSearchEmpty"
+          />
         </ModalScrollArea>
       </div>
     </BaseModal>
 
-    <IndicatorParams
+    <ParamsDialog
       v-if="currentIndicator"
       :visible="paramsVisible"
-      :indicator-id="currentIndicator.id"
-      :indicator-name="currentIndicatorName"
-      :indicator-description="currentIndicator.description"
+      :definition-name="currentIndicatorName"
+      :description="currentIndicator.description"
       :params="currentIndicator.inputs || []"
       :values="paramValues"
       @close="paramsVisible = false"
       @reset="selectVisibility('all')"
       @confirm="onParamsConfirm"
     >
-      <template v-if="instanceSettings?.period" #after-params>
+      <template v-if="instancePeriod" #after-params>
         <div class="indicator-timeframe-visibility">
-          <span>{{ TIMEFRAME_VISIBILITY_LABEL }}</span>
-          <DropMenu
-            :label="TIMEFRAME_VISIBILITY_LABEL"
-            :groups="visibilityGroups"
-            :tooltip="false"
-            @select="(_group, item) => selectVisibility(item)"
-          >
-            <template #trigger>{{ visibilityLabel }}</template>
-          </DropMenu>
+          <FormRow :for-id="timeframeControlId">
+            <template #label>{{ TIMEFRAME_VISIBILITY_LABEL }}</template>
+            <DropMenu
+              :label="TIMEFRAME_VISIBILITY_LABEL"
+              :groups="visibilityGroups"
+              :tooltip="false"
+              trigger-variant="field"
+              :trigger-id="timeframeControlId"
+              @select="(_group, item) => selectVisibility(item)"
+            >
+              <template #trigger>
+                <span class="selection-menu__value">{{ visibilityLabel }}</span>
+                <IconChevronDown class="selection-menu__chevron" aria-hidden="true" />
+              </template>
+            </DropMenu>
+          </FormRow>
         </div>
       </template>
-    </IndicatorParams>
+    </ParamsDialog>
   </div>
 </template>
 
 <script setup lang="ts">
   import '@vue-src/components/common/dialog/modal-list.css'
+  import '@vue-src/components/common/dialog/modal-list-item.css'
+  import '@vue-src/components/common/menu/selection-menu.css'
 
   import {
     type ChartController,
     createIndicatorSelectorController,
-    findIndicatorDefinition,
+    createIndicatorCatalog,
+    findIndicatorDefinition as findFromRegistry,
     INDICATOR_ROLE,
     type IndicatorRole,
-    indicatorCatalog,
     type LegendEntry,
   } from '@363045841yyt/klinechart-core/controllers'
   import type { TimeframeVisibility } from '@363045841yyt/klinechart-plot-contracts'
@@ -221,14 +230,15 @@
   import BaseButton from '@vue-src/components/common/button/BaseButton.vue'
   import BaseIconButton from '@vue-src/components/common/button/BaseIconButton.vue'
   import BaseModal from '@vue-src/components/common/dialog/BaseModal.vue'
+  import ModalListEmptyState from '@vue-src/components/common/dialog/ModalListEmptyState.vue'
   import ModalScrollArea from '@vue-src/components/common/dialog/ModalScrollArea.vue'
   import ModalSearchBar from '@vue-src/components/common/dialog/ModalSearchBar.vue'
-  import BaseEmptyState from '@vue-src/components/common/feedback/BaseEmptyState.vue'
+  import FormRow from '@vue-src/components/common/form/FormRow.vue'
   import DropMenu from '@vue-src/components/common/menu/DropMenu.vue'
   import BasePopover from '@vue-src/components/common/overlay/BasePopover.vue'
   import BaseTooltip from '@vue-src/components/common/overlay/BaseTooltip.vue'
   import SlidingHighlight from '@vue-src/components/common/SlidingHighlight.vue'
-  import IndicatorParams from '@vue-src/components/indicator/params/impl/IndicatorParams.vue'
+  import ParamsDialog from '@vue-src/components/params/impl/ParamsDialog.vue'
   import { K_LINE_LEVEL_OPTIONS } from '@vue-src/components/toolbar/kLineLevel.js'
   import { SCRIPT_SOURCE_STORE_KEY } from '@vue-src/composables/chart/scriptEditor/types.js'
   import {
@@ -243,18 +253,20 @@
   import { useScriptRemoval } from '@vue-src/composables/indicator/useScriptRemoval.js'
   import { useSlidingHighlight } from '@vue-src/composables/ui/useSlidingHighlight.js'
   import { coreSignalToVueRef } from '@vue-src/utils/signalBridge.js'
-  import { computed, inject, ref, shallowRef, watch } from 'vue'
+  import { computed, inject, ref, shallowRef, useId, watch } from 'vue'
   import IconTablerCheck from '~icons/tabler/check'
+  import IconChevronDown from '~icons/tabler/chevron-down'
   import IconTablerCode from '~icons/tabler/code'
   import IconTablerInfoCircle from '~icons/tabler/info-circle'
   import IconTablerMathFunction from '~icons/tabler/math-function'
-  import IconTablerSearch from '~icons/tabler/search'
   import IconTablerSettings from '~icons/tabler/settings'
   import IconTablerStar from '~icons/tabler/star'
   import IconTablerStarFilled from '~icons/tabler/star-filled'
   import IconTablerTrash from '~icons/tabler/trash'
 
   const props = defineProps<{
+    /** 共享运行时定义注册表；目录由它投影。 */
+    definitions: import('@363045841yyt/klinechart-core').DefinitionRegistry
     chartController?: ChartController | null
     scriptsEnabled?: boolean
     activeIndicators?: string[]
@@ -275,7 +287,9 @@
   }>()
 
   // 目录是 Core 注册表投影，选择器打开即已是最新，不再复制列表。
-  const controller = createIndicatorSelectorController({ catalog: indicatorCatalog })
+  const catalog = createIndicatorCatalog(props.definitions)
+  const controller = createIndicatorSelectorController({ catalog })
+  const findIndicatorDefinition = (id: string) => findFromRegistry(props.definitions, id)
   const { removing, removalError, canRemove, removeScript } = useScriptRemoval(
     inject(SCRIPT_SOURCE_STORE_KEY, undefined),
   )
@@ -285,17 +299,39 @@
   const filteredMain = coreSignalToVueRef(controller.filteredMain)
   const filteredSub = coreSignalToVueRef(controller.filteredSub)
 
+  type IndicatorDefinitionView = NonNullable<ReturnType<typeof findIndicatorDefinition>>
+
+  /** 参数弹窗的一次会话：目录项参数与图例实例设置走不同分支。 */
+  type ParamsSession =
+    | {
+        readonly kind: 'catalog'
+        readonly definitionId: string
+        readonly indicator: IndicatorDefinitionView
+      }
+    | {
+        readonly kind: 'instance'
+        readonly indicator: IndicatorDefinitionView
+        readonly chart: ChartController
+        readonly entry: Extract<LegendEntry, { kind: 'indicator' }>
+        readonly period: string | null
+        readonly visibilityDraft?: TimeframeVisibility
+      }
+
+  const paramsSession = shallowRef<ParamsSession | null>(null)
   const paramsVisible = ref(false)
-  const currentIndicatorId = ref<string | null>(null)
-  const instanceSettings = shallowRef<{
-    chart: ChartController
-    entry: Extract<LegendEntry, { kind: 'indicator' }>
-    period: string | null
-  } | null>(null)
-  const visibilityDraft = shallowRef<TimeframeVisibility>()
-  const visibility = computed(
-    () => visibilityDraft.value ?? instanceSettings.value?.entry.timeframeVisibility,
+  /** 时间周期可见性行的按钮 id，供 FormRow 的可见标签关联。 */
+  const timeframeControlId = useId()
+  /** 会话在关闭后保留到退场结束；下一次打开整体替换。 */
+  const currentIndicator = computed(() => paramsSession.value?.indicator)
+  const instancePeriod = computed(() =>
+    paramsSession.value?.kind === 'instance' ? paramsSession.value.period : null,
   )
+  const visibility = computed(() => {
+    const session = paramsSession.value
+    return session?.kind === 'instance'
+      ? session.visibilityDraft ?? session.entry.timeframeVisibility
+      : undefined
+  })
   const visibilityLabel = computed(() => {
     const rule = visibility.value
     if (!rule || rule.mode === 'all') return '所有时间周期'
@@ -313,8 +349,6 @@
   const visibilityGroups = computed(() => [
     { id: 'visibility', label: '', items: timeframeVisibilityItems([visibility.value]) },
   ])
-  /** 打开设置时快照定义，保证编辑脚本后重新打开能读到最新参数。 */
-  const currentIndicator = ref<ReturnType<typeof findIndicatorDefinition>>()
   /** 参数弹窗标题优先用长名称，缺省回落到列表标签。 */
   const currentIndicatorName = computed(
     () => currentIndicator.value?.name ?? currentIndicator.value?.label ?? '',
@@ -349,7 +383,7 @@
     onPointerOver: onListPointerOver,
     onFocusIn: onListFocusIn,
     hide: hideListHighlight,
-  } = useSlidingHighlight(listHighlight, (target) => target.closest<HTMLElement>('.indicator-item'))
+  } = useSlidingHighlight(listHighlight, (target) => target.closest<HTMLElement>('.modal-list-entry'))
 
   // 收藏、分区或搜索让当前行消失时指针不会移动，高亮块会停在旧位置，这里主动收起。
   watch(filteredIndicators, () => hideListHighlight())
@@ -410,9 +444,7 @@
     const indicator = findIndicatorDefinition(indicatorId)
     // 没有可设置项时不打开空弹窗；入口按钮保持可见并置灰。
     if (!indicator?.inputs?.length) return
-    instanceSettings.value = null
-    currentIndicatorId.value = indicatorId
-    currentIndicator.value = indicator
+    paramsSession.value = { kind: 'catalog', definitionId: indicatorId, indicator }
     paramsVisible.value = true
   }
 
@@ -422,17 +454,15 @@
     if (!chart || entry?.kind !== 'indicator') return
     const indicator = findIndicatorDefinition(entry.definitionId)
     if (!indicator || (period === null && !indicator.inputs?.length)) return
-    instanceSettings.value = { chart, entry, period }
-    visibilityDraft.value = undefined
-    currentIndicator.value = indicator
+    paramsSession.value = { kind: 'instance', indicator, chart, entry, period }
     paramsVisible.value = true
   }
 
   function selectVisibility(itemId: string) {
-    const period = instanceSettings.value?.period
-    if (!period) return
-    const rule = resolveTimeframeVisibility(itemId, period)
-    if (rule) visibilityDraft.value = rule
+    const session = paramsSession.value
+    if (session?.kind !== 'instance' || !session.period) return
+    const rule = resolveTimeframeVisibility(itemId, session.period)
+    if (rule) paramsSession.value = { ...session, visibilityDraft: rule }
   }
 
   /** 请求宿主打开脚本代码编辑器；打开动作与图例的编辑脚本共用同一会话。 */
@@ -466,8 +496,11 @@
       defaultInputs[p.key] = p.default ?? p.options?.[0]?.value ?? p.min ?? 1
     }
 
+    const session = paramsSession.value
     const userParams =
-      instanceSettings.value?.entry.params ?? props.indicatorParams?.[indicator.id] ?? {}
+      session?.kind === 'instance'
+        ? session.entry.params
+        : (props.indicatorParams?.[indicator.id] ?? {})
     const result: Record<string, number | string | boolean> = { ...defaultInputs }
 
     // 数字与选项参数都可回填；其他类型暂由定义默认值表达。
@@ -481,24 +514,25 @@
   })
 
   function onParamsConfirm(values: Record<string, number | string | boolean>) {
-    const settings = instanceSettings.value
-    if (settings && settings.chart === props.chartController) {
-      const entry = settings.chart.legend.get(settings.entry.id)
-      if (entry?.kind === 'indicator' && entry.definitionId === settings.entry.definitionId) {
+    const session = paramsSession.value
+    if (session?.kind === 'instance' && session.chart === props.chartController) {
+      const entry = session.chart.legend.get(session.entry.id)
+      if (entry?.kind === 'indicator' && entry.definitionId === session.entry.definitionId) {
         const edits = Object.entries(values).filter(
           ([key, value]) => paramValues.value[key] !== value,
         )
-        if (edits.length > 0 || visibilityDraft.value) {
-          settings.chart.legend.update(entry.id, {
+        const visibilityDraft = session.visibilityDraft
+        if (edits.length > 0 || visibilityDraft) {
+          session.chart.legend.update(entry.id, {
             ...(edits.length > 0
               ? { params: { ...entry.params, ...Object.fromEntries(edits) } }
               : {}),
-            ...(visibilityDraft.value ? { timeframeVisibility: visibilityDraft.value } : {}),
+            ...(visibilityDraft ? { timeframeVisibility: visibilityDraft } : {}),
           })
         }
       }
-    } else if (!settings && currentIndicatorId.value) {
-      emit('updateParams', currentIndicatorId.value, values)
+    } else if (session?.kind === 'catalog') {
+      emit('updateParams', session.definitionId, values)
     }
     paramsVisible.value = false
   }
@@ -514,13 +548,8 @@
 
 <style scoped>
   .indicator-timeframe-visibility {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
     margin-inline: var(--base-modal-content-inset);
-    padding-block: 8px;
+    padding-block: var(--klc-space-8);
   }
   .indicator-selector {
     display: none;
@@ -543,7 +572,7 @@
 
   /* 导航项通栏紧邻，高亮块保持直角贴边。 */
   .selector-nav__highlight,
-  .indicator-list__highlight {
+  .modal-list__highlight {
     --sliding-highlight-radius: 0;
   }
 
@@ -592,107 +621,14 @@
     color: var(--klc-color-danger, #e04a4a);
   }
 
-  /* 紧凑条目铺满内容区，类型标注与操作按钮共用一行。 */
-  .indicator-list {
-    /* 滑动高亮的定位上下文；列表在滚动内容内，块随行一起滚动。 */
-    position: relative;
-    display: flex;
-    flex-direction: column;
+  .item-favorite-btn[aria-pressed='true'] {
+    color: var(--klc-color-ui-text);
   }
 
-  /* 横向留白由 .modal-list-row 统一提供，条目只负责纵向节奏。 */
-  .indicator-item {
-    position: relative;
-    z-index: 1;
-    gap: var(--klc-space-4, 4px);
-    min-height: 36px;
-    text-align: left;
-  }
-
-  /* 标题行是两列区域：名称列吃掉剩余宽度，类型列按内容宽；对齐由各区域自己负责。 */
-  .item-header {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: var(--klc-space-8, 8px);
-    width: 100%;
-    min-width: 0;
-  }
-
-  .item-select {
-    display: flex;
-    flex: 1;
-    align-items: center;
-    min-width: 0;
-    min-height: 36px;
-    padding: 6px 0;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    cursor: pointer;
-  }
-
-  .item-select:focus-visible,
-  .item-action-btn:focus-visible,
   .item-favorite-btn:focus-visible,
-  .item-info-btn:focus-visible,
   .selector-nav-item:focus-visible {
     outline: 2px solid var(--klc-color-ui-text);
     outline-offset: -2px;
-  }
-
-  /* 名称列：内容靠左对齐；类型列仍按内容宽在自己的列内居中。 */
-  .item-label {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: var(--klc-space-4, 4px);
-    min-width: 0;
-    font-size: 12px;
-    color: var(--klc-color-foreground);
-  }
-
-  /* 可截断的文本层：省略号只作用于文本，说明图标始终完整可见。 */
-  .item-label__text {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .item-info-btn {
-    --base-icon-button-color: var(--klc-color-axis-text);
-    --base-icon-button-hover-bg: transparent;
-    --base-icon-button-icon-size: 14px;
-  }
-
-  .item-name {
-    margin-left: var(--klc-space-8, 8px);
-    color: var(--klc-color-ui-muted);
-  }
-
-  /* 类型列：胶囊在自己的列内水平居中。 */
-  .item-tags {
-    display: flex;
-    align-items: center;
-    justify-self: center;
-    gap: var(--klc-space-4, 4px);
-  }
-
-  /* 勾号仅开启时参与布局，保持在所有操作按钮的最右侧。 */
-  .item-check {
-    display: flex;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
-    width: 16px;
-    height: 16px;
-    color: var(--klc-color-ui-text);
-    pointer-events: none;
-  }
-
-  .item-favorite-btn[aria-pressed='true'] {
-    color: var(--klc-color-ui-text);
   }
 
   @media (max-width: 480px) {
@@ -704,24 +640,6 @@
       gap: var(--klc-space-4, 4px);
       padding: 0 var(--klc-space-8, 8px);
     }
-
-    .item-header {
-      /* 窄屏只把两列变一列：名称靠左，类型在自己的行内居中。 */
-      grid-template-columns: minmax(0, 1fr);
-    }
-  }
-
-  .indicator-description__title {
-    margin: 0 0 var(--klc-space-4, 4px);
-    font-size: var(--klc-text-label-13-font-size, 13px);
-    color: var(--klc-color-ui-text);
-  }
-
-  .indicator-description {
-    margin: 0;
-    font-size: var(--klc-text-copy-13-font-size, 13px);
-    line-height: 1.65;
-    color: var(--klc-color-axis-text);
   }
 
 </style>

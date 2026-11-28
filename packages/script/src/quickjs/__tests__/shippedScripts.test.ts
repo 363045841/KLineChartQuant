@@ -8,7 +8,7 @@ import {
   wavyCloses,
 } from '../../__tests__/marketData.js'
 import type { Bar } from '../../contracts/input.js'
-import { readQuickJSScriptDefinitionSync, runQuickJSScript } from '../impl/runQuickJSScript.js'
+import { readQuickJSScriptDefinitionSync, runQuickJSScript } from '../../__tests__/helpers/quickJSScript.js'
 
 /** 随包发布的 SMA 示例源码；直接读磁盘，避免测试里复制一份脚本。 */
 const shippedSmaSource = shippedSource('sma')
